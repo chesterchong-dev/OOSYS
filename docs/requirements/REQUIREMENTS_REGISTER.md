@@ -7,7 +7,7 @@
 The register preserves 87 requirement rows, 14 columns and 87 stable IDs. Statuses remain 84 `missing` and 3 `partial`. “Missing” means no implementation was found in the audited branch snapshot, not that no work exists elsewhere.
 
 ## Traceability
-Each row's `Source Location` points to the crosswalk and verified topic UUID. Match counts: exact_title=15, semantic_feature=34, semantic_parent=32, proxy_gap=3, duplicate_title_disambiguated=3. `proxy_gap` means the selected topic is related but not adequate direct traceability; the three affected requirements remain unresolved.
+Each row's `Source Location` points to the crosswalk and verified topic UUID. Match counts: exact_title=15, semantic_feature=34, semantic_parent=32, partial_coverage=1, proxy_gap=2, duplicate_title_disambiguated=3. `partial_coverage` means verified topics cover part of the requirement but leave material scope unspecified. `proxy_gap` means only a related parent topic exists, not adequate direct traceability.
 
 ## Status rules
 - `verified implemented`: code reviewed and acceptance evidence executed.

@@ -12,13 +12,13 @@
 | Verify branch/head/tree | Complete | Baseline `029fc55bd74a69a19532b5a25099fa65469c5403`; tree `eea7ebb9850b2b92e050df280ece721105fa2da5`. |
 | Inspect repository files | Complete for audited tree | 15 tree entries; all 11 blobs inspected in the prior audit. |
 | Preserve and validate register | Complete | 87 rows, 14 columns, 87 unique IDs; 84 missing, 3 partial. |
-| Requirement-to-source traceability | Partial | 87 UUID mappings; 3 proxy gaps remain. |
-| Real-checkout tests under declared dependencies | Not met | Local clone blocked by DNS failure resolving `github.com`; reconstructed source is not full-checkout evidence. |
+| Requirement-to-source traceability | Partial | 87 rows mapped; CORE-010 has three verified source UUIDs but only partial coverage; CORE-013 and OPS-086 remain proxy gaps. |
+| Real-checkout tests under declared dependencies | Not met | Fresh DNS lookup returned no entries; no `.git` checkout exists in `/mnt/data`; reconstructed source is not full-checkout evidence. |
 | Security/dependency/migration/deployment verification | Not met | No dynamic security or dependency scan; no migrations/frontend/deployment config in baseline. |
 | Commit audit artifacts and verify head | Complete for initial artifact commit | `50b8e062755a6e1623e6c111f45579530c21a012`; tree `fe27da7396b2eb58b5494859d065f616e10775ef`; verified diff is one modified and eight added Phase 00 files. A follow-up governance commit updates this status record. |
 | Final sign-off | Not met | Proxy gaps and real-checkout tests remain. |
 
 ## Next actions
-1. Resolve the three proxy gaps through canonical source topics or explicit scope decisions.
+1. Resolve the remaining settings-lifecycle gap and two subscription/commercial-readiness gaps through canonical source topics or explicit scope decisions.
 2. Run tests from a real checkout with dependencies matching `requirements.txt`.
 3. Complete final review and sign-off after the three proxy gaps and real-checkout test requirement are resolved. Do not start Phase 02 before sign-off.

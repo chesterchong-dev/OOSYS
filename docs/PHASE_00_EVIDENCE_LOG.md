@@ -9,7 +9,7 @@
 ## Repository evidence
 - Live GitHub branch API confirms the baseline commit, parent `568a208d81ecbba293c5b563df4402230846bc5c`, and tree SHA above.
 - Recursive tree: 15 entries, 11 file blobs and 4 directories; not truncated. Files: `.env.example`, `.gitignore`, `README.md`, `app/__init__.py`, `app/main.py`, `docs/PHASE_00_AUDIT.md`, `docs/PHASE_01_ARCHITECTURE.md`, `docs/PHASE_02_IDENTITY_MULTITENANCY.md`, `docs/decisions/README.md`, `requirements.txt`, `tests/test_health.py`.
-- `main` remains at `568a208d81ecbba293c5b563df4402230846bc5c`; no changes to main are permitted. The development branch is one commit ahead of main.
+- At the start of this continuation, `phase-00-02-starter` was at `b6a6b9a46ed65ba3ed6353ea32606f8c5db0ec15`; `main` remained at `568a208d81ecbba293c5b563df4402230846bc5c`. The prior API comparison and branch ancestry show the development branch is three commits ahead of main and zero behind. Main was not modified.
 - Baseline commit is unsigned/unverified; branch protection is disabled. GitHub API read access is verified. No test write was performed.
 
 ## Audit artifact commit and post-write verification
@@ -20,8 +20,8 @@
 
 ## Requirements register
 - 87 rows, 14 columns, 87 unique stable IDs; status counts 84 `missing`, 3 `partial`. IDs, descriptions, acceptance criteria and status values are preserved; source-location cells now point to the crosswalk.
-- Crosswalk: 87 rows, 8 columns, 87 unique IDs and verified topic UUIDs. Mapping counts: exact_title=15, semantic_feature=34, semantic_parent=32, proxy_gap=3, duplicate_title_disambiguated=3.
-- The previous service-case proxy was corrected to `4196fdcc-a92b-4c6c-93a6-9642e59c256f` (`Service desk and ticketing`) in the blueprint. Three proxy gaps remain: settings/configuration and subscription/entitlement/commercial-readiness (two rows).
+- Crosswalk: 87 rows, 8 columns and 87 unique IDs. CORE-010 has partial coverage through three verified source UUIDs; CORE-013 and OPS-086 remain unresolved. Updated mapping counts: exact_title=15, semantic_feature=34, semantic_parent=32, partial_coverage=1, proxy_gap=2, duplicate_title_disambiguated=3.
+- The previous service-case proxy was corrected to `4196fdcc-a92b-4c6c-93a6-9642e59c256f` (`Service desk and ticketing`) in the blueprint. Settings/configuration is partially traceable, not resolved: source nodes cover environment configuration, user notification preferences and per-tenant connector configuration, but not a general settings lifecycle. Two subscription/commercial-readiness proxy gaps remain.
 
 ## Original sources
 - Master map `OOSYS — Only One System` (`QsPytPPH`): 183 anchors; sheet `2a4bcc0a-f5ad-4383-a3a3-7746be58145a`.
@@ -31,7 +31,7 @@
 ## Code and test evidence
 `app/main.py` contains `GET /` and `GET /health`; health returns `{"status":"ok"}` and does not check DB readiness. `tests/test_health.py` is the only test. `requirements.txt` declares `pytest>=8.0,<9.0`; no lockfile exists. No authentication, session lifecycle, RBAC, tenant enforcement, business modules, models/repositories, migrations, CI, frontend, deployment manifests or security scan configuration are present in this branch snapshot.
 
-A prior local clone failed because runtime DNS could not resolve `github.com`. Earlier temporary reconstructed-source checks: `python -m pytest -q` — 1 passed; `python -m compileall -q app tests` — passed. These are not full-checkout tests. Runtime was Python 3.13.5 and pytest 9.0.2, outside the declared pytest range. No full-checkout test, dependency-aligned install, database/migration integration, coverage, lint/type check, security scan or deployment verification is claimed. No new code tests were run during this continuation.
+A prior local clone failed because runtime DNS could not resolve `github.com`. Fresh checks: `git --version` returned `git version 2.47.3`; `getent ahosts github.com` returned zero entries; `find /mnt/data -maxdepth 3 -type d -name .git` found no checkout. The archive download route was unavailable through current retrieval tools. No real-checkout tests were run. Earlier temporary reconstructed-source checks: `python -m pytest -q` — 1 passed; `python -m compileall -q app tests` — passed. These are not full-checkout tests. Runtime was Python 3.13.5 and pytest 9.0.2, outside the declared pytest range. No full-checkout test, dependency-aligned install, database/migration integration, coverage, lint/type check, security scan or deployment verification is claimed. No new code tests were run during this continuation.
 
 ## Acceptance criteria
 - [x] Verify branch, baseline commit, parent and tree via GitHub API.
@@ -39,9 +39,15 @@ A prior local clone failed because runtime DNS could not resolve `github.com`. E
 - [x] Inspect baseline repository tree and existing Phase 00 file before preparing changes.
 - [x] Preserve 87 IDs and status values; validate register dimensions and source UUID mapping.
 - [x] Correct the customer-service mapping based on live source evidence.
-- [ ] Resolve three proxy gaps via canonical topics or approved scope decisions.
-- [ ] Run tests from a real checkout with dependency constraints matching requirements.
+- [ ] Add or approve canonical scope for the remaining settings lifecycle gap and two subscription/commercial-readiness gaps; no unsupported UUIDs were invented.
+- [ ] Run tests from a real checkout with dependency constraints matching requirements; current DNS/checkout blockers remain.
 - [x] Commit the reviewed Phase 00 artifacts to `phase-00-02-starter` and verify the resulting HEAD/tree/diff. The first artifact commit was `50b8e062755a6e1623e6c111f45579530c21a012`; the post-write verification recorded below was performed before this evidence-log follow-up commit.
 - [ ] Final review and sign-off.
+
+## Traceability follow-up (2026-10-18)
+- Rechecked the three flagged requirements against the live master map and all four blueprint sheets. `OOSYS-CORE-010` now cites three verified UUIDs: environment configuration (`4cad7a6a-8e2b-4352-9232-5f84be03b74e`), user notification preferences (`d8d6ddaf-52d0-486c-b543-ac91c93edac3`), and per-tenant connector configuration (`55839809-6854-4d8f-8c52-374a5fac46f2`). These provide partial coverage only; generic tenant/user settings CRUD and lifecycle are not specified.
+- `OOSYS-CORE-013` and `OOSYS-OPS-086` remain unresolved: the inspected sources contain no dedicated SaaS subscription, billing-plan, feature-entitlement or commercial-readiness topic. The master-map `Commercial Enablement` topic (`560e332e-cbfe-4657-9107-0da7bda708f2`) is only a related parent.
+- Classification counts: exact_title=15, semantic_feature=34, semantic_parent=32, partial_coverage=1, proxy_gap=2, duplicate_title_disambiguated=3. Register dimensions and implementation statuses are unchanged.
+- At the start of this continuation, HEAD was `b6a6b9a46ed65ba3ed6353ea32606f8c5db0ec15` and main was `568a208d81ecbba293c5b563df4402230846bc5c`. `git --version` returned `git version 2.47.3`; `getent ahosts github.com` returned 0 entries; `find /mnt/data -maxdepth 3 -type d -name .git` found no checkout. A genuine checkout test remains blocked.
 
 **Disposition: PARTIAL — Phase 00 is not signed off.**

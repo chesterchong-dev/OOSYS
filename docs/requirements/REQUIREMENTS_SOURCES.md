@@ -7,11 +7,11 @@
 4. **GitHub source:** https://github.com/chesterchong-dev/OOSYS, branch `phase-00-02-starter`. Live branch ref, recursive tree, README, Phase 00 target file and baseline commit were inspected.
 
 ## Traceability rules
-`REQUIREMENT_SOURCE_NODE_CROSSWALK.csv` maps all 87 stable IDs to actual topic UUIDs from live Xmind anchors. Match classes distinguish exact title, semantic feature, semantic parent, duplicate-title disambiguation and proxy gap. UUIDs are source locators, not evidence of implementation.
+`REQUIREMENT_SOURCE_NODE_CROSSWALK.csv` maps all 87 stable IDs to actual topic UUIDs from live Xmind anchors. Match classes distinguish exact title, semantic feature, semantic parent, duplicate-title disambiguation, partial coverage and proxy gap. UUIDs are source locators, not evidence of implementation.
 
 ## Source gaps and overlaps
-- **Settings/configuration:** no dedicated general settings topic found; deployment configuration is only a proxy.
-- **Subscriptions/entitlements:** no dedicated subscription, billing-plan or entitlement topic found; `Commercial Enablement` is a parent-level proxy.
+- **Settings/configuration (CORE-010):** three verified nodes partially cover environment configuration, user notification preferences and per-tenant connector configuration. They do not specify generic tenant/user settings CRUD and lifecycle; no dedicated general settings topic was found.
+- **Subscriptions/entitlements (CORE-013, OPS-086):** no dedicated SaaS subscription, billing-plan, feature-entitlement or commercial-readiness topic was found; `Commercial Enablement` is a parent-level proxy. Service-contract entitlements describe customer service coverage/SLA and are not a substitute for SaaS feature entitlements.
 - **Customer service cases:** a detailed `Service desk and ticketing` branch exists in the blueprint, covering incidents, service requests, assignment, SLA, customer, lifecycle states, comments, attachments and escalation. The crosswalk uses this semantic match rather than a proxy.
 - CRM, sales/order and marketing overlap across map sections; QMS and MRP recur in more than one product context; workflow/approvals recur across domains. Canonical ownership and shared contracts need architecture decisions.
 
