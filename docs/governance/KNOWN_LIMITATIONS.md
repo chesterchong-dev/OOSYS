@@ -1,21 +1,22 @@
-# OOSYS Known Limitations — Phase 00
+# OOSYS Known Limitations — Phase 00 Baseline
 
-## Repository and execution
-- The verified branch is a starter scaffold, not the full product. It contains only a FastAPI root/liveness endpoint and one health test.
-- No real local Git checkout is available in this runtime. The prior DNS lookup returned zero entries and no `.git` directory was found under `/mnt/data`. The current GitHub connector can fetch individual repository files but does not expose a repository archive/git-bundle download; the archive route was unavailable. A branch-scoped GitHub Actions workflow has been added as the genuine-checkout alternative. For current HEAD `720372f305d4d93cd49e9f2508d5972a3942d36e`, combined status is empty and the available workflow-run connector returned no PR-triggered runs; it cannot establish whether a push-triggered run started. Fetching the workflow page through the connector was rejected as an unsupported public repository endpoint, and web retrieval returned `Cache miss`. Workflow execution remains unverified.
-- Installed pytest is 9.0.2 while `requirements.txt` specifies `pytest>=8.0,<9.0`. `python -m pip install --dry-run --no-index 'pytest>=8.0,<9.0'` failed with `No matching distribution found`, confirming the local package index/cache cannot supply a compatible pytest. Dependency parity remains unverified locally. The authored workflow YAML passed a local PyYAML syntax parse, but this is not a test run; the remote workflow must establish whether the declared constraints install and tests pass.
-- No migrations/database integration, coverage, lint/type checks, frontend build, security/dependency scan, deployment check or end-to-end test has been performed.
+## Repository and implementation
+- The verified development branch remains a starter scaffold, not the full OOSYS product.
+- `app/main.py` exposes only root and liveness endpoints; one health test exists.
+- Authentication, session expiry/revocation, RBAC, tenant enforcement, business modules, models/repositories, database migrations/integration, frontend and deployment manifests are not implemented in this baseline.
+- Requirements statuses remain 84 `missing` and 3 `partial`; source-map traceability does not mean the requirements are implemented.
+
+## Verification
+- GitHub Actions run [39053548654](https://github.com/chesterchong-dev/OOSYS/actions/runs/39053548654) used a genuine checkout, Python 3.12.15 and declared dependencies. Result: 1 test passed, one Starlette/httpx deprecation warning; compileall passed.
+- No database/migration integration, coverage, lint/type check, frontend build, dynamic security scan, dependency vulnerability scan, deployment check or end-to-end test has been performed.
+- The baseline commit is unsigned/unverified and branch protection is disabled. Keep development changes on the development branch and protect `main` through repository rules.
 
 ## Product traceability
-- Settings/configuration has partial source coverage through environment configuration (`4cad7a6a-8e2b-4352-9232-5f84be03b74e`), user notification preferences (`d8d6ddaf-52d0-486c-b543-ac91c93edac3`) and per-tenant connector configuration (`55839809-6854-4d8f-8c52-374a5fac46f2`); no general tenant/user settings CRUD and lifecycle topic exists.
-- Subscription/entitlement and commercial-readiness requirements remain unresolved: `Commercial Enablement` (`560e332e-cbfe-4657-9107-0da7bda708f2`) has only CRM, Sales and Marketing children. The `Pricing and sales controls` node (`0ca9cf8d-8dfa-4c43-a019-377a26569209`) concerns transaction pricing, and `Define contract coverage, entitlements, response and resolution targets` (`cb386407-51e4-4bfb-a424-8daf4e011c71`) concerns service-contract/SLA scope, not SaaS product entitlements. No approved scope decisions exist.
-- CRM service cases map to the actual `Service desk and ticketing` blueprint branch; semantic match, not exact title.
-- CRM/sales/marketing, QMS/MRP, and workflow/approval subjects overlap across source maps. Domain ownership and shared contracts still need approved architecture decisions.
+- Settings/configuration scope is now represented by canonical master-map and blueprint topics.
+- Subscription/entitlement and SaaS commercial-readiness scope is now represented by canonical master-map and blueprint topics.
+- The crosswalk contains 87 verified requirement IDs and no proxy-gap classifications. UUIDs are source locators, not proof of implemented functionality.
+- CRM/sales/order/marketing, QMS/MRP and workflow/approval responsibilities overlap across source maps; Phase 01 must establish clear ownership and stable contracts.
 
 ## Security posture
-- No authentication, session revocation, RBAC, tenant enforcement, rate limiting, audit-event pipeline, database migration constraints, CI security checks or security scan configuration is implemented in the baseline branch.
-- No dynamic penetration test or dependency vulnerability scan has been performed. Do not describe the scaffold as secure or production-ready.
-
-## Governance
-- Baseline commit is unsigned/unverified; branch protection is disabled.
-- Phase 00 remains PARTIAL. Do not start Phase 02 until source gaps, real-checkout verification and final review are complete.
+- No dynamic penetration test or dependency vulnerability scan has been performed.
+- The scaffold must not be described as secure or production-ready. Implement and verify auth, authorization, tenant isolation, rate limiting, audit events, migrations and security checks in their designated phases.
