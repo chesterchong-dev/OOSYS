@@ -1,0 +1,43 @@
+name: Phase 00 validation
+
+on:
+  push:
+    branches:
+      - phase-00-02-starter
+  pull_request:
+    branches:
+      - phase-00-02-starter
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: phase00-validation-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout genuine repository commit
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: requirements.txt
+
+      - name: Install declared dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -r requirements.txt
+
+      - name: Run tests
+        run: python -m pytest -q
+
+      - name: Compile application and tests
+        run: python -m compileall -q app tests
