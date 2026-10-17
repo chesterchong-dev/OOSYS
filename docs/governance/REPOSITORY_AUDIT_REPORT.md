@@ -30,7 +30,7 @@ No authentication/authorization, tenant boundary, session revocation, rate limit
 ## Remaining blockers
 1. Resolve three source proxy gaps through canonical topics or approved scope decisions.
 2. Obtain a real checkout and run tests with dependency constraints aligned to `requirements.txt`.
-3. Verify the Phase 00 artifact commit and resulting tree.
+3. Initial audit artifact commit `50b8e062755a6e1623e6c111f45579530c21a012` and its resulting tree/diff were verified; this follow-up commit reconciles governance status.
 4. Conduct final review and sign-off.
 
 Do not begin Phase 02 implementation before Phase 00 is accepted.

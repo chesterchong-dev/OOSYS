@@ -12,6 +12,12 @@
 - `main` remains at `568a208d81ecbba293c5b563df4402230846bc5c`; no changes to main are permitted. The development branch is one commit ahead of main.
 - Baseline commit is unsigned/unverified; branch protection is disabled. GitHub API read access is verified. No test write was performed.
 
+## Audit artifact commit and post-write verification
+
+- Artifact commit: `50b8e062755a6e1623e6c111f45579530c21a012` (`Document Phase 00 audit and source traceability`).
+- At post-write verification, `phase-00-02-starter` pointed to that commit and tree `fe27da7396b2eb58b5494859d065f616e10775ef`.
+- Verified diff: one updated file and eight added files, all within Phase 00 documentation and requirements. No unrelated paths were changed. `main` remained at `568a208d81ecbba293c5b563df4402230846bc5c`.
+
 ## Requirements register
 - 87 rows, 14 columns, 87 unique stable IDs; status counts 84 `missing`, 3 `partial`. IDs, descriptions, acceptance criteria and status values are preserved; source-location cells now point to the crosswalk.
 - Crosswalk: 87 rows, 8 columns, 87 unique IDs and verified topic UUIDs. Mapping counts: exact_title=15, semantic_feature=34, semantic_parent=32, proxy_gap=3, duplicate_title_disambiguated=3.
@@ -35,7 +41,7 @@ A prior local clone failed because runtime DNS could not resolve `github.com`. E
 - [x] Correct the customer-service mapping based on live source evidence.
 - [ ] Resolve three proxy gaps via canonical topics or approved scope decisions.
 - [ ] Run tests from a real checkout with dependency constraints matching requirements.
-- [ ] Commit Phase 00 artifacts to the development branch and verify resulting HEAD/tree/diff.
+- [x] Commit the reviewed Phase 00 artifacts to `phase-00-02-starter` and verify the resulting HEAD/tree/diff. The first artifact commit was `50b8e062755a6e1623e6c111f45579530c21a012`; the post-write verification recorded below was performed before this evidence-log follow-up commit.
 - [ ] Final review and sign-off.
 
 **Disposition: PARTIAL — Phase 00 is not signed off.**

@@ -15,11 +15,10 @@
 | Requirement-to-source traceability | Partial | 87 UUID mappings; 3 proxy gaps remain. |
 | Real-checkout tests under declared dependencies | Not met | Local clone blocked by DNS failure resolving `github.com`; reconstructed source is not full-checkout evidence. |
 | Security/dependency/migration/deployment verification | Not met | No dynamic security or dependency scan; no migrations/frontend/deployment config in baseline. |
-| Commit audit artifacts and verify head | Pending | Only `phase-00-02-starter`; use expected-head guard; never modify `main`. |
+| Commit audit artifacts and verify head | Complete for initial artifact commit | `50b8e062755a6e1623e6c111f45579530c21a012`; tree `fe27da7396b2eb58b5494859d065f616e10775ef`; verified diff is one modified and eight added Phase 00 files. A follow-up governance commit updates this status record. |
 | Final sign-off | Not met | Proxy gaps and real-checkout tests remain. |
 
 ## Next actions
 1. Resolve the three proxy gaps through canonical source topics or explicit scope decisions.
 2. Run tests from a real checkout with dependencies matching `requirements.txt`.
-3. Verify the new Phase 00 commit and changed paths.
-4. Complete final review and sign-off. Do not start Phase 02 before sign-off.
+3. Complete final review and sign-off after the three proxy gaps and real-checkout test requirement are resolved. Do not start Phase 02 before sign-off.
