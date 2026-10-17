@@ -5,8 +5,8 @@
 
 ## Verified repository
 - Repository: `chesterchong-dev/OOSYS`; default branch `main`.
-- Audited branch: `phase-00-02-starter`; original baseline HEAD `029fc55bd74a69a19532b5a25099fa65469c5403`. Latest verified branch HEAD: `f1af5b7367f9c64f228be0b3c419a5b60bf04b21`; latest tree SHA: `aef8562c943cc51f19919cee1ed98e1729b54a27` (25 entries: 19 blobs and 6 directory entries).
-- `main` remains at `568a208d81ecbba293c5b563df4402230846bc5c`. Current compare reports the development branch 4 commits ahead and 0 behind (including the original scaffold commit); `main` is unchanged. Commits `50b8e062755a6e1623e6c111f45579530c21a012` and `b6a6b9a46ed65ba3ed6353ea32606f8c5db0ec15` were confirmed; latest commit is `f1af5b7367f9c64f228be0b3c419a5b60bf04b21`.
+- Audited branch: `phase-00-02-starter`; original baseline HEAD `029fc55bd74a69a19532b5a25099fa65469c5403`. Latest verified branch HEAD: `ee7250c31efb55eb268f8ad4b9182352c87cbc74`; latest tree SHA: `b82733e16c3f54e5d15cd74d8621f44dfbca5afb` (25 entries: 19 blobs and 6 directory entries).
+- `main` remains at `568a208d81ecbba293c5b563df4402230846bc5c`. Current compare reports the development branch 5 commits ahead and 0 behind (including the original scaffold commit); `main` is unchanged. Commits `50b8e062755a6e1623e6c111f45579530c21a012` and `b6a6b9a46ed65ba3ed6353ea32606f8c5db0ec15` were confirmed; the prior traceability commit is `f1af5b7367f9c64f228be0b3c419a5b60bf04b21`, and latest commit is `ee7250c31efb55eb268f8ad4b9182352c87cbc74`.
 - Tree SHA `eea7ebb9850b2b92e050df280ece721105fa2da5`; 15 entries, 11 file blobs and 4 directory nodes; recursive response not truncated.
 - Baseline commit adds 10 files and does not modify/delete parent files. Baseline commit is unsigned/unverified and branch protection is disabled.
 
