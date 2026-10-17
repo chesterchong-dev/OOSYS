@@ -6,6 +6,7 @@
 - Repository: `chesterchong-dev/OOSYS`
 - Default branch: `main` — unchanged.
 - Audited branch: `phase-00-02-starter`
+- Review-start HEAD: `720372f305d4d93cd49e9f2508d5972a3942d36e` (tree `a18953ecc3863a3c4ed7d32268c5ae96d07141d5`); `main` remains `568a208d81ecbba293c5b563df4402230846bc5c`; compare is 9 ahead, 0 behind.
 - Baseline HEAD: `029fc55bd74a69a19532b5a25099fa65469c5403` — `Add OOSYS Phase 00-02 starter scaffold`
 - Parent / current main HEAD: `568a208d81ecbba293c5b563df4402230846bc5c`
 - Tree SHA: `eea7ebb9850b2b92e050df280ece721105fa2da5`; recursive tree is not truncated.
@@ -19,7 +20,7 @@ The master map contains 183 topic anchors. The Developer Implementation Blueprin
 - The baseline tree has 15 entries (11 file blobs and 4 directories). It is a minimal FastAPI scaffold with `GET /`, `GET /health` and one health test. Authentication, tenant enforcement, business modules, persistence/migrations, CI, frontend, deployment and security scanning are absent from this branch snapshot.
 
 ## Verification limits
-Local checkout and compatible pytest installation remain blocked in this runtime; reconstructed-source results are not full-checkout evidence. A branch-scoped GitHub Actions workflow is being added to run `pip install -r requirements.txt`, `pytest` and `compileall` from a genuine GitHub checkout using Python 3.12. Its result must be inspected before the real-checkout acceptance criterion can be marked complete. No database/migration test, coverage, lint/type check, security scan or deployment test is claimed.
+Local checkout and compatible pytest installation remain blocked in this runtime; reconstructed-source results are not full-checkout evidence. `.github/workflows/phase00-validation.yml` has been committed to run `pip install -r requirements.txt`, `python -m pytest -q` and `python -m compileall -q app tests` from a genuine GitHub checkout using Python 3.12. The current commit has no reported combined status checks, and the available workflow-run query returns no PR-triggered runs; attempts to retrieve the workflow page/API run list through the available connectors were rejected or returned a cache miss. The remote run result remains unverified. No database/migration test, coverage, lint/type check, security scan or deployment test is claimed.
 
 ## Acceptance
 Traceability disposition: CORE-010 remains partial; its related saved-view preferences node (`ad9b63ba-2177-43af-af31-99246ce24d36`) was examined but is not a general settings lifecycle specification. CORE-013 and OPS-086 remain proxy gaps; transaction pricing (`0ca9cf8d-8dfa-4c43-a019-377a26569209`) and service-contract entitlements/SLA (`cb386407-51e4-4bfb-a424-8daf4e011c71`) were explicitly rejected as mismatched substitutes. No owner-approved scope decisions exist, so the requirements must not be narrowed by assumption. A GitHub Actions genuine-checkout validation workflow is added; its run must pass before the test criterion is met. Do not begin Phase 02 before Phase 00 sign-off.
