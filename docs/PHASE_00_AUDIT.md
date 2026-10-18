@@ -47,3 +47,9 @@ The branch is a minimal FastAPI scaffold. Authentication, session lifecycle, RBA
 - GitHub Actions run [39093554503](https://github.com/chesterchong-dev/OOSYS/actions/runs/39093554503) completed successfully against that exact SHA. Genuine checkout, dependency installation under Python 3.12, pytest (1 passed, one Starlette/httpx deprecation warning) and compileall all passed.
 - The register and crosswalk were re-parsed from live CSV: 87 rows each; 14 and 8 columns respectively; unique nonblank IDs; identical ID sets; no malformed row widths. Statuses remain 84 `missing`, 3 `partial`. All 105 crosswalk source UUIDs were found in the live Xmind maps.
 - This is audit/source-traceability closure only. No Phase 01 implementation or production-readiness claim is made.
+
+
+## Subsequent documentation-checkpoint verification — 2026-10-18
+- The immediately preceding documentation-only reconciliation commit was `7ead5d67ee971a41f11e0dc3ccd2abbebc54549b`. GitHub Actions run [39094138486](https://github.com/chesterchong-dev/OOSYS/actions/runs/39094138486) completed successfully against that exact SHA: genuine checkout, Python 3.12.15, dependency installation, 1 pytest passed with one Starlette/httpx deprecation warning, and compileall passed.
+- That reconciliation changed only the five Phase 00 documentation files. Live `main` remained `568a208d81ecbba293c5b563df4402230846bc5c`; the development branch was 24 commits ahead, 0 behind, with no deletions relative to `main`.
+- This entry is a documentation-only closure follow-up. Its own SHA and CI result are verified separately in the external sign-off; no Phase 01 work or production-readiness claim is implied.
