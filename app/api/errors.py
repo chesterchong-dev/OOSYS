@@ -1,7 +1,7 @@
 """Stable, non-sensitive HTTP error responses for the OOSYS API."""
 from typing import Any
 
-from fastapi import FastAPI, Request
+from fastapi import FastAPI, HTTPException, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
@@ -43,6 +43,22 @@ def _validation_details(errors: list[dict[str, Any]]) -> list[dict[str, Any]]:
 
 def install_error_handlers(application: FastAPI) -> None:
     """Install safe handlers for HTTP, validation and unexpected errors."""
+
+    @application.exception_handler(HTTPException)
+    async def http_error(request: Request, exc: HTTPException) -> JSONResponse:
+        del request
+        if exc.status_code == 404:
+            code, message = "not_found", "Resource not found."
+        elif exc.status_code == 405:
+            code, message = "method_not_allowed", "Method not allowed."
+        else:
+            code, message = "http_error", "Request could not be completed."
+        body = ErrorResponse(error=ErrorBody(code=code, message=message))
+        return JSONResponse(
+            status_code=exc.status_code,
+            content=body.model_dump(exclude_none=True),
+            headers=exc.headers,
+        )
 
     @application.exception_handler(RequestValidationError)
     async def validation_error(
