@@ -2,10 +2,12 @@
 from typing import Any
 
 from fastapi import FastAPI, Request
-from starlette.exceptions import HTTPException as StarletteHTTPException
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
+from starlette.exceptions import HTTPException as StarletteHTTPException
+
+from app.application.errors import ApplicationError
 
 
 class ErrorDetail(BaseModel):
@@ -35,7 +37,7 @@ def _validation_details(errors: list[dict[str, Any]]) -> list[dict[str, Any]]:
     return [
         {
             "location": list(error.get("loc", ())),
-            "message": str(error.get("msg", "Invalid value")),
+            "message": "Invalid value.",
             "code": str(error.get("type", "invalid_value")),
         }
         for error in errors
@@ -60,6 +62,12 @@ def install_error_handlers(application: FastAPI) -> None:
             content=body.model_dump(exclude_none=True),
             headers=exc.headers,
         )
+
+    @application.exception_handler(ApplicationError)
+    async def application_error(request: Request, exc: ApplicationError) -> JSONResponse:
+        del request
+        body = ErrorResponse(error=ErrorBody(code=exc.code, message=exc.message))
+        return JSONResponse(status_code=exc.status_code, content=body.model_dump(exclude_none=True))
 
     @application.exception_handler(RequestValidationError)
     async def validation_error(
