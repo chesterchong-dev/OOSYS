@@ -61,3 +61,24 @@ def test_session_dependency_rolls_back_when_use_case_raises() -> None:
         assert not session.in_transaction()
     finally:
         engine.dispose()
+
+
+def test_session_dependency_closes_without_implicit_commit() -> None:
+    settings = Settings(database_url="sqlite+pysqlite:///:memory:", _env_file=None)
+    engine = create_database_engine(settings)
+    try:
+        with engine.begin() as connection:
+            connection.exec_driver_sql("CREATE TABLE lifecycle_probe (value INTEGER)")
+        factory = create_session_factory(engine)
+        dependency = session_dependency(factory)
+        generator = dependency()
+        session = next(generator)
+        session.execute(text("INSERT INTO lifecycle_probe (value) VALUES (1)"))
+        generator.close()
+
+        with factory() as verification_session:
+            assert verification_session.scalar(
+                text("SELECT COUNT(*) FROM lifecycle_probe")
+            ) == 0
+    finally:
+        engine.dispose()
