@@ -1,41 +1,36 @@
-# Phase 01 — Architecture & Development Governance
+# Phase 01 Architecture — Governance Contract
 
-**Status: IN PROGRESS — foundation implementation started 2026-10-18.**
+Status: IN PROGRESS. This document defines current scaffold boundaries; it does not claim persistence, authentication, tenant isolation or production readiness.
 
-## Scope
-Establish architecture contracts and minimal application scaffolding. Business modules, authentication, tenant enforcement, persistence, migrations, and production deployment are not implemented by this phase unless explicitly accepted and tested.
+## Current implementation
+- app/main.py is the composition root and exposes create_app(settings=None).
+- app/core/config.py provides environment-backed settings with OOSYS_ prefix.
+- app/api/operations.py exposes unversioned liveness at /health.
+- app/api/v1/router.py composes business APIs under configured /api/v1.
+- App construction and imports must not connect to databases or external services. The root endpoint is retained for compatibility.
 
-## Canonical rules
-- Use a modular monolith with explicit domain ownership; avoid microservices until an ADR justifies their operational cost.
-- Runtime baseline: Python 3.12+, FastAPI, Pydantic Settings. PostgreSQL/SQLAlchemy are planned persistence standards, not connected by this scaffold.
-- Composition root: `app/main.py` creates the FastAPI application and wires routers. Importing modules must not create network/database connections.
-- Responsibilities: API/router handles HTTP; application services orchestrate use cases; domain owns invariants; repository contracts abstract persistence; infrastructure implements database/external adapters.
-- Dependency direction points inward: API → application → domain/contracts. Domain code must not import FastAPI, SQLAlchemy, or infrastructure.
-- Business APIs use `/api/v1`; operational liveness is separate at `/health`.
-- Environment settings use `OOSYS_` prefix. Never commit secrets.
-- Errors must be stable and non-sensitive; never expose stack traces, credentials, SQL, or tenant data.
-- Database changes require versioned migrations, reviewed constraints/indexes, rollback notes, and migration tests. Never create schema automatically at startup.
-- Use decimal arithmetic and database numeric columns for money, never binary floating point.
-- Authorization is server-side. Tenant scope derives from verified identity and applies to every tenant-owned read/write; client tenant IDs are not authorization.
-- Test domain/application behavior, API contracts, migrations, and cross-tenant denial in their owning phases. Do not claim unmeasured coverage.
-- One focused responsibility per file; aim under 150 lines and refactor around 120 lines when practical.
-- Before changing shared contracts, inspect dependants and document compatibility implications.
+## Layer responsibilities and dependency direction
+- API/router: HTTP routing, transport validation, request/response mapping; no business rules or direct SQL.
+- Application/use cases: orchestration, authorization coordination, transaction boundaries and idempotency; depends on domain rules and ports.
+- Domain: entities, value objects, invariants, domain errors/events; no FastAPI, SQLAlchemy, environment or network dependencies.
+- Repository contracts: persistence operations defined at application/domain boundary, not concrete ORM implementations.
+- Persistence: SQLAlchemy mappings, repository adapters, queries and unit-of-work implementation.
+- Infrastructure: database/session factories, provider clients, logging and telemetry, wired through dependency injection.
+- Composition root: app/main.py wires settings and routers. Add infrastructure wiring only when actual implementations exist.
 
-## Scaffold
-- `app/core/config.py`: typed environment configuration.
-- `app/api/operations.py`: operational liveness route.
-- `app/api/v1/router.py`: versioned business API composition.
-- `app/main.py`: application factory/composition root.
-- Business modules and persistence adapters are added only when their phase defines a real contract.
+Dependency direction: API -> application -> domain/ports. Persistence and infrastructure implement ports. Cross-module communication uses published contracts/events, never another module’s private tables or repository. Do not create empty packages for future modules. Prefer one focused responsibility per file; aim below 150 lines and review around 120 where useful.
 
-## Git and CI
-Keep phase work on `phase-00-02-starter`; do not write to `main`. CI installs declared dependencies, runs pytest, and compiles app/tests. A green run proves only tested behavior.
+## API and operations
+Business APIs use /api/v1; operational liveness/readiness remains outside business versioning. Validate input at the API boundary and use explicit schemas. Do not expose ORM objects. Errors should use stable codes and safe messages; never expose stack traces, SQL, secrets or private record existence. Preserve / and /health behavior until a documented compatibility change is approved. OpenAPI is the API contract; additive changes may remain in v1, breaking changes need a new version or time-bounded compatibility plan.
 
-## Acceptance checklist
-- [x] Architecture, boundaries, configuration, versioning, migration, errors, testing and Git/CI rules documented.
-- [x] Minimal app skeleton added while preserving root/liveness behavior.
-- [ ] Focused tests pass in GitHub Actions.
-- [ ] Exact final commit and CI evidence reconciled.
-- [ ] Review source blueprint and record unresolved limitations.
+## Configuration and lifecycle
+Environment variables use OOSYS_; never commit secrets. Settings can be injected into create_app. Importing modules and constructing the app must not open DB/network connections, create schemas, run migrations or call providers. Liveness is not dependency readiness; readiness must be bounded and truthful when real dependencies exist.
 
-Phase 01 remains in progress until all unchecked criteria are verified.
+## Persistence standards (not implemented integration)
+PostgreSQL is the target, SQLAlchemy 2 the proposed ORM, Alembic the migration tool. Every schema change requires a reviewed versioned migration, fresh-install and supported-upgrade tests, plus rollback/data-repair notes. Never auto-create production schema at startup. Use constraints for integrity and transactions for atomic use cases. Use Decimal and numeric database types for money, never binary float; persist UTC timestamps and handle timezone explicitly. Do not claim repositories, sessions, migrations or transaction handling exist until implemented and tested.
+
+## Security and shared contracts
+Authentication and server-side authorization are prerequisites for protected APIs. Tenant scope derives from verified identity/membership, never an untrusted request field. Cross-tenant read and mutation denial tests are required before tenant-owned modules ship. Store secrets outside source control; redact credentials and personal data in logs. Apply input validation, parameterized queries, strict CORS allowlists, CSRF protections for cookie auth, XSS-safe rendering, upload validation and tenant-scoped file access as applicable. Audit sensitive changes with actor, tenant, action, target, timestamp and outcome. Before changing shared API schemas, permissions, events or database contracts, inspect consumers, record compatibility impact and add contract tests. Version external events and require idempotent consumers; use an outbox when event publication must be atomic with a DB write.
+
+## Testing and deferred scope
+Tests cover factory behavior, settings, router composition, endpoint behavior and absence of external-service requirements. CI must run only configured reproducible checks. Deferred: identity/session lifecycle, RBAC, tenant enforcement, audit persistence, DB/Alembic wiring, business modules, frontend, deployment, dependency scanning and production operations.
