@@ -86,6 +86,14 @@ jobs:
                       {"key": "ci.persistence.probe"},
                   ).scalar_one()
                   assert value == "ok"
+              with engine.begin() as connection:
+                  connection.execute(text("INSERT INTO identity_organizations (id,name,slug,status) VALUES ('rls-tenant-a','Tenant A','rls-tenant-a','active'), ('rls-tenant-b','Tenant B','rls-tenant-b','active')"))
+                  connection.execute(text("CREATE ROLE oosys_rls_test NOLOGIN"))
+                  connection.execute(text("GRANT SELECT ON identity_organizations, identity_memberships TO oosys_rls_test"))
+                  connection.execute(text("SET LOCAL ROLE oosys_rls_test"))
+                  connection.execute(text("SELECT set_config('app.tenant_id', 'rls-tenant-a', true)"))
+                  visible = connection.execute(text("SELECT id FROM identity_organizations WHERE id IN ('rls-tenant-a','rls-tenant-b') ORDER BY id")).scalars().all()
+                  assert visible == ["rls-tenant-a"], f"PostgreSQL RLS leaked cross-tenant rows: {visible}"
               try:
                   with engine.begin() as connection:
                       connection.execute(

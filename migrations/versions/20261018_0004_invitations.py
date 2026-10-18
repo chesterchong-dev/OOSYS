@@ -28,7 +28,7 @@ def upgrade() -> None:
             ondelete="RESTRICT", name="fk_identity_invitation_role_same_org"))
     op.create_index("ix_identity_invitation_org_email", "identity_invitations", ["organization_id", "email"])
     conn = op.get_bind()
-    roles = conn.execute(sa.text("SELECT organization_id, id FROM identity_roles WHERE is_system = 1 AND name = 'Owner'")).all()
+    roles = conn.execute(sa.text("SELECT organization_id, id FROM identity_roles WHERE is_system IS TRUE AND name = 'Owner'")).all()
     keys = conn.execute(sa.text("SELECT key FROM identity_permissions WHERE key LIKE 'organization.units.%'")).scalars().all()
     for organization_id, role_id in roles:
         for key in keys:

@@ -55,7 +55,7 @@ def test_initial_migration_creates_expected_schema_and_is_repeatable(tmp_path) -
             for item in inspector.get_check_constraints("platform_settings")
         )
         with engine.connect() as connection:
-            assert connection.exec_driver_sql("SELECT version_num FROM alembic_version").scalar_one() == "20261018_0004"
+            assert connection.exec_driver_sql("SELECT version_num FROM alembic_version").scalar_one() == "20261018_0005"
         assert "platform_settings" in Base.metadata.tables
         with engine.begin() as connection:
             connection.execute(

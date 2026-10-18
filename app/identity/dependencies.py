@@ -11,6 +11,7 @@ from app.core.config import Settings
 from app.core.database import create_database_engine, create_session_factory
 from app.identity.models import AuthSession, Membership, MembershipRole, Organization, RolePermission, User
 from app.identity.security import token_digest
+from app.identity.tenant_context import set_tenant_context
 
 
 @dataclass(frozen=True)
@@ -55,6 +56,7 @@ def get_principal(request: Request, session: Session = Depends(get_identity_sess
     org_id = auth_session.active_organization_id
     if not org_id:
         raise HTTPException(403, "No active organisation")
+    set_tenant_context(session, org_id, user.id, user.email)
     organization = session.get(Organization, org_id)
     membership = session.scalar(select(Membership).where(
         Membership.organization_id == org_id, Membership.user_id == user.id,

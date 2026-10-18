@@ -9,6 +9,7 @@ from app.identity.delivery import send_invitation, send_password_reset
 from app.identity.models import AuthSession, Membership, MembershipRole, Organization, OrganizationInvitation, PasswordResetToken, Role, RolePermission, User
 from app.identity.schemas import InvitationAccept, InvitationCreate, PasswordResetConfirm, PasswordResetRequest
 from app.identity.security import hash_password, issue_token, token_digest, utc_now
+from app.identity.tenant_context import set_tenant_context
 
 router = APIRouter()
 RESET_MESSAGE = {"message": "If the account is eligible, password reset instructions will be sent."}
@@ -24,6 +25,7 @@ def request_password_reset(payload: PasswordResetRequest, request: Request, db: 
     if user is None:
         return RESET_MESSAGE
     now = utc_now()
+    set_tenant_context(db, None, user.id, user.email)
     db.query(PasswordResetToken).filter(PasswordResetToken.user_id == user.id,
         PasswordResetToken.used_at.is_(None)).update({PasswordResetToken.used_at: now}, synchronize_session=False)
     raw, digest = issue_token()
@@ -43,6 +45,7 @@ def request_password_reset(payload: PasswordResetRequest, request: Request, db: 
 @router.post("/auth/password-reset/confirm", status_code=204)
 def confirm_password_reset(payload: PasswordResetConfirm, db: Session = Depends(get_identity_session)):
     now = utc_now()
+    set_tenant_context(db, None, reset_token_hash=token_digest(payload.token))
     token = db.scalar(select(PasswordResetToken).where(PasswordResetToken.token_hash == token_digest(payload.token),
         PasswordResetToken.used_at.is_(None), PasswordResetToken.expires_at > now))
     if token is None:
@@ -50,6 +53,7 @@ def confirm_password_reset(payload: PasswordResetConfirm, db: Session = Depends(
     user = db.get(User, token.user_id)
     if user is None or not user.is_active or user.archived_at is not None:
         raise HTTPException(400, "Invalid or expired password reset token")
+    set_tenant_context(db, None, user.id, user.email)
     token.used_at = now
     user.password_hash = hash_password(payload.new_password)
     db.query(PasswordResetToken).filter(PasswordResetToken.user_id == user.id,
@@ -108,12 +112,14 @@ def create_invitation(organization_id: str, payload: InvitationCreate, request: 
 def accept_invitation(payload: InvitationAccept, principal: Principal = Depends(get_principal),
     db: Session = Depends(get_identity_session)):
     now = utc_now()
+    set_tenant_context(db, None, principal.user_id, principal.email)
     invitation = db.scalar(select(OrganizationInvitation).where(
         OrganizationInvitation.token_hash == token_digest(payload.token),
         OrganizationInvitation.accepted_at.is_(None), OrganizationInvitation.revoked_at.is_(None),
         OrganizationInvitation.expires_at > now))
     if invitation is None or invitation.email != principal.email:
         raise HTTPException(400, "Invalid, expired or ineligible invitation")
+    set_tenant_context(db, invitation.organization_id, principal.user_id, principal.email)
     org = db.get(Organization, invitation.organization_id)
     role = db.scalar(select(Role).where(Role.id == invitation.role_id,
         Role.organization_id == invitation.organization_id, Role.archived_at.is_(None)))
