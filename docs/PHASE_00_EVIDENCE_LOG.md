@@ -172,3 +172,9 @@ A prior local clone failed because runtime DNS could not resolve `github.com`. F
 - Connected Xmind maps were read: OOSYS — Only One System (198 topics) and OOSYS Developer Implementation Blueprint (four sheets: 143, 173, 132 and 181 topics). The repository register and crosswalk each contain 87 rows; register statuses remain 84 missing and 3 partial. The crosswalk normalizes to 15 exact-title, 37 semantic-feature, 32 semantic-parent and 3 duplicate-title-disambiguated mappings.
 - Proposed canonical domain ownership was added at docs/architecture/DOMAIN_OWNERSHIP.md. It highlights MRP and CRM/Sales as sign-off boundaries and treats repeated QMS/workflow topics as one canonical domain. This proposal is not product-owner approval and does not implement business modules.
 - Phase 01 remains IN PROGRESS. No database/migration integration, authentication, RBAC, tenant enforcement, security scanning, coverage, lint/type checking, frontend or deployment verification is claimed. main remains at 568a208d81ecbba293c5b563df4402230846bc5c.
+
+
+## Exact-SHA verification after architecture and limitations reconciliation — 2026-10-18
+- GitHub Actions run [39095605637](https://github.com/chesterchong-dev/OOSYS/actions/runs/39095605637) completed successfully against exact SHA 741bc34abf76633e7c9c2510e56de472b9732b7d on branch phase-00-02-starter.
+- The job checked out the real repository, installed declared dependencies under Python 3.12.15, ran python -m pytest -q (8 passed, no pytest warnings), and ran python -m compileall -q app tests successfully. The old TestClient deprecation warning was absent.
+- main remained at 568a208d81ecbba293c5b563df4402230846bc5c. This verification covers the scaffold and tests only; Phase 01 remains open pending the remaining acceptance gates, including product-owner sign-off on domain ownership. The evidence-log-only commit created by this entry must be verified independently at its own exact SHA.
