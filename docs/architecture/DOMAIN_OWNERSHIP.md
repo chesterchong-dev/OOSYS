@@ -50,4 +50,6 @@
 
 The connected master map OOSYS — Only One System (198 topics) and Developer Implementation Blueprint (four sheets: 143, 173, 132 and 181 topics) were read during Phase 01 review. The maps include shared platform foundation, identity/tenant, settings, entitlements, integration hub, AI/automation, CRM/sales, finance, supply chain/WMS, engineering/manufacturing, QMS and project tracking. The live repository contains the 87-row requirements register and 87-row source crosswalk; they are traceability artifacts, not runtime implementation.
 
+The project-library CRM master prompt was also reviewed. It specifies a real modular-monolith CRM/SFA with database persistence, validated CRUD, search/filter/sort/pagination, frontend integration, and verifiable working behavior—not mockups or fake live data. That prompt is a product specification, not implementation evidence.
+
 The current repository scaffold has no business-domain packages, database mappings/repositories, migrations, identity/session services, frontend or domain APIs. Do not create empty module packages merely to mirror the map. Build a domain only when its phase begins and its contract/acceptance criteria are agreed.
