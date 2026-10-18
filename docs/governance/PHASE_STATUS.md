@@ -7,7 +7,7 @@
 | Phase | Status | Verified scope |
 |---|---|---|
 | Phase 00 — Repository Audit & Development Baseline | Complete | Repository/source inventory, 87-row requirements register and crosswalk, limitations and baseline CI evidence. Audit/traceability only. |
-| Phase 01 — Architecture & Development Governance | In progress | Modular-monolith contract, injectable settings, root/liveness compatibility, configured-prefix test, no-network app construction test, proposed domain ownership, requirements crosswalk reconciliation and governance docs. Database-foundation checkpoint 7b196c8692f0a7459cd8d86ffc3dcf2763e3cbf7 passed exact-SHA CI run [39095937584](https://github.com/chesterchong-dev/OOSYS/actions/runs/39095937584): 12 tests passed and compileall passed. Any later evidence-only commit still requires its own exact-SHA CI verification. |
+| Phase 01 — Architecture & Development Governance | In progress | Modular-monolith contract, injectable settings, root/liveness compatibility, configured-prefix test, no-network app construction test, canonical domain ownership, Alembic initial migration, SQLite migration tests, safe API/application error contracts and governance docs. Database-foundation checkpoint 7b196c8692f0a7459cd8d86ffc3dcf2763e3cbf7 passed exact-SHA CI run [39095937584](https://github.com/chesterchong-dev/OOSYS/actions/runs/39095937584): 12 tests passed and compileall passed. Any later evidence-only commit still requires its own exact-SHA CI verification. |
 | Phase 02 — Identity, Authentication & Multi-Tenancy | Not started | Identity/session lifecycle, authorization, tenant isolation, migrations and cross-tenant denial tests. |
 
 ## Phase 01 acceptance gates
@@ -22,10 +22,14 @@
 - [x] Add explicit database URL configuration, lazy SQLAlchemy engine/session factory and rollback-on-use-case-error session dependency without app-startup connections.
 - [x] Add in-memory SQLAlchemy tests and a no-socket test for PostgreSQL engine construction.
 - [x] Define and test a stable API error envelope for HTTP errors, request validation and unexpected failures; verify submitted input and internal exception details are not returned.
-- [x] Record migration readiness decision: no ORM schema exists, so an empty Alembic migration is intentionally prohibited; introduce Alembic with the first real schema and test fresh install/upgrade then.
-- [ ] Verify exact current HEAD with successful CI after the API contract changes.
+- [x] Integrate Alembic with SQLAlchemy metadata and add revision `20261018_0001` for deployment-wide non-secret platform settings; do not run migrations at app startup.
+- [x] Add SQLite tests for clean migration, repeat upgrade, expected schema/constraints, downgrade/re-upgrade and missing database URL.
+- [x] Extend CI with explicit Alembic upgrade/downgrade smoke checks and compile the migrations directory.
+- [x] Define expected application error classes and map them to stable safe HTTP status/code/message responses; validation errors use generic messages to avoid reflecting attacker-controlled values.
+- [x] Document API/router, application, domain/ports, persistence and infrastructure contracts in `docs/architecture/APPLICATION_CONTRACTS.md`.
+- [ ] Verify exact current HEAD with successful CI after migration and application contract changes.
 - [ ] At Phase 01 sign-off, confirm that the exact then-current HEAD has a successful GitHub Actions run and record its SHA and workflow URL.
 - [x] Confirm canonical domain ownership against the user-defined planning/CRM/Sales boundaries and document module responsibilities in DOMAIN_OWNERSHIP.md.
 - [x] Document the remaining Phase 01 governance acceptance gates and explicit deferred scope; Phase 01 sign-off remains blocked only by exact-current-HEAD CI verification and recording its evidence.
 
-Phase 01 remains open until all acceptance gates are verified and documented. Traceability does not imply implementation. Do not mark Phase 01 complete or begin Phase 02 without verified acceptance evidence.
+Phase 01 remains open until all acceptance gates are verified and documented. SQLite migration tests are not live PostgreSQL integration; no PostgreSQL pass is claimed. Traceability does not imply implementation. Do not mark Phase 01 complete or begin Phase 02 without verified acceptance evidence.
