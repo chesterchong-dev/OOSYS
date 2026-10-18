@@ -1,5 +1,6 @@
 """Password hashing and opaque, revocable bearer-session primitives."""
 import hashlib
+import hmac
 import secrets
 from datetime import datetime, timedelta, timezone
 from pwdlib import PasswordHash
@@ -28,7 +29,10 @@ def token_digest(raw: str) -> str:
     return hashlib.sha256(raw.encode()).hexdigest()
 
 
-def opaque_key(value: str) -> str:
+def opaque_key(value: str, secret: str | None = None) -> str:
+    """Derive a stable identifier; production callers supply an HMAC secret."""
+    if secret:
+        return hmac.new(secret.encode(), value.encode(), hashlib.sha256).hexdigest()
     return hashlib.sha256(value.encode()).hexdigest()
 
 
