@@ -5,9 +5,9 @@
 ## Verified repository
 - Repository: `chesterchong-dev/OOSYS`
 - Development branch: `phase-00-02-starter`
-- Last fully documented verification checkpoint (before final evidence-only update): `cd2c7631b7e816744b0ed558280da13b4078ef27` (`Record Phase 00 reconciliation CI sign-off`).
+- Latest live verified checkpoint before this documentation reconciliation: `113e47434bf87fc6881cb9afb8af2857202c55cd` (`Clarify final Phase 00 CI evidence chronology`).
 - Default branch `main`: `568a208d81ecbba293c5b563df4402230846bc5c`; untouched.
-- At that checkpoint, `main` was `568a208d81ecbba293c5b563df4402230846bc5c`; comparison was 16 ahead, 0 behind.
+- At the latest live checkpoint, `main` remains `568a208d81ecbba293c5b563df4402230846bc5c`; comparison is 19 commits ahead, 0 behind, with no deleted files.
 
 ## Product sources and traceability
 - Master product map `QsPytPPH`: 198 topics.
@@ -40,3 +40,10 @@ The branch is a minimal FastAPI scaffold. Authentication, session lifecycle, RBA
 - [x] Document known limitations and next-phase dependencies.
 
 **Disposition: COMPLETE — Phase 00 audit baseline accepted.** This is traceability/audit completion only, not product implementation or production readiness. Phase 01 remains a separate phase and is not started by this sign-off.
+
+
+## Latest live-state reconciliation — 2026-10-18
+- Live branch comparison confirms `phase-00-02-starter` at `113e47434bf87fc6881cb9afb8af2857202c55cd`; comparison against the expected SHA is identical (0 ahead, 0 behind). `main` remains `568a208d81ecbba293c5b563df4402230846bc5c` (19 ahead, 0 behind).
+- GitHub Actions run [39093554503](https://github.com/chesterchong-dev/OOSYS/actions/runs/39093554503) completed successfully against that exact SHA. Genuine checkout, dependency installation under Python 3.12, pytest (1 passed, one Starlette/httpx deprecation warning) and compileall all passed.
+- The register and crosswalk were re-parsed from live CSV: 87 rows each; 14 and 8 columns respectively; unique nonblank IDs; identical ID sets; no malformed row widths. Statuses remain 84 `missing`, 3 `partial`. All 105 crosswalk source UUIDs were found in the live Xmind maps.
+- This is audit/source-traceability closure only. No Phase 01 implementation or production-readiness claim is made.
