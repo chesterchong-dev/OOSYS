@@ -139,3 +139,26 @@ class PasswordResetToken(Base):
     expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     used_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
+class OrganizationUnit(Base):
+    """Tenant-scoped business unit, location, department or team."""
+    __tablename__ = "identity_organization_units"
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=new_id)
+    organization_id: Mapped[str] = mapped_column(ForeignKey("identity_organizations.id", ondelete="RESTRICT"), nullable=False)
+    parent_id: Mapped[str | None] = mapped_column(String(36))
+    unit_type: Mapped[str] = mapped_column(String(24), nullable=False)
+    name: Mapped[str] = mapped_column(String(160), nullable=False)
+    code: Mapped[str | None] = mapped_column(String(60))
+    status: Mapped[str] = mapped_column(String(20), nullable=False, default="active")
+    archived_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+    __table_args__ = (
+        ForeignKeyConstraint(["organization_id", "parent_id"], ["identity_organization_units.organization_id", "identity_organization_units.id"], ondelete="RESTRICT", name="fk_identity_unit_parent_same_org"),
+        UniqueConstraint("organization_id", "id", name="uq_identity_unit_org_id"),
+        UniqueConstraint("organization_id", "code", name="uq_identity_unit_org_code"),
+        CheckConstraint("unit_type IN ('business_unit','location','department','team')", name="ck_identity_unit_type"),
+        CheckConstraint("status IN ('active','archived')", name="ck_identity_unit_status"),
+        Index("ix_identity_unit_org_type", "organization_id", "unit_type"),
+    )

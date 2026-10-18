@@ -65,3 +65,16 @@ class OrganizationOut(BaseModel):
     name: str
     slug: str
     status: str
+
+
+class OrganizationUnitCreate(BaseModel):
+    unit_type: str = Field(pattern=r"^(business_unit|location|department|team)$")
+    name: str = Field(min_length=2, max_length=160)
+    code: str | None = Field(default=None, max_length=60)
+    parent_id: str | None = Field(default=None, max_length=36)
+
+
+class OrganizationUnitPatch(BaseModel):
+    name: str | None = Field(default=None, min_length=2, max_length=160)
+    code: str | None = Field(default=None, max_length=60)
+    parent_id: str | None = Field(default=None, max_length=36)
