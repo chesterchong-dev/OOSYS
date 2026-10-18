@@ -105,8 +105,8 @@ jobs:
               app_url = "postgresql+psycopg://oosys_app_test:ci-only-secret@localhost:5432/oosys_ci"
               app = create_app(Settings(_env_file=None, database_url=SecretStr(app_url), allow_self_registration=True))
               with TestClient(app) as client:
-                  first = client.post("/api/v1/auth/register", json={"email":"rls-a@example.test","password":"Rls-strong-password-123","full_name":"RLS A","organization_name":"RLS A","organization_slug":"rls-a-org"})
-                  second = client.post("/api/v1/auth/register", json={"email":"rls-b@example.test","password":"Rls-strong-password-123","full_name":"RLS B","organization_name":"RLS B","organization_slug":"rls-b-org"})
+                  first = client.post("/api/v1/auth/register", json={"email":"rls-a@example.com","password":"Rls-strong-password-123","full_name":"RLS A","organization_name":"RLS A","organization_slug":"rls-a-org"})
+                  second = client.post("/api/v1/auth/register", json={"email":"rls-b@example.com","password":"Rls-strong-password-123","full_name":"RLS B","organization_name":"RLS B","organization_slug":"rls-b-org"})
                   assert first.status_code == 201, first.text
                   assert second.status_code == 201, second.text
                   token_a = first.json()["access_token"]
