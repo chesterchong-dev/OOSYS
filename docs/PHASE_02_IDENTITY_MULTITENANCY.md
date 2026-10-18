@@ -1,7 +1,7 @@
 # Phase 02 — Identity, Authentication & Multi-Tenancy
 
 ## Status
-**Identity, hierarchy, recovery, invitation and PostgreSQL tenant-policy code is implemented. Phase 02 remains open until final CI and the remaining acceptance criteria are verified.**
+**Phase 02 implementation and CI acceptance checks are verified at commit 992ba5e3387ac5178ea491564ceb3645543c176c. The phase remains open for external security review and broader module tenant-coverage requirements.**
 
 ## Scope delivered in this increment
 - User and organisation bootstrap, account profile update, organisation update/archive.
@@ -54,9 +54,9 @@ Bearer token transport is intentional: clients must protect access tokens and se
 - [x] Tenant-scoped organisation/member/role/audit APIs with pagination on collection endpoints.
 - [x] Composite constraints prevent cross-tenant membership-role and role-permission references.
 - [x] Audit events exclude credential values.
-- [x] CI run 39107813773 passed: 40 tests, SQLite migration upgrade/downgrade, PostgreSQL migration/persistence/constraint check/downgrade, RLS row-visibility check, and compileall. A newer non-superuser app-role integration check is pending CI.
+- [x] CI run 39108300965 passed at commit 992ba5e3387ac5178ea491564ceb3645543c176c: 47 tests, 93% app.identity coverage, SQLite migration upgrade/downgrade, PostgreSQL migration/persistence/constraint/RLS checks, non-superuser app-role registration/login/cross-tenant denial, and compileall.
 - [x] Cross-tenant read/update denial, expired/revoked sessions, login throttling, and role privilege-escalation tests pass on CI.
-- [ ] Coverage target of at least 90% for meaningful identity business logic; latest verified coverage before expanded tests was 84%.
+- [x] Coverage measured at 93% across app.identity in CI run 39108300965; this is not a production-readiness certification.
 - [x] Organisation hierarchy CRUD with tenant scoping, parent-type validation, archive rules and audit events.
 - [x] SMTP-backed password reset and invitation acceptance with expiry and replay prevention.
 - [x] PostgreSQL RLS policies and a CI cross-tenant row-visibility denial probe.
