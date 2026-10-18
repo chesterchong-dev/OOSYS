@@ -16,9 +16,15 @@ OOSYS is planned as a modular enterprise platform spanning ERP, WMS, CRM, accoun
 3. Run: `uvicorn app.main:app --reload`
 4. Open `/docs` for OpenAPI; liveness is `/health`.
 
+## Database migrations
+- Configure `OOSYS_DATABASE_URL` outside source control before running migrations.
+- Apply schema changes explicitly with `alembic upgrade head`; migrations are never run during app import or startup.
+- The initial `20261018_0001` revision creates deployment-wide non-secret `platform_settings`. Do not store credentials or tenant/user preferences in this table.
+- Tests and CI exercise migrations on SQLite. Live PostgreSQL migration/integration has not yet been verified.
+
 ## Governance
 - Keep phase work on `phase-00-02-starter`; do not write phase work directly to `main`.
 - CI installs declared dependencies, runs pytest, and compiles app/tests. A green run proves only tested behavior.
 - Never commit secrets. Configuration uses `OOSYS_`-prefixed environment variables.
-- Authentication, sessions, RBAC, tenant isolation, database migrations, business modules, frontend, and production deployment are not yet implemented.
+- Authentication, sessions, RBAC, tenant isolation, tenant settings, live PostgreSQL integration, business modules, frontend, and production deployment are not yet implemented.
 - See `docs/PHASE_01_ARCHITECTURE.md`, `docs/architecture/README.md`, and `docs/decisions/`.
