@@ -73,7 +73,7 @@ jobs:
               inspector = inspect(engine)
               assert "platform_settings" in inspector.get_table_names()
               columns = {column["name"]: column for column in inspector.get_columns("platform_settings")}
-              assert columns["setting_key"]["primary_key"] == 1
+              assert inspect(engine).get_pk_constraint("platform_settings")["constrained_columns"] == ["setting_key"]
               assert columns["value_json"]["nullable"] is False
               with engine.begin() as connection:
                   connection.execute(
