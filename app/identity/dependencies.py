@@ -45,6 +45,7 @@ def get_principal(request: Request, session: Session = Depends(get_identity_sess
     if scheme.lower() != "bearer" or not raw.strip():
         raise HTTPException(401, "Authentication required", headers={"WWW-Authenticate": "Bearer"})
     now = datetime.now(timezone.utc)
+    set_tenant_context(session, None, session_token_hash=token_digest(raw.strip()))
     auth_session = session.scalar(select(AuthSession).where(
         AuthSession.token_hash == token_digest(raw.strip()), AuthSession.revoked_at.is_(None),
         AuthSession.expires_at > now))
