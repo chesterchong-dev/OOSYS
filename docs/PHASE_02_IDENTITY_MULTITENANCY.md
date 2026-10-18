@@ -2,7 +2,7 @@
 
 ## Status
 
-**Status: OPEN — implementation is present, but final acceptance is not yet signed off.** Exact-SHA CI run [39109984768](https://github.com/chesterchong-dev/OOSYS/actions/runs/39109984768) passed on code commit `4ab727b4420c540d755c48cfa6a2b3f520b98914`: 46 tests, 91% coverage for `app.identity`, SQLite migration upgrade/downgrade, PostgreSQL migration/persistence/constraint checks, restricted-role RLS checks for tenant data and user records, API invitation acceptance and organisation switching under RLS, and compileall. The verification review also added row locks when consuming password-reset and invitation tokens to prevent concurrent replay. This is not a claim of production certification or external security review.
+**Status: OPEN — implementation is present, but final acceptance is not yet signed off.** Exact-SHA CI run [39110344249](https://github.com/chesterchong-dev/OOSYS/actions/runs/39110344249) passed on code commit `7505c77e50b95230af06a03a6addb7b5134d0ce3`: 46 passed, 2 PostgreSQL-only tests skipped in the standard suite; dedicated PostgreSQL concurrency run passed 2 tests; 91% `app.identity` coverage, SQLite migration upgrade/downgrade, PostgreSQL migration/persistence/constraint checks, restricted-role RLS checks for tenant data and user records, two PostgreSQL concurrency regression tests for reset/invitation replay, and compileall. This is not a claim of production certification or external security review.
 
 ## Delivered scope
 
@@ -41,7 +41,7 @@ All endpoints use the configured API prefix (default `/api/v1`).
 - [x] Business-unit/location/department/team hierarchy and audit trail.
 - [x] Application tenant checks, composite same-tenant constraints and PostgreSQL RLS.
 - [x] Negative tests for cross-tenant access, privilege escalation, invalid hierarchy parentage, reset/invitation replay and session revocation.
-- [x] CI run 39109984768 passed on `4ab727b4420c540d755c48cfa6a2b3f520b98914`: 46 tests, 91% `app.identity` coverage, SQLite/PostgreSQL migration checks, restricted-role PostgreSQL RLS probes including user-record isolation, invitation acceptance and organisation switching, and compileall.
+- [x] CI run 39110344249 passed on `7505c77e50b95230af06a03a6addb7b5134d0ce3`: 46 passed, 2 PostgreSQL-only tests skipped in the standard suite; dedicated PostgreSQL concurrency run passed 2 tests; 91% `app.identity` coverage, SQLite/PostgreSQL migration checks, restricted-role PostgreSQL RLS probes including user-record isolation, invitation acceptance and organisation switching, and compileall.
 - [x] Requirements register and architecture/security limitations documented.
 
-**Phase 02 remains OPEN pending final acceptance.** Remaining evidence includes a local working-tree status (the connected GitHub interface exposes remote state only), an independent concurrency-focused regression test for one-time reset/invitation consumption, and a final review of the acceptance checklist. Production launch additionally requires environment-specific security review, correct SMTP/CORS configuration, non-superuser database credentials and tenant RLS coverage for every subsequently implemented business module.
+**Phase 02 remains OPEN pending final acceptance.** Remaining evidence includes a local working-tree status (the connected GitHub interface exposes remote state only), and explicit type-check/lint/build verification because no type-checker or linter is configured in this repository. The PostgreSQL concurrency regression is now executed by CI. Production launch additionally requires environment-specific security review, correct SMTP/CORS configuration, non-superuser database credentials and tenant RLS coverage for every subsequently implemented business module.
