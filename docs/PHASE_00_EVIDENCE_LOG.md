@@ -188,3 +188,12 @@ A prior local clone failed because runtime DNS could not resolve `github.com`. F
 - This entry creates an evidence-only commit and must itself pass the workflow at its exact SHA. main remained 568a208d81ecbba293c5b563df4402230846bc5c.
 
 - CI concurrency note: workflow run [39095976983](https://github.com/chesterchong-dev/OOSYS/actions/runs/39095976983) for intermediate documentation SHA 531df9ac2d0e2f2cd2225ae5004795d8c44fc38b was cancelled when the following evidence-log commit was pushed before the run completed. This is not a test failure. The current evidence-log HEAD will be verified in a fresh exact-SHA run; no further commits are planned while that run executes.
+
+
+## Phase 01 API error contract implementation — 2026-10-18
+- Added `app/api/errors.py` with Pydantic `ErrorResponse`, `ErrorBody` and `ErrorDetail` schemas and handlers for HTTP exceptions, request validation errors, and unexpected exceptions. HTTP status codes and headers are preserved; arbitrary HTTP details and unexpected exception text are not returned. Validation details omit submitted input and Pydantic context.
+- Wired the handlers into `create_app` in `app/main.py`; root, health and configured API prefix behavior remain unchanged by design.
+- Added `tests/test_api_errors.py` covering 404, validation errors, an HTTP 403 exception with a secret-like detail, and an unexpected exception with SQL/credential-like text. Tests assert safe messages and no input/detail leakage. These tests have been committed but their pass/fail status must be established by exact-HEAD CI; no local checkout is available in this runtime.
+- Updated `docs/PHASE_01_ARCHITECTURE.md`, `docs/governance/PHASE_STATUS.md`, and `docs/governance/KNOWN_LIMITATIONS.md` to document the contract and the intentionally deferred migration baseline.
+- Migration decision: no ORM metadata or real schema currently exists, so an empty Alembic revision would provide false assurance. Add Alembic with the first real schema and require fresh-install/upgrade tests and rollback/recovery notes at that point.
+- This entry is append-only. Its own resulting commit SHA and exact-SHA CI result must be verified from live GitHub after this update. `main` must remain at `568a208d81ecbba293c5b563df4402230846bc5c`; Phase 01 remains open until final verification.
