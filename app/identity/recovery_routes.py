@@ -55,8 +55,10 @@ def request_password_reset(payload: PasswordResetRequest, request: Request, db: 
 def confirm_password_reset(payload: PasswordResetConfirm, db: Session = Depends(get_identity_session)):
     now = utc_now()
     set_tenant_context(db, None, reset_token_hash=token_digest(payload.token))
+    # Lock the token row until the password change and session revocation commit.
+    # This makes single-use semantics hold under concurrent PostgreSQL requests.
     token = db.scalar(select(PasswordResetToken).where(PasswordResetToken.token_hash == token_digest(payload.token),
-        PasswordResetToken.used_at.is_(None), PasswordResetToken.expires_at > now))
+        PasswordResetToken.used_at.is_(None), PasswordResetToken.expires_at > now).with_for_update())
     if token is None:
         raise HTTPException(400, "Invalid or expired password reset token")
     set_tenant_context(db, None, token.user_id)
@@ -142,10 +144,11 @@ def accept_invitation(payload: InvitationAccept, principal: Principal = Depends(
     db: Session = Depends(get_identity_session)):
     now = utc_now()
     set_tenant_context(db, None, principal.user_id, principal.email)
+    # Serialize competing accept attempts so a one-time invitation cannot be replayed concurrently.
     invitation = db.scalar(select(OrganizationInvitation).where(
         OrganizationInvitation.token_hash == token_digest(payload.token),
         OrganizationInvitation.accepted_at.is_(None), OrganizationInvitation.revoked_at.is_(None),
-        OrganizationInvitation.expires_at > now))
+        OrganizationInvitation.expires_at > now).with_for_update())
     if invitation is None or invitation.email != principal.email:
         raise HTTPException(400, "Invalid, expired or ineligible invitation")
     set_tenant_context(db, invitation.organization_id, principal.user_id, principal.email)
