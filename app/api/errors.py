@@ -1,7 +1,8 @@
 """Stable, non-sensitive HTTP error responses for the OOSYS API."""
 from typing import Any
 
-from fastapi import FastAPI, Request\nfrom starlette.exceptions import HTTPException as StarletteHTTPException
+from fastapi import FastAPI, Request
+from starlette.exceptions import HTTPException as StarletteHTTPException
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
