@@ -71,7 +71,7 @@ jobs:
           engine = create_engine(url, pool_pre_ping=True)
           try:
               inspector = inspect(engine)
-              assert {"platform_settings", "identity_users", "identity_organizations", "identity_memberships", "identity_roles", "identity_permissions", "identity_role_permissions", "identity_membership_roles", "identity_sessions", "identity_login_attempts", "identity_audit_events", "identity_password_reset_tokens"}.issubset(set(inspector.get_table_names()))
+              assert {"platform_settings", "identity_users", "identity_organizations", "identity_memberships", "identity_roles", "identity_permissions", "identity_role_permissions", "identity_membership_roles", "identity_sessions", "identity_login_attempts", "identity_audit_events", "identity_password_reset_tokens", "identity_organization_units", "identity_invitations"}.issubset(set(inspector.get_table_names()))
               columns = {column["name"]: column for column in inspector.get_columns("platform_settings")}
               assert inspect(engine).get_pk_constraint("platform_settings")["constrained_columns"] == ["setting_key"]
               assert columns["value_json"]["nullable"] is False

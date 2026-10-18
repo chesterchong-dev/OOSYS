@@ -162,3 +162,22 @@ class OrganizationUnit(Base):
         CheckConstraint("status IN ('active','archived')", name="ck_identity_unit_status"),
         Index("ix_identity_unit_org_type", "organization_id", "unit_type"),
     )
+
+
+class OrganizationInvitation(Base):
+    """One-time email invitation; only a digest of the token is stored."""
+    __tablename__ = "identity_invitations"
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=new_id)
+    organization_id: Mapped[str] = mapped_column(ForeignKey("identity_organizations.id", ondelete="RESTRICT"), nullable=False)
+    email: Mapped[str] = mapped_column(String(320), nullable=False)
+    role_id: Mapped[str] = mapped_column(String(36), nullable=False)
+    invited_by_user_id: Mapped[str] = mapped_column(ForeignKey("identity_users.id", ondelete="RESTRICT"), nullable=False)
+    token_hash: Mapped[str] = mapped_column(String(64), unique=True, nullable=False)
+    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    accepted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    revoked_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    __table_args__ = (
+        ForeignKeyConstraint(["organization_id", "role_id"], ["identity_roles.organization_id", "identity_roles.id"], ondelete="RESTRICT", name="fk_identity_invitation_role_same_org"),
+        Index("ix_identity_invitation_org_email", "organization_id", "email"),
+    )

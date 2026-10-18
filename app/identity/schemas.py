@@ -78,3 +78,21 @@ class OrganizationUnitPatch(BaseModel):
     name: str | None = Field(default=None, min_length=2, max_length=160)
     code: str | None = Field(default=None, max_length=60)
     parent_id: str | None = Field(default=None, max_length=36)
+
+
+class PasswordResetRequest(BaseModel):
+    email: EmailStr
+
+
+class PasswordResetConfirm(BaseModel):
+    token: str = Field(min_length=32, max_length=256)
+    new_password: str = Field(min_length=12, max_length=128)
+
+
+class InvitationCreate(BaseModel):
+    email: EmailStr
+    role_id: str = Field(min_length=1, max_length=36)
+
+
+class InvitationAccept(BaseModel):
+    token: str = Field(min_length=32, max_length=256)

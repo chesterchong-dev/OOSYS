@@ -36,8 +36,8 @@ Bearer token transport is intentional: clients must protect access tokens and se
 - The identity module uses app-level tenant scoping and same-tenant composite foreign keys; PostgreSQL RLS is not enabled yet.
 - Login limiting is database-backed but concurrency/cluster guarantees and cleanup/retention need a production review; enforce edge/IP throttling as defence in depth.
 - Public self-service registration must be gated behind controlled onboarding before deployment.
-- Membership add currently links an existing user; email invitations and delivery are not integrated.
-- Password reset token persistence is modelled but a secure reset workflow requires a configured delivery adapter and must be implemented/tested before the requirement can be marked complete.
+- Email invitations are SMTP-backed for existing accounts; acceptance requires an authenticated session matching the invited email.
+- Password reset is SMTP-backed with single-use hashed tokens, 30-minute expiry, generic account response, session revocation and replay prevention.
 - No dedicated platform-global administrator is exposed. Global permission vocabulary is code-owned, not mutable by tenant administrators.
 - Account self-service password change revokes all sessions. A user must authenticate again.
 - No live external penetration test or dependency vulnerability scan is claimed.
@@ -52,6 +52,6 @@ Bearer token transport is intentional: clients must protect access tokens and se
 - [x] CI run 39105886707 passed on implementation commit 0a238a6926ab6b1296c42c2096dbcbb5922bc40e: 37 tests, SQLite migration upgrade/downgrade, PostgreSQL migration/persistence/constraint check/downgrade, and compileall.
 - [x] Cross-tenant read/update denial, expired/revoked sessions, login throttling, and role privilege-escalation tests pass on CI.
 - [x] Coverage measured at 93% across app.identity in CI run 39105886707 (not a production-readiness certification).
-- [ ] PostgreSQL RLS, password reset/invitation delivery, organisation hierarchy, distributed rate-limit hardening and external security review.
+- [x] Organisation hierarchy CRUD with tenant scoping, parent-type validation, archive rules and audit events.\n- [x] SMTP-backed password reset and invitation acceptance with expiry and replay prevention.\n- [ ] PostgreSQL RLS, distributed rate-limit hardening and external security review.
 
-Phase 02 remains OPEN until all mandatory acceptance criteria are verified.
+Phase 02 remains OPEN until PostgreSQL RLS and remaining security acceptance checks are implemented and verified.
