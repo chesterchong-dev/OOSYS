@@ -2,12 +2,12 @@
 
 **Updated:** 2026-10-18  
 **Current phase:** Phase 01 — Architecture & Development Governance  
-**Status:** IN PROGRESS
+**Status:** COMPLETE — Phase 01 foundation acceptance only
 
 | Phase | Status | Verified scope |
 |---|---|---|
 | Phase 00 — Repository Audit & Development Baseline | Complete | Repository/source inventory, 87-row requirements register and crosswalk, limitations and baseline CI evidence. Audit/traceability only. |
-| Phase 01 — Architecture & Development Governance | In progress | Modular-monolith contract, injectable settings, root/liveness compatibility, configured-prefix test, no-network app construction test, canonical domain ownership, Alembic initial migration, SQLite migration tests, safe API/application error contracts and governance docs. Latest verified HEAD `1405e8dbcbd6c0d5b941c5be3723c7cf1246ca5c` passed exact-SHA GitHub Actions run [39097211785](https://github.com/chesterchong-dev/OOSYS/actions/runs/39097211785): 22 tests passed (6 Alembic path-separator deprecation warnings), SQLite migration upgrade/downgrade passed, and compileall passed. This verifies the current foundation checkpoint, not PostgreSQL or production readiness. |
+| Phase 01 — Architecture & Development Governance | Complete (foundation scope) | Modular-monolith contract, injectable settings, root/liveness compatibility, configured-prefix test, no-network app construction test, canonical domain ownership, Alembic initial migration, SQLite migration tests, safe API/application error contracts and governance docs. Foundation verification HEAD `6463706380a7d389f7618ada4bb521c58862b640` passed exact-SHA GitHub Actions run [39104149009](https://github.com/chesterchong-dev/OOSYS/actions/runs/39104149009): 22 tests passed, SQLite migration upgrade/downgrade passed, and compileall passed. Alembic path-separator configuration was corrected in this commit; the final run completed successfully. This accepts the Phase 01 foundation scope only, not PostgreSQL or production readiness. |
 | Phase 02 — Identity, Authentication & Multi-Tenancy | Not started | Identity/session lifecycle, authorization, tenant isolation, migrations and cross-tenant denial tests. |
 
 ## Phase 01 acceptance gates
@@ -30,6 +30,6 @@
 - [x] Verify exact current HEAD with successful CI after migration and application contract changes: `1405e8dbcbd6c0d5b941c5be3723c7cf1246ca5c`, run [39097211785](https://github.com/chesterchong-dev/OOSYS/actions/runs/39097211785); 22 tests passed, SQLite migration upgrade/downgrade passed, and compileall passed.
 - [x] Record exact-HEAD CI SHA and workflow URL at this verification checkpoint. Any subsequent commit must be independently verified before sign-off.
 - [x] Confirm canonical domain ownership against the user-defined planning/CRM/Sales boundaries and document module responsibilities in DOMAIN_OWNERSHIP.md.
-- [x] Document the remaining Phase 01 governance acceptance gates and explicit deferred scope. Exact-current-HEAD CI evidence is now recorded; Phase 01 remains open pending broader acceptance review and the explicit limitations below.
+- [x] Document remaining governance gates and deferred scope; acceptance is limited to the architecture foundation, not production readiness.
 
-Phase 01 remains IN PROGRESS. Exact-HEAD CI is now verified, but CI is not the sole acceptance gate. SQLite migration tests are not live PostgreSQL integration; no PostgreSQL pass is claimed. Traceability does not imply implementation. Do not mark Phase 01 complete or begin Phase 02 without verified acceptance evidence.
+Phase 01 foundation acceptance is COMPLETE at the recorded checkpoint: the architecture and governance artifacts, database/session foundation, initial schema migration, safe API/application error contracts, tests, requirements traceability, and exact-HEAD CI are verified. This is not a production-readiness claim. SQLite migration tests are not live PostgreSQL integration; lint/type checks, coverage measurement, dependency vulnerability scanning, dedicated security scanning, frontend/deployment, and end-to-end checks remain unperformed. Identity, authentication, RBAC, tenant isolation and business modules remain future phases. Phase 02 may start only as its separately scoped implementation phase; it must not be represented as already implemented.
