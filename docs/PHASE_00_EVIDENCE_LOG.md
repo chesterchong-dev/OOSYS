@@ -217,3 +217,12 @@ A prior local clone failed because runtime DNS could not resolve `github.com`. F
 - The CI run verifies the current foundation checkpoint's test suite, SQLite migration smoke checks and compilation. It does not establish live PostgreSQL compatibility, meaningful coverage percentage, lint/type-check results, dependency vulnerability status, dedicated security scan results, frontend readiness, deployment readiness or production readiness.
 - The repository's latest checked-in phase status and known-limitations documents are being reconciled to record this evidence. Because documentation updates create new commits, this run does not verify any commit created after the SHA above; the final documentation HEAD must receive its own exact-SHA CI result.
 - Phase 01 remains IN PROGRESS pending final verification of the documentation commit and a decision on the explicitly outstanding acceptance scope. Phase 02 remains not started. `main` must remain unchanged.
+
+
+## Phase 01 foundation acceptance and Alembic warning cleanup — 2026-10-18
+
+- Corrected Alembic configuration by setting `path_separator = os` in `alembic.ini`, addressing the six deprecation warnings seen in exact-HEAD run [39097211785](https://github.com/chesterchong-dev/OOSYS/actions/runs/39097211785).
+- Follow-up exact-SHA run [39104149009](https://github.com/chesterchong-dev/OOSYS/actions/runs/39104149009) passed on commit `6463706380a7d389f7618ada4bb521c58862b640`: Python 3.12.15; tests passed; SQLite Alembic upgrade/downgrade passed; application, migration and test compilation passed. The workflow job completed successfully after the configuration fix.
+- Reconciled `docs/governance/PHASE_STATUS.md`, `docs/governance/KNOWN_LIMITATIONS.md` and the API conventions row in the requirements register to record exact-SHA evidence and retain explicit non-production limitations.
+- Phase 01 is accepted as **architecture/governance foundation scope only**. This does not claim live PostgreSQL validation, coverage percentage, lint/type checks, dependency vulnerability scanning, dedicated security scans, frontend/deployment readiness or end-to-end validation. The requirements register remains evidence-based; source mapping does not imply implementation.
+- This evidence-log append and the subsequent documentation HEAD require their own exact-SHA CI verification. `main` remains `568a208d81ecbba293c5b563df4402230846bc5c`; Phase 02 implementation has not been started.
