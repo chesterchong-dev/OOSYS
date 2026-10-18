@@ -15,3 +15,7 @@ Use a modular monolith. Each business domain owns its entities, use cases, persi
 - Shared contract changes require dependency inspection, compatibility notes and tests.
 - PostgreSQL/SQLAlchemy are planned persistence standards; schema changes require reviewed migrations. No database connection or schema creation occurs at startup in this scaffold.
 - This ADR does not imply authentication, tenant isolation, or production readiness.
+
+
+## Current scaffold clarification
+The current composition root wires operational routes and an empty versioned API router only. It does not yet contain business modules, persistence adapters, domain contracts, or dependency-injected infrastructure. The stable module contracts described above are architectural direction for subsequent implementation, not a claim that those modules or interfaces already exist. The configured prefix is tested with a temporary probe router; the real OpenAPI schema will expose business paths when domain routers are implemented.
