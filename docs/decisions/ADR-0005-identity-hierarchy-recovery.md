@@ -15,7 +15,7 @@ The initial identity implementation covered authentication, sessions, organisati
 - Require a non-superuser application database role that does not own the protected tables. RLS is defence in depth, not a replacement for application permission checks.
 
 ## Verification
-CI run [39109323597](https://github.com/chesterchong-dev/OOSYS/actions/runs/39109323597) passed at code commit `e7aec0d877c2ff835ed19dd5a793f174d805734f`: 46 tests, 91% `app.identity` coverage, SQLite migration upgrade/downgrade, PostgreSQL migration/persistence/constraint checks, restricted-role RLS denial tests including invitation acceptance and organisation switching, and compileall.
+Exact-HEAD CI run [39110600679](https://github.com/chesterchong-dev/OOSYS/actions/runs/39110600679) passed at commit `4c84c3fcf4b1a18a5fa41f2734a2af2af5ab5615`: 46 passed, 2 PostgreSQL-only tests skipped in the standard suite; dedicated PostgreSQL concurrency regression passed 2 tests; 91% `app.identity` coverage; SQLite migration upgrade/downgrade; PostgreSQL migration/persistence/constraint checks; restricted-role RLS denial tests including user-record isolation, invitation acceptance and organisation switching; and compileall.
 
 ## Consequences and known limits
 - Future tenant-owned modules must define RLS policies, set trusted tenant context, use tenant-scoped foreign keys where practical, and test cross-tenant denial.
