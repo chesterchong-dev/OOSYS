@@ -80,7 +80,7 @@ def test_invitation_creation_delivery_and_acceptance(tmp_path, monkeypatch):
     try:
         owner = run(request(app, "POST", "/api/v1/auth/register", json=register_payload("ownerinvite@example.com", "owner-invite-org"))).json()
         invitee = run(request(app, "POST", "/api/v1/auth/register", json=register_payload("targetinvite@example.com", "target-invite-org"))).json()
-        app.state.settings = Settings(_env_file=None, smtp_host="localhost", email_from="noreply@example.test",
+        app.state.settings = Settings(_env_file=None, allow_self_registration=True, smtp_host="localhost", email_from="noreply@example.test",
             invitation_accept_url="https://example.test/accept")
         sent = []
         from app.identity import recovery_routes
