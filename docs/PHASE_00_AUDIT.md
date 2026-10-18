@@ -53,3 +53,7 @@ The branch is a minimal FastAPI scaffold. Authentication, session lifecycle, RBA
 - The immediately preceding documentation-only reconciliation commit was `7ead5d67ee971a41f11e0dc3ccd2abbebc54549b`. GitHub Actions run [39094138486](https://github.com/chesterchong-dev/OOSYS/actions/runs/39094138486) completed successfully against that exact SHA: genuine checkout, Python 3.12.15, dependency installation, 1 pytest passed with one Starlette/httpx deprecation warning, and compileall passed.
 - That reconciliation changed only the five Phase 00 documentation files. Live `main` remained `568a208d81ecbba293c5b563df4402230846bc5c`; the development branch was 24 commits ahead, 0 behind, with no deletions relative to `main`.
 - This entry is a documentation-only closure follow-up. Its own SHA and CI result are verified separately in the external sign-off; no Phase 01 work or production-readiness claim is implied.
+
+
+## Phase 01 foundation checkpoint — 2026-10-18
+The first Phase 01 implementation checkpoint `d3a939bfdc17d51ce23beb68b58e9e6788cb07bf` passed exact-SHA GitHub Actions run [39094708094](https://github.com/chesterchong-dev/OOSYS/actions/runs/39094708094). This verifies the then-current tests and compilation only. Phase 01 remains in progress and no production-readiness claim is made.
