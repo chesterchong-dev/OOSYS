@@ -4,7 +4,8 @@ from pathlib import Path
 import pytest
 from alembic import command
 from alembic.config import Config
-from sqlalchemy import create_engine, inspect
+from sqlalchemy import create_engine, inspect, text
+from sqlalchemy.exc import IntegrityError
 
 from app.core.db_base import Base
 from app.platform_config import models  # noqa: F401 - register metadata
@@ -51,6 +52,23 @@ def test_initial_migration_creates_expected_schema_and_is_repeatable(tmp_path) -
         with engine.connect() as connection:
             assert connection.exec_driver_sql("SELECT version_num FROM alembic_version").scalar_one() == "20261018_0001"
         assert "platform_settings" in Base.metadata.tables
+        with engine.begin() as connection:
+            connection.execute(
+                text(
+                    "INSERT INTO platform_settings "
+                    "(setting_key, value_json) VALUES (:key, :value)"
+                ),
+                {"key": "valid.setting", "value": '"ok"'},
+            )
+        with pytest.raises(IntegrityError):
+            with engine.begin() as connection:
+                connection.execute(
+                    text(
+                        "INSERT INTO platform_settings "
+                        "(setting_key, value_json) VALUES (:key, :value)"
+                    ),
+                    {"key": "", "value": '"invalid"'},
+                )
     finally:
         engine.dispose()
 
