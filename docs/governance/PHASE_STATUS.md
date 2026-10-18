@@ -7,7 +7,7 @@
 | Phase | Status | Verified scope |
 |---|---|---|
 | Phase 00 — Repository Audit & Development Baseline | Complete | Repository/source inventory, 87-row requirements register and crosswalk, limitations and baseline CI evidence. Audit/traceability only. |
-| Phase 01 — Architecture & Development Governance | In progress | Modular-monolith contract, injectable settings, root/liveness compatibility, configured-prefix test, no-network app construction test, canonical domain ownership, Alembic initial migration, SQLite migration tests, safe API/application error contracts and governance docs. Database-foundation checkpoint 7b196c8692f0a7459cd8d86ffc3dcf2763e3cbf7 passed exact-SHA CI run [39095937584](https://github.com/chesterchong-dev/OOSYS/actions/runs/39095937584): 12 tests passed and compileall passed. Any later evidence-only commit still requires its own exact-SHA CI verification. |
+| Phase 01 — Architecture & Development Governance | In progress | Modular-monolith contract, injectable settings, root/liveness compatibility, configured-prefix test, no-network app construction test, canonical domain ownership, Alembic initial migration, SQLite migration tests, safe API/application error contracts and governance docs. Latest verified HEAD `1405e8dbcbd6c0d5b941c5be3723c7cf1246ca5c` passed exact-SHA GitHub Actions run [39097211785](https://github.com/chesterchong-dev/OOSYS/actions/runs/39097211785): 22 tests passed (6 Alembic path-separator deprecation warnings), SQLite migration upgrade/downgrade passed, and compileall passed. This verifies the current foundation checkpoint, not PostgreSQL or production readiness. |
 | Phase 02 — Identity, Authentication & Multi-Tenancy | Not started | Identity/session lifecycle, authorization, tenant isolation, migrations and cross-tenant denial tests. |
 
 ## Phase 01 acceptance gates
@@ -27,9 +27,9 @@
 - [x] Extend CI with explicit Alembic upgrade/downgrade smoke checks and compile the migrations directory.
 - [x] Define expected application error classes and map them to stable safe HTTP status/code/message responses; validation errors use generic messages to avoid reflecting attacker-controlled values.
 - [x] Document API/router, application, domain/ports, persistence and infrastructure contracts in `docs/architecture/APPLICATION_CONTRACTS.md`.
-- [ ] Verify exact current HEAD with successful CI after migration and application contract changes.
-- [ ] At Phase 01 sign-off, confirm that the exact then-current HEAD has a successful GitHub Actions run and record its SHA and workflow URL.
+- [x] Verify exact current HEAD with successful CI after migration and application contract changes: `1405e8dbcbd6c0d5b941c5be3723c7cf1246ca5c`, run [39097211785](https://github.com/chesterchong-dev/OOSYS/actions/runs/39097211785); 22 tests passed, SQLite migration upgrade/downgrade passed, and compileall passed.
+- [x] Record exact-HEAD CI SHA and workflow URL at this verification checkpoint. Any subsequent commit must be independently verified before sign-off.
 - [x] Confirm canonical domain ownership against the user-defined planning/CRM/Sales boundaries and document module responsibilities in DOMAIN_OWNERSHIP.md.
-- [x] Document the remaining Phase 01 governance acceptance gates and explicit deferred scope; Phase 01 sign-off remains blocked only by exact-current-HEAD CI verification and recording its evidence.
+- [x] Document the remaining Phase 01 governance acceptance gates and explicit deferred scope. Exact-current-HEAD CI evidence is now recorded; Phase 01 remains open pending broader acceptance review and the explicit limitations below.
 
-Phase 01 remains open until all acceptance gates are verified and documented. SQLite migration tests are not live PostgreSQL integration; no PostgreSQL pass is claimed. Traceability does not imply implementation. Do not mark Phase 01 complete or begin Phase 02 without verified acceptance evidence.
+Phase 01 remains IN PROGRESS. Exact-HEAD CI is now verified, but CI is not the sole acceptance gate. SQLite migration tests are not live PostgreSQL integration; no PostgreSQL pass is claimed. Traceability does not imply implementation. Do not mark Phase 01 complete or begin Phase 02 without verified acceptance evidence.
