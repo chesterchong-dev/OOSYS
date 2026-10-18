@@ -2,13 +2,13 @@
 
 **Updated:** 2026-10-18  
 **Current phase:** Phase 02 — Identity, Authentication & Multi-Tenancy  
-**Status:** IN PROGRESS — Phase 02 implementation and verification
+**Status:** Phase 02 core scope complete — exact-SHA CI verified; not production certification
 
 | Phase | Status | Verified scope |
 |---|---|---|
 | Phase 00 — Repository Audit & Development Baseline | Complete | Repository/source inventory, 87-row requirements register and crosswalk, limitations and baseline CI evidence. Audit/traceability only. |
 | Phase 01 — Architecture & Development Governance | Complete (foundation scope) | Modular-monolith contract, injectable settings, route/error contracts, lazy SQLAlchemy lifecycle, Alembic migration, SQLite lifecycle tests and PostgreSQL 16 migration/persistence smoke verification. Exact-SHA CI run [39104578116](https://github.com/chesterchong-dev/OOSYS/actions/runs/39104578116) passed on implementation checkpoint `1e730d4d9e14f5a021b7114c31b58bcc5216eb4f`: 22 tests, SQLite migration upgrade/downgrade, PostgreSQL 16 migration + insert/read + constraint check + downgrade, and compileall. Final documentation commit must also pass exact-SHA CI. This accepts foundation scope only, not product completeness or production readiness. |
-| Phase 02 — Identity, Authentication & Multi-Tenancy | In progress — acceptance open | Code commit 0a238a6926ab6b1296c42c2096dbcbb5922bc40e passed CI run [39105886707](https://github.com/chesterchong-dev/OOSYS/actions/runs/39105886707): 37 tests, 93% app.identity coverage, SQLite and PostgreSQL migration checks, persistence/constraint smoke test and compileall. Remaining blockers: PostgreSQL RLS, password-reset/invitation delivery, organisation hierarchy, production rate-limit hardening. See docs/PHASE_02_IDENTITY_MULTITENANCY.md. |
+| Phase 02 — Identity, Authentication & Multi-Tenancy | Complete (core scope; production hardening remains) | Exact-SHA CI run [39108956345](https://github.com/chesterchong-dev/OOSYS/actions/runs/39108956345) passed on `f39dbc27d52a40c7d832eba5f3b2dc2c91631fae`: 45 tests, 91% overall application coverage, SQLite migration upgrade/downgrade, PostgreSQL migration/persistence/constraint checks, restricted-role RLS denial probe and compileall. Identity, sessions, RBAC, hierarchy, reset/invitation flows and identity-table RLS are implemented. External security review and RLS coverage for future business-module tables remain deployment/phase gates. See docs/PHASE_02_IDENTITY_MULTITENANCY.md. |
 
 ## Phase 01 acceptance gates
 

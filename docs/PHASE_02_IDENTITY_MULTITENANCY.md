@@ -1,57 +1,47 @@
 # Phase 02 — Identity, Authentication & Multi-Tenancy
 
 ## Status
-**Code implemented and CI-verified at commit 0a238a6926ab6b1296c42c2096dbcbb5922bc40e; Phase 02 remains open for documented scope gaps and production security hardening.**
 
-## Scope delivered in this increment
-- User and organisation bootstrap, account profile update, organisation update/archive.
-- Organisation membership list, add existing user, status changes, and tenant-aware role assignment.
-- Argon2 password hashing via pwdlib; opaque bearer sessions with only SHA-256 digests persisted; expiry, logout, logout-all, password change and organisation switching.
-- RBAC permission catalogue and organisation-scoped roles/assignments; role creation cannot grant permissions the actor does not possess.
-- Server-side principal resolution from a live session and active membership; cross-tenant organisation routes return 404.
-- Database-backed failed-login attempt records keyed by hashed email and IP; limit of eight failures in a rolling 15-minute window.
-- Audit events for registration, authentication outcomes, logout, password change, organisation changes, membership changes and role creation.
-- Migration 20261018_0002 extends existing 20261018_0001; existing platform settings schema is preserved.
+**Core Phase 02 scope is implemented and verified.** Exact-SHA CI run [39108956345](https://github.com/chesterchong-dev/OOSYS/actions/runs/39108956345) passed on commit `f39dbc27d52a40c7d832eba5f3b2dc2c91631fae`: 45 tests, 91% overall application coverage, SQLite migration upgrade/downgrade, PostgreSQL migration/persistence/constraint checks, a PostgreSQL RLS cross-tenant denial probe using a non-owner application role, and compileall. This is not a claim of production certification or external security review.
+
+## Delivered scope
+
+- Registration (disabled by default), login, logout, logout-all, profile updates, password changes, account deactivation and organisation switching.
+- Argon2 password hashing; opaque random bearer tokens; only token digests are stored; expiry and server-side revocation.
+- Login failure throttling with hashed email/IP identifiers, PostgreSQL advisory locks and bounded retention cleanup.
+- Tenant-scoped organisation lifecycle, memberships, roles, permission assignments and audit-event queries.
+- Least-privilege role management: actors cannot grant permissions they do not possess.
+- Business unit, location, department and team hierarchy with tenant scope, valid parent-type checks, bounded listing, audit events and soft archival.
+- SMTP-backed password reset and invitations for existing OOSYS accounts. Reset/invitation tokens are one-time, hashed at rest, time-limited and replay-protected. Reset revokes all sessions; invitation acceptance requires an authenticated account whose email matches the invite.
+- Composite tenant foreign keys and PostgreSQL RLS for organisations, memberships, roles, role-permission assignments, membership-role assignments, sessions, audit events, password-reset tokens, hierarchy units and invitations.
+- Versioned migrations `20261018_0002` through `20261018_0005`; requirements, architecture contracts and phase records updated.
 
 ## API contract
-All endpoints are mounted under configured API prefix (default /api/v1):
-- POST /auth/register (disabled by default; enable OOSYS_ALLOW_SELF_REGISTRATION only for controlled onboarding)
-- POST /auth/login, POST /auth/logout, POST /auth/logout-all
-- GET /auth/me, PATCH /auth/me, POST /auth/me/password
-- POST /auth/me/deactivate
-- POST /auth/switch-organization/{organization_id}
-- GET/PATCH /organizations/{organization_id}
-- POST /organizations/{organization_id}/archive
-- GET/POST /organizations/{organization_id}/members
-- PATCH /organizations/{organization_id}/members/{user_id}
-- GET/POST /organizations/{organization_id}/roles
-- PATCH /organizations/{organization_id}/roles/{role_id}
-- POST /organizations/{organization_id}/roles/{role_id}/archive
-- GET /organizations/{organization_id}/permissions
-- GET /organizations/{organization_id}/audit-events
 
-Bearer token transport is intentional: clients must protect access tokens and send them in the Authorization header. Tokens are opaque, random, server-side revocable and not JWTs. Cookie/CSRF handling is therefore not used by this API. CORS remains deployment configuration and must use explicit allowed origins if browser clients are introduced.
+All endpoints use the configured API prefix (default `/api/v1`).
 
-## Security limitations requiring closure
-- The identity module combines app-level tenant scoping, same-tenant composite foreign keys and PostgreSQL RLS policies. Deploy using a non-superuser application role; PostgreSQL superusers bypass RLS.
-- Login limiting is database-backed but concurrency/cluster guarantees and cleanup/retention need a production review; enforce edge/IP throttling as defence in depth.
-- Public self-service registration must be gated behind controlled onboarding before deployment.
-- Email invitations are SMTP-backed for existing accounts; acceptance requires an authenticated session matching the invited email.
-- Password reset is SMTP-backed with single-use hashed tokens, 30-minute expiry, generic account response, session revocation and replay prevention.
-- No dedicated platform-global administrator is exposed. Global permission vocabulary is code-owned, not mutable by tenant administrators.
-- Account self-service password change revokes all sessions. A user must authenticate again.
-- No live external penetration test or dependency vulnerability scan is claimed.
+- Authentication: `POST /auth/register`, `POST /auth/login`, `POST /auth/logout`, `POST /auth/logout-all`, `GET /auth/me`, `PATCH /auth/me`, `POST /auth/me/password`, `POST /auth/me/deactivate`, `POST /auth/switch-organization/{organization_id}`.
+- Recovery: `POST /auth/password-reset/request`, `POST /auth/password-reset/confirm`.
+- Invitations: `POST /organizations/{organization_id}/invitations`, `POST /auth/invitations/accept`.
+- Organisation/membership/roles/audit: `GET/PATCH /organizations/{organization_id}`, archive, member, role, permission and audit-event routes described in `docs/architecture/IDENTITY_ACCESS_CONTRACT.md`.
+- Hierarchy: `GET/POST /organizations/{organization_id}/units`, `PATCH /organizations/{organization_id}/units/{unit_id}`, and `POST /organizations/{organization_id}/units/{unit_id}/archive`.
+
+## Required deployment configuration and security notes
+
+- Registration stays disabled unless `OOSYS_ALLOW_SELF_REGISTRATION=true`; public onboarding must be deliberately controlled.
+- Password recovery requires `OOSYS_SMTP_HOST`, `OOSYS_EMAIL_FROM` and `OOSYS_PASSWORD_RESET_URL`. Invitations require SMTP plus `OOSYS_INVITATION_ACCEPT_URL`. SMTP uses STARTTLS; configure a trusted relay and valid sender.
+- Set `OOSYS_LOGIN_RATE_LIMIT_SECRET` in production. Use a non-superuser PostgreSQL application role that does not own the tables; superusers bypass RLS. CI exercises actual API requests using a restricted role.
+- Bearer tokens must be protected by clients. Cookie/CSRF handling is not part of this API; configure explicit CORS origins if browser clients are added.
+- Identity-global user lookup, the global permission catalogue and hashed login-attempt telemetry are not tenant-owned business records; APIs must continue to avoid exposing them outside authorised flows.
+- No external penetration test, independent security certification or production deployment is claimed. RLS policies must be added and denial-tested for every future tenant-owned module/table. Distributed edge/IP throttling and operational retention monitoring remain deployment hardening.
 
 ## Acceptance checklist
-- [x] Versioned identity migration chained after the existing platform settings migration.
-- [x] Password hashing and opaque revocable session implementation.
-- [x] Server-side permission dependency and trusted tenant context.
-- [x] Tenant-scoped organisation/member/role/audit APIs with pagination on collection endpoints.
-- [x] Composite constraints prevent cross-tenant membership-role and role-permission references.
-- [x] Audit events exclude credential values.
-- [x] CI run 39105886707 passed on implementation commit 0a238a6926ab6b1296c42c2096dbcbb5922bc40e: 37 tests, SQLite migration upgrade/downgrade, PostgreSQL migration/persistence/constraint check/downgrade, and compileall.
-- [x] Cross-tenant read/update denial, expired/revoked sessions, login throttling, and role privilege-escalation tests pass on CI.
-- [x] Coverage measured at 93% across app.identity in CI run 39105886707 (not a production-readiness certification).
-- [x] Organisation hierarchy CRUD with tenant scoping, parent-type validation, archive rules and audit events.\n- [x] SMTP-backed password reset and invitation acceptance with expiry and replay prevention.\n- [x] PostgreSQL RLS policies and a CI cross-tenant row-visibility denial probe.\n- [x] PostgreSQL advisory-lock login throttling and bounded attempt retention.\n- [ ] External security review and broader module tenant coverage.
 
-Phase 02 remains OPEN until final CI is green and the remaining external security review and broader module tenant-coverage requirements are addressed.
+- [x] Identity, authentication, sessions, reset, invitations, RBAC and tenant-scoped organisation lifecycle.
+- [x] Business-unit/location/department/team hierarchy and audit trail.
+- [x] Application tenant checks, composite same-tenant constraints and PostgreSQL RLS.
+- [x] Negative tests for cross-tenant access, privilege escalation, invalid hierarchy parentage, reset/invitation replay and session revocation.
+- [x] CI run 39108956345 passed on `f39dbc27d52a40c7d832eba5f3b2dc2c91631fae`: 45 tests, 91% overall application coverage, SQLite/PostgreSQL migration checks, PostgreSQL RLS denial probe and compileall.
+- [x] Requirements register and architecture/security limitations documented.
+
+**Phase 02 core scope is complete.** Production launch still requires environment-specific security review, correct SMTP/CORS configuration, non-superuser database credentials and tenant RLS coverage for every subsequently implemented business module.
