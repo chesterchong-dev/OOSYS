@@ -2,10 +2,10 @@
 
 ## Repository and implementation
 
-- The development branch remains a starter scaffold, not the full OOSYS product.
-- app/main.py provides the root and liveness endpoints plus a composition root. The versioned API router is currently empty; no business endpoints are registered under /api/v1.
-- Authentication, session expiry/revocation, RBAC, tenant enforcement, business repositories/domain services, frontend and deployment manifests are not implemented. PostgreSQL 16 now has a CI migration/persistence smoke check; this does not constitute a full business persistence integration or production deployment verification. Alembic and an initial `platform_settings` migration now exist; this is only a deployment-wide non-secret configuration foundation, not a settings CRUD module or tenant settings implementation. A lazy SQLAlchemy engine/session factory and safe API error contract do not substitute for domain persistence or authentication.
-- Requirements statuses remain 84 missing and 3 partial; source-map traceability does not mean the requirements are implemented.
+- The development branch remains a partial platform foundation, not the full OOSYS product.
+- app/main.py preserves the root and liveness endpoints and now composes the Phase 02 identity APIs under the configured /api/v1 prefix. Other business-domain endpoints, frontend and deployment manifests remain unimplemented.
+- Phase 02 now adds initial identity/session/RBAC and tenant administration APIs plus migration 20261018_0002; acceptance remains open pending exact-HEAD CI, adversarial security tests, coverage measurement, RLS and password-reset/invitation delivery. Business repositories/domain services, frontend and deployment manifests remain unimplemented. PostgreSQL 16 now has a CI migration/persistence smoke check; this does not constitute a full business persistence integration or production deployment verification. Alembic and an initial `platform_settings` migration now exist; this is only a deployment-wide non-secret configuration foundation, not a settings CRUD module or tenant settings implementation. A lazy SQLAlchemy engine/session factory and safe API error contract do not substitute for domain persistence or authentication.
+- Requirements statuses are now 80 missing and 7 partial after the Phase 02 identity increment; statuses reflect only partial coverage where requirements remain incomplete; source-map traceability does not mean the requirements are implemented.
 - Canonical planning boundaries are recorded in docs/architecture/DOMAIN_OWNERSHIP.md and ADR-0002. MRP owns material/demand planning and planned requirements/schedules; CRM owns customer pipeline forecasting; Procurement owns purchasing execution; Manufacturing Execution owns actual production. Detailed domain schemas and APIs remain unimplemented.
 
 ## Verification

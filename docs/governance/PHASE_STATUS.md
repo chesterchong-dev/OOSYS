@@ -1,14 +1,14 @@
 # OOSYS Phase Status
 
 **Updated:** 2026-10-18  
-**Current phase:** Phase 01 — Architecture & Development Governance  
-**Status:** COMPLETE — Phase 01 foundation acceptance only
+**Current phase:** Phase 02 — Identity, Authentication & Multi-Tenancy  
+**Status:** IN PROGRESS — Phase 02 implementation and verification
 
 | Phase | Status | Verified scope |
 |---|---|---|
 | Phase 00 — Repository Audit & Development Baseline | Complete | Repository/source inventory, 87-row requirements register and crosswalk, limitations and baseline CI evidence. Audit/traceability only. |
 | Phase 01 — Architecture & Development Governance | Complete (foundation scope) | Modular-monolith contract, injectable settings, route/error contracts, lazy SQLAlchemy lifecycle, Alembic migration, SQLite lifecycle tests and PostgreSQL 16 migration/persistence smoke verification. Exact-SHA CI run [39104578116](https://github.com/chesterchong-dev/OOSYS/actions/runs/39104578116) passed on implementation checkpoint `1e730d4d9e14f5a021b7114c31b58bcc5216eb4f`: 22 tests, SQLite migration upgrade/downgrade, PostgreSQL 16 migration + insert/read + constraint check + downgrade, and compileall. Final documentation commit must also pass exact-SHA CI. This accepts foundation scope only, not product completeness or production readiness. |
-| Phase 02 — Identity, Authentication & Multi-Tenancy | Not started | Identity/session lifecycle, authorization, tenant isolation, migrations and cross-tenant denial tests. |
+| Phase 02 — Identity, Authentication & Multi-Tenancy | In progress — acceptance open | Identity/session/RBAC and tenant administration code plus migration 20261018_0002 added on development branch. Exact-HEAD CI, security tests, RLS, reset/invitation delivery and coverage verification remain open. See docs/PHASE_02_IDENTITY_MULTITENANCY.md. |
 
 ## Phase 01 acceptance gates
 

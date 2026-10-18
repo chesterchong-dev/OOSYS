@@ -2,4 +2,7 @@
 from fastapi import APIRouter
 
 router = APIRouter()
-# Feature routers are registered here by their owning modules in later phases.
+
+from app.identity.routes import router as identity_router
+
+router.include_router(identity_router)

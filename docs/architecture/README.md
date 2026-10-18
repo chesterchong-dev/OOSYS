@@ -14,3 +14,5 @@
 - `tests/`: unit/API/integration tests grouped by behavior.
 
 Do not create empty placeholder packages for future modules without a real contract or behavior. Add boundaries when the owning phase needs them.
+
+- [Identity & Access Integration Contract](IDENTITY_ACCESS_CONTRACT.md)

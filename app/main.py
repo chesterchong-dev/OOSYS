@@ -1,4 +1,6 @@
 """OOSYS application composition root."""
+from contextlib import asynccontextmanager
+
 from fastapi import FastAPI
 
 from app.api.errors import install_error_handlers
@@ -10,11 +12,22 @@ from app.core.config import Settings, get_settings
 def create_app(settings: Settings | None = None) -> FastAPI:
     """Build the API with injectable settings and no startup infrastructure calls."""
     active_settings = settings or get_settings()
+    @asynccontextmanager
+    async def lifespan(app: FastAPI):
+        yield
+        engine = getattr(app.state, "identity_engine", None)
+        if engine is not None:
+            engine.dispose()
+
     application = FastAPI(
+        lifespan=lifespan,
         title=active_settings.app_name,
         description="Only One System — modular enterprise platform",
         version=active_settings.app_version,
     )
+    application.state.settings = active_settings
+    application.state.identity_engine = None
+    application.state.identity_session_factory = None
     install_error_handlers(application)
     application.include_router(operations_router)
     application.include_router(v1_router, prefix=active_settings.api_prefix)

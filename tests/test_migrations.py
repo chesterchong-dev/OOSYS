@@ -9,6 +9,7 @@ from sqlalchemy.exc import IntegrityError
 
 from app.core.db_base import Base
 from app.platform_config import models  # noqa: F401 - register metadata
+from app.identity import models as identity_models  # noqa: F401 - register identity metadata
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -38,6 +39,10 @@ def test_initial_migration_creates_expected_schema_and_is_repeatable(tmp_path) -
 
         inspector = inspect(engine)
         assert "platform_settings" in inspector.get_table_names()
+        assert "identity_users" in inspector.get_table_names()
+        assert "identity_organizations" in inspector.get_table_names()
+        with engine.connect() as connection:
+            assert connection.exec_driver_sql("SELECT COUNT(*) FROM identity_permissions").scalar_one() == 11
         columns = {column["name"]: column for column in inspector.get_columns("platform_settings")}
         assert set(columns) == {
             "setting_key", "value_json", "description", "created_at", "updated_at"
@@ -50,7 +55,7 @@ def test_initial_migration_creates_expected_schema_and_is_repeatable(tmp_path) -
             for item in inspector.get_check_constraints("platform_settings")
         )
         with engine.connect() as connection:
-            assert connection.exec_driver_sql("SELECT version_num FROM alembic_version").scalar_one() == "20261018_0001"
+            assert connection.exec_driver_sql("SELECT version_num FROM alembic_version").scalar_one() == "20261018_0002"
         assert "platform_settings" in Base.metadata.tables
         with engine.begin() as connection:
             connection.execute(
@@ -85,6 +90,7 @@ def test_migration_can_downgrade_and_upgrade_again(tmp_path) -> None:
         assert "platform_settings" not in inspect(engine).get_table_names()
         upgrade(config, engine)
         assert "platform_settings" in inspect(engine).get_table_names()
+        assert "identity_users" in inspect(engine).get_table_names()
     finally:
         engine.dispose()
 
