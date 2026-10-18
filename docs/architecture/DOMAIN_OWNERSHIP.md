@@ -52,4 +52,4 @@ The connected master map OOSYS — Only One System (198 topics) and Developer Im
 
 The project-library CRM master prompt specifies a real modular-monolith CRM/SFA with database persistence, validated CRUD, search/filter/sort/pagination, frontend integration, and verifiable working behavior—not mockups or fake live data. That prompt is a product specification, not implementation evidence.
 
-The current scaffold has no business-domain packages, domain models, repositories, migrations, identity/session services, frontend or business APIs. The database lifecycle foundation is introduced separately from domain persistence; do not create empty business packages merely to mirror the map.
+The current scaffold has no business-domain packages, domain models, domain repositories, migrations, identity/session services, frontend or business APIs. A generic SQLAlchemy engine/session lifecycle factory now exists, but no schema, model mappings or migration baseline is defined. Do not create empty business packages merely to mirror the map.
