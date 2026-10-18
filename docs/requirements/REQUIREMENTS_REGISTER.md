@@ -4,7 +4,7 @@
 **Canonical CSV:** [requirements_register.csv](./requirements_register.csv)  
 **Source UUID crosswalk:** [REQUIREMENT_SOURCE_NODE_CROSSWALK.csv](./REQUIREMENT_SOURCE_NODE_CROSSWALK.csv)
 
-The live register contains 87 requirement rows, 14 columns and 87 unique stable IDs. Implementation statuses remain 80 `missing` and 7 `partial`. “Missing” means no implementation was found in the audited branch snapshot, not that no work exists elsewhere. Phase 01 foundation tests do not implement the 87 business/platform requirements. Phase 02 implementation evidence is recorded for identity/tenant requirements CORE-001, CORE-002, CORE-003 and CORE-006 as partial pending acceptance verification; CORE-004 organisation hierarchy remains missing.
+The live register contains 87 requirement rows, 14 columns and 87 unique stable IDs. Implementation statuses remain 80 `missing` and 7 `partial`. “Missing” means no implementation was found in the audited branch snapshot, not that no work exists elsewhere. Phase 01 foundation tests do not implement the 87 business/platform requirements. Phase 02 implementation evidence is recorded for identity/tenant requirements CORE-001, CORE-002, CORE-003 and CORE-006 as partial with CI evidence (37 tests and 93% app.identity coverage on code commit 0a238a6926ab6b1296c42c2096dbcbb5922bc40e); requirements remain partial where scope is incomplete. CORE-004 organisation hierarchy remains missing.
 
 ## Traceability
 

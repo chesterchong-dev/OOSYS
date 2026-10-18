@@ -1,7 +1,7 @@
 # Phase 02 — Identity, Authentication & Multi-Tenancy
 
 ## Status
-**Implemented in the development branch; acceptance remains open pending CI and security verification.**
+**Code implemented and CI-verified at commit 0a238a6926ab6b1296c42c2096dbcbb5922bc40e; Phase 02 remains open for documented scope gaps and production security hardening.**
 
 ## Scope delivered in this increment
 - User and organisation bootstrap, account profile update, organisation update/archive.
@@ -49,9 +49,9 @@ Bearer token transport is intentional: clients must protect access tokens and se
 - [x] Tenant-scoped organisation/member/role/audit APIs with pagination on collection endpoints.
 - [x] Composite constraints prevent cross-tenant membership-role and role-permission references.
 - [x] Audit events exclude credential values.
-- [ ] Exact-HEAD CI suite and PostgreSQL migration/security integration pass.
-- [ ] Cross-tenant and privilege escalation API tests pass on CI.
-- [ ] Meaningful business-logic coverage measured at 90% or a documented evidence-based exception.
-- [ ] PostgreSQL RLS, password reset/invitation delivery, and production rate-limit hardening completed or accepted as explicit blockers.
+- [x] CI run 39105886707 passed on implementation commit 0a238a6926ab6b1296c42c2096dbcbb5922bc40e: 37 tests, SQLite migration upgrade/downgrade, PostgreSQL migration/persistence/constraint check/downgrade, and compileall.
+- [x] Cross-tenant read/update denial, expired/revoked sessions, login throttling, and role privilege-escalation tests pass on CI.
+- [x] Coverage measured at 93% across app.identity in CI run 39105886707 (not a production-readiness certification).
+- [ ] PostgreSQL RLS, password reset/invitation delivery, organisation hierarchy, distributed rate-limit hardening and external security review.
 
 Phase 02 remains OPEN until all mandatory acceptance criteria are verified.
