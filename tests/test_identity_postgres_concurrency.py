@@ -28,9 +28,9 @@ def _new_app():
         database_url=SecretStr(os.environ["OOSYS_DATABASE_URL"]),
         allow_self_registration=True,
         smtp_host="localhost",
-        email_from="noreply@example.test",
-        password_reset_url="https://example.test/reset",
-        invitation_accept_url="https://example.test/accept",
+        email_from="noreply@example.com",
+        password_reset_url="https://example.com/reset",
+        invitation_accept_url="https://example.com/accept",
     )
     return create_app(settings), suffix
 
@@ -59,7 +59,7 @@ def _post_concurrently(app, path: str, requests: list[tuple[dict[str, str], dict
 def test_concurrent_password_reset_confirmation_is_single_use(monkeypatch):
     app, suffix = _new_app()
     client = TestClient(app)
-    email = f"reset-{suffix}@example.test"
+    email = f"reset-{suffix}@example.com"
     user = _register(client, email, f"reset-{suffix}")
     sent = []
     monkeypatch.setattr(
@@ -80,8 +80,8 @@ def test_concurrent_password_reset_confirmation_is_single_use(monkeypatch):
 def test_concurrent_invitation_acceptance_is_single_use(monkeypatch):
     app, suffix = _new_app()
     client = TestClient(app)
-    owner = _register(client, f"owner-{suffix}@example.test", f"owner-{suffix}")
-    invitee_email = f"invitee-{suffix}@example.test"
+    owner = _register(client, f"owner-{suffix}@example.com", f"owner-{suffix}")
+    invitee_email = f"invitee-{suffix}@example.com"
     invitee = _register(client, invitee_email, f"invitee-{suffix}")
     second_session = client.post("/api/v1/auth/login", json={
         "email": invitee_email,
