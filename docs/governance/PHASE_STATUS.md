@@ -7,7 +7,7 @@
 | Phase | Status | Verified scope |
 |---|---|---|
 | Phase 00 — Repository Audit & Development Baseline | Complete | Repository/source inventory, 87-row requirements register and crosswalk, limitations and baseline CI evidence. Audit/traceability only. |
-| Phase 01 — Architecture & Development Governance | In progress | Modular-monolith contract, injectable settings, root/liveness compatibility, configured-prefix test, no-network app construction test, proposed domain ownership, requirements crosswalk reconciliation and governance docs. The successful code/test checkpoint 24de54bcf573c1179df8e7855d4060af1cc33b35 is recorded in the append-only evidence log; subsequent documentation/evidence commits require independent exact-SHA CI verification. |
+| Phase 01 — Architecture & Development Governance | In progress | Modular-monolith contract, injectable settings, root/liveness compatibility, configured-prefix test, no-network app construction test, proposed domain ownership, requirements crosswalk reconciliation and governance docs. Database-foundation checkpoint 7b196c8692f0a7459cd8d86ffc3dcf2763e3cbf7 passed exact-SHA CI run [39095937584](https://github.com/chesterchong-dev/OOSYS/actions/runs/39095937584): 12 tests passed and compileall passed. Any later evidence-only commit still requires its own exact-SHA CI verification. |
 | Phase 02 — Identity, Authentication & Multi-Tenancy | Not started | Identity/session lifecycle, authorization, tenant isolation, migrations and cross-tenant denial tests. |
 
 ## Phase 01 acceptance gates
