@@ -156,3 +156,10 @@ A prior local clone failed because runtime DNS could not resolve `github.com`. F
 - That commit changed only the five Phase 00 documentation files. `main` remained `568a208d81ecbba293c5b563df4402230846bc5c`; the development branch was 24 ahead, 0 behind. The CSV register/crosswalk and Xmind maps were read-only during that reconciliation.
 - This append preserves all earlier checkpoints as historical evidence. The current closure follow-up's resulting SHA and exact-SHA CI result are verified separately after the write.
 - Phase 00 remains **COMPLETE — audit/source-traceability baseline only**; implementation statuses remain 84 `missing`, 3 `partial`. Phase 01 has not started.
+
+
+## Phase 01 start and verification — 2026-10-18
+- Phase 00 final pre-Phase-01 checkpoint `20d26c43c2de1e8c7907240b08f3cd51cc07b624` passed exact-SHA run [39094295191](https://github.com/chesterchong-dev/OOSYS/actions/runs/39094295191).
+- Phase 01 foundation commit `d3a939bfdc17d51ce23beb68b58e9e6788cb07bf` passed exact-SHA run [39094708094](https://github.com/chesterchong-dev/OOSYS/actions/runs/39094708094).
+- The Phase 01 run validates the current architecture scaffold and tests only; it does not verify authentication, tenant isolation, database/migrations, frontend, or production deployment.
+- Phase 01 remains IN PROGRESS. Its acceptance checklist still includes final documentation/blueprint review and closure evidence.
