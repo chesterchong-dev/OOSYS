@@ -39,5 +39,10 @@ jobs:
       - name: Run tests
         run: python -m pytest -q
 
-      - name: Compile application and tests
-        run: python -m compileall -q app tests
+      - name: Validate migration upgrade and downgrade on isolated SQLite
+        run: |
+          OOSYS_DATABASE_URL=sqlite:///./oosys-ci.db alembic upgrade head
+          OOSYS_DATABASE_URL=sqlite:///./oosys-ci.db alembic downgrade base
+
+      - name: Compile application, migrations and tests
+        run: python -m compileall -q app migrations tests
