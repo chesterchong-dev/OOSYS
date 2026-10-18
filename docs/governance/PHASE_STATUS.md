@@ -33,7 +33,7 @@
 - [x] Confirm canonical domain ownership against the user-defined planning/CRM/Sales boundaries and document module responsibilities in DOMAIN_OWNERSHIP.md.
 - [x] Document remaining governance gates and deferred scope; acceptance is limited to the architecture foundation, not production readiness.
 
-Phase 01 foundation acceptance is COMPLETE for the explicitly scoped architecture/governance foundation. CI verified the 22-test suite, SQLite migration lifecycle, and PostgreSQL 16 migration/persistence smoke check. This is not a production-readiness claim. Lint/type checks, dependency vulnerability scanning, dedicated security scanning, frontend/deployment and end-to-end checks remain unperformed and are not claimed as passed. Identity, authentication, RBAC and tenant isolation are implemented in Phase 02, which remains OPEN pending final acceptance; other business modules remain future phases.
+Phase 01 foundation acceptance is COMPLETE for the explicitly scoped architecture/governance foundation. CI verified the 22-test suite, SQLite migration lifecycle, and PostgreSQL 16 migration/persistence smoke check. This is not a production-readiness claim. Lint/type checks, dependency vulnerability scanning, dedicated security scanning, frontend/deployment and end-to-end checks remain unperformed and are not claimed as passed. Identity, authentication, RBAC and tenant isolation are implemented in Phase 02, which is COMPLETE for its documented scope; other business modules remain future phases.
 
 ## Governance risks and final acceptance gate
 
