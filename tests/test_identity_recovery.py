@@ -105,7 +105,7 @@ def test_invitation_delivery_failure_revokes_token_and_rejects_unknown_user(tmp_
     app, engine, factory = setup_app(tmp_path)
     try:
         owner = run(request(app, "POST", "/api/v1/auth/register", json=register_payload("ownerfail@example.com", "owner-fail-org"))).json()
-        app.state.settings = Settings(_env_file=None, smtp_host="localhost", email_from="noreply@example.test",
+        app.state.settings = Settings(_env_file=None, allow_self_registration=True, smtp_host="localhost", email_from="noreply@example.test",
             invitation_accept_url="https://example.test/accept")
         from app.identity import recovery_routes
         org = owner["organization"]["id"]
