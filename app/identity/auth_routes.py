@@ -32,6 +32,7 @@ def register(payload: RegisterRequest, request: Request, db: Session = Depends(g
     try:
         with db.begin_nested():
             db.flush()
+            set_tenant_context(db, org.id, user.id, email)
             membership = Membership(organization_id=org.id, user_id=user.id, status="active")
             db.add(membership)
             db.flush()
