@@ -5,9 +5,9 @@
 ## Verified repository
 - Repository: `chesterchong-dev/OOSYS`
 - Development branch: `phase-00-02-starter`
-- Verified pre-reconciliation HEAD: `8f78068c1a6b14039ad893cf98f4173bdb076bb1`
+- Last fully documented verification checkpoint (before final evidence-only update): `cd2c7631b7e816744b0ed558280da13b4078ef27` (`Record Phase 00 reconciliation CI sign-off`).
 - Default branch `main`: `568a208d81ecbba293c5b563df4402230846bc5c`; untouched.
-- Branch comparison at pre-reconciliation verification: 14 commits ahead, 0 behind.
+- At that checkpoint, `main` was `568a208d81ecbba293c5b563df4402230846bc5c`; comparison was 16 ahead, 0 behind.
 
 ## Product sources and traceability
 - Master product map `QsPytPPH`: 198 topics.
@@ -18,7 +18,7 @@
 - Added canonical source-map scope for general settings/configuration, subscription/entitlement management, and SaaS commercial readiness. Existing Xmind topic anchors were preserved; new topic UUIDs were read back from Xmind after edits.
 
 ## Genuine-checkout verification
-GitHub Actions run [39053700849](https://github.com/chesterchong-dev/OOSYS/actions/runs/39053700849) passed on commit `8f78068c1a6b14039ad893cf98f4173bdb076bb1`:
+GitHub Actions run [39090249092](https://github.com/chesterchong-dev/OOSYS/actions/runs/39090249092) passed on exact checkpoint commit `cd2c7631b7e816744b0ed558280da13b4078ef27`:
 - GitHub-hosted runner checked out the real repository.
 - Python 3.12.15 installed declared dependencies from `requirements.txt`.
 - `python -m pytest -q`: 1 passed, 1 Starlette/httpx deprecation warning.
