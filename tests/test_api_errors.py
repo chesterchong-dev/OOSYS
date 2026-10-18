@@ -3,7 +3,7 @@ import asyncio
 
 import httpx
 from fastapi import HTTPException
-from pydantic import BaseModel
+from pydantic import BaseModel, field_validator
 
 from app.core.config import Settings
 from app.main import create_app
@@ -33,6 +33,13 @@ def test_validation_error_does_not_echo_submitted_input() -> None:
 
     class Payload(BaseModel):
         quantity: int
+
+        @field_validator("quantity", mode="before")
+        @classmethod
+        def reject_private_value(cls, value):
+            if isinstance(value, str):
+                raise ValueError(f"invalid private value: {value}")
+            return value
 
     @app.post("/test-payload")
     def accept_payload(payload: Payload) -> dict[str, int]:
