@@ -45,7 +45,7 @@ def install_error_handlers(application: FastAPI) -> None:
     """Install safe handlers for HTTP, validation and unexpected errors."""
 
     @application.exception_handler(StarletteHTTPException)
-    async def http_error(request: Request, exc: HTTPException) -> JSONResponse:
+    async def http_error(request: Request, exc: StarletteHTTPException) -> JSONResponse:
         del request
         if exc.status_code == 404:
             code, message = "not_found", "Resource not found."
