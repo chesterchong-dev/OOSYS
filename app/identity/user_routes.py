@@ -6,6 +6,7 @@ from app.identity.audit import record_event
 from app.identity.dependencies import Principal, get_identity_session, get_principal
 from app.identity.models import AuthSession, Membership, Organization, User
 from app.identity.security import hash_password, token_digest, utc_now, verify_password
+from app.identity.tenant_context import set_tenant_context
 router = APIRouter()
 
 @router.get("/auth/me")
@@ -61,6 +62,7 @@ def deactivate_me(principal: Principal = Depends(get_principal), db: Session = D
 def switch_organization(organization_id: str, request: Request, db: Session = Depends(get_identity_session),
                         principal: Principal = Depends(get_principal)):
     raw = request.headers.get("Authorization", "").partition(" ")[2].strip()
+    set_tenant_context(db, None, principal.user_id, principal.email)
     auth_session = db.scalar(select(AuthSession).where(AuthSession.token_hash == token_digest(raw),
         AuthSession.user_id == principal.user_id, AuthSession.revoked_at.is_(None)))
     membership = db.scalar(select(Membership).where(Membership.user_id == principal.user_id,
@@ -68,6 +70,7 @@ def switch_organization(organization_id: str, request: Request, db: Session = De
     org = db.get(Organization, organization_id)
     if not auth_session or not membership or not org or org.status != "active" or org.archived_at is not None:
         raise HTTPException(404, "Organisation not found")
+    set_tenant_context(db, organization_id, principal.user_id, principal.email)
     auth_session.active_organization_id = organization_id
     record_event(db, action="auth.organization_switch", target_type="session", organization_id=organization_id,
                  actor_user_id=principal.user_id, target_id=auth_session.id)

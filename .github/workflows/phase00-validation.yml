@@ -103,7 +103,10 @@ jobs:
                   connection.execute(text("GRANT USAGE ON SCHEMA public TO oosys_app_test"))
                   connection.execute(text("GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public TO oosys_app_test"))
               app_url = "postgresql+psycopg://oosys_app_test:ci-only-secret@localhost:5432/oosys_ci"
-              app = create_app(Settings(_env_file=None, database_url=SecretStr(app_url), allow_self_registration=True))
+              app = create_app(Settings(_env_file=None, database_url=SecretStr(app_url), allow_self_registration=True, smtp_host="localhost", email_from="noreply@example.com", invitation_accept_url="https://example.com/accept"))
+              from app.identity import recovery_routes
+              sent_invitations = []
+              recovery_routes.send_invitation = lambda settings, recipient, token, org_id: sent_invitations.append((recipient, token, org_id))
               with TestClient(app) as client:
                   first = client.post("/api/v1/auth/register", json={"email":"rls-a@example.com","password":"Rls-strong-password-123","full_name":"RLS A","organization_name":"RLS A","organization_slug":"rls-a-org"})
                   second = client.post("/api/v1/auth/register", json={"email":"rls-b@example.com","password":"Rls-strong-password-123","full_name":"RLS B","organization_name":"RLS B","organization_slug":"rls-b-org"})
@@ -114,6 +117,21 @@ jobs:
                   headers_a = {"Authorization": f"Bearer {token_a}"}
                   assert client.get("/api/v1/auth/me", headers=headers_a).status_code == 200
                   assert client.get(f"/api/v1/organizations/{org_b}", headers=headers_a).status_code == 404
+                  org_a = first.json()["organization"]["id"]
+                  roles = client.get(f"/api/v1/organizations/{org_a}/roles", headers=headers_a)
+                  assert roles.status_code == 200, roles.text
+                  owner_role = next(role["id"] for role in roles.json() if role["name"] == "Owner")
+                  invitation = client.post(f"/api/v1/organizations/{org_a}/invitations", headers=headers_a,
+                      json={"email":"rls-b@example.com","role_id":owner_role})
+                  assert invitation.status_code == 202, invitation.text
+                  assert sent_invitations and sent_invitations[0][0] == "rls-b@example.com"
+                  headers_b = {"Authorization": f"Bearer {second.json()['access_token']}"}
+                  accepted = client.post("/api/v1/auth/invitations/accept", headers=headers_b,
+                      json={"token": sent_invitations[0][1]})
+                  assert accepted.status_code == 201, accepted.text
+                  switched = client.post(f"/api/v1/auth/switch-organization/{org_a}", headers=headers_b)
+                  assert switched.status_code == 200, switched.text
+                  assert client.get("/api/v1/auth/me", headers=headers_b).json()["organization_id"] == org_a
               try:
                   with engine.begin() as connection:
                       connection.execute(
