@@ -1,15 +1,23 @@
 # OOSYS Requirements Register
 
-**Status:** PARTIAL — reconciled against baseline `phase-00-02-starter` at `029fc55bd74a69a19532b5a25099fa65469c5403`.  
-**Canonical CSV:** [`requirements_register.csv`](./requirements_register.csv)  
-**Source UUID crosswalk:** [`REQUIREMENT_SOURCE_NODE_CROSSWALK.csv`](./REQUIREMENT_SOURCE_NODE_CROSSWALK.csv)
+**Status:** PARTIAL — Phase 00 traceability artifact; implementation status is not inferred from the roadmap.  
+**Canonical CSV:** [requirements_register.csv](./requirements_register.csv)  
+**Source UUID crosswalk:** [REQUIREMENT_SOURCE_NODE_CROSSWALK.csv](./REQUIREMENT_SOURCE_NODE_CROSSWALK.csv)
 
-The register preserves 87 requirement rows, 14 columns and 87 stable IDs. Statuses remain 84 `missing` and 3 `partial`. “Missing” means no implementation was found in the audited branch snapshot, not that no work exists elsewhere.
+The live register contains 87 requirement rows, 14 columns and 87 unique stable IDs. Implementation statuses remain 84 `missing` and 3 `partial`. “Missing” means no implementation was found in the audited branch snapshot, not that no work exists elsewhere. Phase 01 foundation tests do not implement the 87 business/platform requirements and do not justify changing their statuses.
 
 ## Traceability
-Each row's `Source Location` points to the crosswalk and verified topic UUID. Match counts: exact_title=15, semantic_feature=34, semantic_parent=32, partial_coverage=1, proxy_gap=2, duplicate_title_disambiguated=3. `partial_coverage` means verified topics cover part of the requirement but leave material scope unspecified. `proxy_gap` means only a related parent topic exists, not adequate direct traceability.
+
+The live crosswalk contains 87 rows and 8 columns, with the same 87 requirement IDs as the register. Normalized mapping counts are: exact_title=15, semantic_feature=37 (34 semantic feature matches plus 3 resolved dedicated source topics for settings/configuration, subscription/entitlements, and SaaS commercial readiness), semantic_parent=32, duplicate_title_disambiguated=3. There are no unresolved proxy-gap or partial-coverage classifications in the current crosswalk. The long “Resolved” descriptions in the CSV classification column are normalized as semantic-feature coverage for these counts; preserve the detailed review notes.
+
+The canonical sources were inspected through the connected Xmind account:
+- Master product map, “OOSYS — Only One System”: 198 topics.
+- Developer Implementation Blueprint: four sheets with 143, 173, 132 and 181 topics (629 total).
+
+Traceability confirms where requirements are represented in the source maps; it is not proof of implemented functionality. Cross-domain ownership overlaps are documented in [DOMAIN_OWNERSHIP.md](../architecture/DOMAIN_OWNERSHIP.md) as proposed boundaries requiring product-owner sign-off.
 
 ## Status rules
+
 - `verified implemented`: code reviewed and acceptance evidence executed.
 - `implemented, unverified`: implementation exists but acceptance verification is incomplete.
 - `partial`: only part of the requirement is evidenced in the branch.
