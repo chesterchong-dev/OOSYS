@@ -2,13 +2,13 @@
 
 **Updated:** 2026-10-18  
 **Current phase:** Phase 02 — Identity, Authentication & Multi-Tenancy  
-**Status:** Phase 02 core scope complete — exact-SHA CI verified; not production certification
+**Status:** Phase 02 OPEN — implementation and CI verified; final acceptance gates remain unverified
 
 | Phase | Status | Verified scope |
 |---|---|---|
 | Phase 00 — Repository Audit & Development Baseline | Complete | Repository/source inventory, 87-row requirements register and crosswalk, limitations and baseline CI evidence. Audit/traceability only. |
 | Phase 01 — Architecture & Development Governance | Complete (foundation scope) | Modular-monolith contract, injectable settings, route/error contracts, lazy SQLAlchemy lifecycle, Alembic migration, SQLite lifecycle tests and PostgreSQL 16 migration/persistence smoke verification. Exact-SHA CI run [39104578116](https://github.com/chesterchong-dev/OOSYS/actions/runs/39104578116) passed on implementation checkpoint `1e730d4d9e14f5a021b7114c31b58bcc5216eb4f`: 22 tests, SQLite migration upgrade/downgrade, PostgreSQL 16 migration + insert/read + constraint check + downgrade, and compileall. Final documentation commit must also pass exact-SHA CI. This accepts foundation scope only, not product completeness or production readiness. |
-| Phase 02 — Identity, Authentication & Multi-Tenancy | Complete (core scope; production hardening remains) | Exact-SHA CI run [39108956345](https://github.com/chesterchong-dev/OOSYS/actions/runs/39108956345) passed on `f39dbc27d52a40c7d832eba5f3b2dc2c91631fae`: 45 tests, 91% overall application coverage, SQLite migration upgrade/downgrade, PostgreSQL migration/persistence/constraint checks, restricted-role RLS denial probe and compileall. Identity, sessions, RBAC, hierarchy, reset/invitation flows and identity-table RLS are implemented. External security review and RLS coverage for future business-module tables remain deployment/phase gates. See docs/PHASE_02_IDENTITY_MULTITENANCY.md. |
+| Phase 02 — Identity, Authentication & Multi-Tenancy | **OPEN — core implementation present; acceptance review pending** | Exact-SHA CI run [39109984768](https://github.com/chesterchong-dev/OOSYS/actions/runs/39109984768) passed on code commit `4ab727b4420c540d755c48cfa6a2b3f520b98914`: 46 tests, 91% `app.identity` coverage, SQLite migration upgrade/downgrade, PostgreSQL migration/persistence/constraint checks, restricted-role RLS probes for tenant/user isolation, invitation acceptance and organisation switching, and compileall. Reset/invitation consumption now uses row locks to prevent concurrent token replay. Final acceptance remains open because local working-tree state and a dedicated concurrency regression are not verified. External security review and RLS coverage for future business-module tables remain gates. See docs/PHASE_02_IDENTITY_MULTITENANCY.md. |
 
 ## Phase 01 acceptance gates
 
