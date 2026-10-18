@@ -1,29 +1,24 @@
-# OOSYS — Phase 00–02 Starter Bundle
+# OOSYS — Only One System
 
-**Status: starter scaffold, not a completed production implementation.**
+**Current state: Phase 01 architecture foundation in progress. Not production-ready.**
 
-This bundle gives the repository a documented baseline for Phase 00 (audit/governance), Phase 01 (architecture foundation), and Phase 02 (identity/authentication/multi-tenancy). It is not a replacement for inspecting and integrating the actual existing repository.
+OOSYS is planned as a modular enterprise platform spanning ERP, WMS, CRM, accounting, HRMS, manufacturing/engineering, integrations and AI. The product map and requirements register remain the scope authority; implementation status must be evidence-based.
 
-## Stack
-- Python 3.12+
-- FastAPI
-- SQLAlchemy 2
-- PostgreSQL (recommended for deployment)
-- Pytest
-
-## Important
-- Authentication and tenant isolation are not implemented in this starter bundle.
-- Do not deploy this scaffold or expose it to the internet as a production service.
-- Keep secrets in environment variables; never commit real credentials.
-- Preserve the existing `.gitignore` in your GitHub repository.
+## Stack baseline
+- Python 3.12+, FastAPI and Pydantic Settings
+- PostgreSQL and SQLAlchemy 2 for planned persistence
+- Pytest and GitHub Actions
+- Frontend and deployment decisions belong to later architecture/implementation phases.
 
 ## Local setup
-1. Create a virtual environment.
-2. Install dependencies: `pip install -r requirements.txt`
+1. Create a virtual environment with Python 3.12.
+2. Install dependencies: `python -m pip install -r requirements.txt`
 3. Run: `uvicorn app.main:app --reload`
-4. Visit `/docs` for the API schema.
+4. Open `/docs` for OpenAPI; liveness is `/health`.
 
-## Next development work
-1. Audit current repository contents and map requirements.
-2. Finalize architecture decisions and migration strategy.
-3. Implement identity and tenant boundaries with migrations, session revocation, rate limiting, audit events, and tests before marking Phase 02 complete.
+## Governance
+- Keep phase work on `phase-00-02-starter`; do not write phase work directly to `main`.
+- CI installs declared dependencies, runs pytest, and compiles app/tests. A green run proves only tested behavior.
+- Never commit secrets. Configuration uses `OOSYS_`-prefixed environment variables.
+- Authentication, sessions, RBAC, tenant isolation, database migrations, business modules, frontend, and production deployment are not yet implemented.
+- See `docs/PHASE_01_ARCHITECTURE.md`, `docs/architecture/README.md`, and `docs/decisions/`.
