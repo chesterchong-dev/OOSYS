@@ -24,7 +24,7 @@ Status: IN PROGRESS. This document defines current scaffold boundaries; it does 
 
 Dependency direction: API -> application -> domain/ports. Persistence and infrastructure implement ports. Cross-module communication uses published contracts/events, never another module’s private tables or repository. Do not create empty packages for future modules. Prefer one focused responsibility per file; aim below 150 lines and review around 120 where useful.
 
-Proposed domain ownership and duplicated map-topic resolution are documented in [DOMAIN_OWNERSHIP.md](architecture/DOMAIN_OWNERSHIP.md). That proposal is not yet product-owner sign-off; MRP ownership and CRM/Sales boundaries need explicit review before those domains are implemented.
+Canonical domain ownership boundaries and duplicated map-topic resolution are documented in [DOMAIN_OWNERSHIP.md](architecture/DOMAIN_OWNERSHIP.md), reflecting the user's stated split: MRP owns demand/material planning and planned schedules; CRM owns customer pipeline forecasting; Procurement owns purchase execution; Manufacturing Execution owns actual production execution; Sales & Order Management owns quotes, pricing, orders, fulfilment, delivery, returns and tracking. Treat this as the current architecture baseline; validate detailed workflows and contracts with product requirements before implementing each domain.
 
 ## API and operations
 
