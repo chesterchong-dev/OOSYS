@@ -7,9 +7,9 @@
 - Requirements statuses remain 84 `missing` and 3 `partial`; source-map traceability does not mean the requirements are implemented.
 
 ## Verification
-- GitHub Actions run [39090249092](https://github.com/chesterchong-dev/OOSYS/actions/runs/39090249092) used a genuine checkout, Python 3.12.15 and declared dependencies. Result: 1 test passed, one Starlette/httpx deprecation warning; compileall passed.
+- Latest verified GitHub Actions run [39093554503](https://github.com/chesterchong-dev/OOSYS/actions/runs/39093554503) used a genuine checkout of exact SHA `113e47434bf87fc6881cb9afb8af2857202c55cd`, Python 3.12.15 and declared dependencies. Result: 1 test passed, one Starlette/httpx deprecation warning; compileall passed. Run 39090249092 is historical evidence for an earlier checkpoint.
 - No database/migration integration, coverage, lint/type check, frontend build, dynamic security scan, dependency vulnerability scan, deployment check or end-to-end test has been performed.
-- The verification checkpoint commit is unsigned/unverified; branch protection was recorded as disabled during the prior audit. Repository protection settings were not changed during this reconciliation. The final evidence-only commit's CI must be verified against its exact SHA from GitHub Actions. Keep development changes on the development branch and protect `main` through repository rules.
+- The verification checkpoint commit is unsigned/unverified; branch protection was recorded as disabled during the prior audit. Repository protection settings were not changed during this reconciliation. The latest verified checkpoint is `113e47434bf87fc6881cb9afb8af2857202c55cd`; its exact-SHA CI run 39093554503 passed. Any subsequent documentation commit must be verified separately against its own exact SHA. Keep development changes on the development branch and protect `main` through repository rules.
 
 ## Product traceability
 - Settings/configuration scope is now represented by canonical master-map and blueprint topics.
@@ -20,3 +20,7 @@
 ## Security posture
 - No dynamic penetration test or dependency vulnerability scan has been performed.
 - The scaffold must not be described as secure or production-ready. Implement and verify auth, authorization, tenant isolation, rate limiting, audit events, migrations and security checks in their designated phases.
+
+
+## Current verification checkpoint — 2026-10-18
+Live HEAD is `113e47434bf87fc6881cb9afb8af2857202c55cd`; `main` remains `568a208d81ecbba293c5b563df4402230846bc5c`. The latest successful CI is run `39093554503` against the exact HEAD. Register and crosswalk integrity checks passed; source UUIDs are present in the current maps. These checks do not establish application feature implementation, security, coverage or deployment readiness.
