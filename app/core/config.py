@@ -17,11 +17,11 @@ class Settings(BaseSettings):
     session_ttl_hours: int = Field(default=12, ge=1, le=168)
     login_max_attempts: int = Field(default=8, ge=3, le=50)
     login_window_minutes: int = Field(default=15, ge=1, le=1440)
-    login_rate_limit_secret: SecretStr | None = None
+    login_rate_limit_secret: SecretStr | None = Field(default=None, repr=False)
     smtp_host: str | None = None
     smtp_port: int = Field(default=587, ge=1, le=65535)
     smtp_username: str | None = None
-    smtp_password: SecretStr | None = None
+    smtp_password: SecretStr | None = Field(default=None, repr=False)
     email_from: str | None = None
     password_reset_url: str | None = None
     invitation_accept_url: str | None = None

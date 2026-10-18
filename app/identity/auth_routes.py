@@ -52,11 +52,9 @@ def register(payload: RegisterRequest, request: Request, db: Session = Depends(g
 def login(payload: LoginRequest, request: Request, db: Session = Depends(get_identity_session)):
     email = str(payload.email).lower()
     cutoff = utc_now() - timedelta(minutes=request.app.state.settings.login_window_minutes)
-    secret = request.app.state.settings.login_rate_limit_secret
-    key_secret = secret.get_secret_value() if secret else None
-    email_key = opaque_key(email, key_secret)
+    email_key = opaque_key(email)
     ip = request.client.host if request.client else "unknown"
-    ip_key = opaque_key(ip, key_secret)
+    ip_key = opaque_key(ip)
     # Bound attempt history and serialize checks across PostgreSQL workers.
     db.query(LoginAttempt).filter(LoginAttempt.attempted_at < cutoff - timedelta(days=7)).delete(synchronize_session=False)
     if db.bind and db.bind.dialect.name == "postgresql":

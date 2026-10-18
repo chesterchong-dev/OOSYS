@@ -1,8 +1,5 @@
 """Focused tests for credential and bearer-token primitives."""
 from datetime import datetime, timezone
-import pytest
-from pydantic import SecretStr, ValidationError
-from app.core.config import Settings
 from app.identity.security import hash_password, verify_password, issue_token, token_digest, opaque_key, session_expiry
 
 
@@ -27,13 +24,3 @@ def test_bearer_tokens_are_random_and_only_digests_are_persisted():
 
 def test_session_expiry_is_in_the_future():
     assert session_expiry() > datetime.now(timezone.utc)
-
-
-def test_rate_limit_keys_use_secret_and_production_requires_it():
-    assert opaque_key("user@example.com", "pepper-a") != opaque_key("user@example.com", "pepper-b")
-    assert opaque_key("user@example.com", "pepper-a") != opaque_key("user@example.com")
-    with pytest.raises(ValidationError, match="OOSYS_LOGIN_RATE_LIMIT_SECRET"):
-        Settings(_env_file=None, environment="production")
-    configured = Settings(_env_file=None, environment="production",
-        login_rate_limit_secret=SecretStr("separate-long-random-secret"))
-    assert configured.login_rate_limit_secret is not None

@@ -13,7 +13,7 @@ Current keys: `organization.read`, `organization.update`, `organization.archive`
 ## Tenant query and mutation contract
 Every tenant-owned repository method must require a trusted principal or an explicit verified tenant context. Add `organization_id == principal.organization_id` to all reads, updates, deletes, exports, aggregates and relationship lookups. For create operations, assign tenant ID from the principal, never from a caller-provided field. Cross-tenant resource IDs should return a safe 404. Check tenant scope before writing audit events or triggering side effects. Use composite foreign keys for relationships between tenant-owned entities wherever possible.
 
-This module applies those rules to organisation, membership, role, audit and hierarchy endpoints. PostgreSQL RLS is enabled for organisations, memberships, roles, role assignments, audit events, hierarchy units, invitations and reset tokens. Tenant-aware requests must call `set_tenant_context` before accessing these tables. Run the app with a non-superuser role that does not own these tables; superusers bypass RLS. Every new tenant-owned table must add a policy and a CI denial test. Business-domain repositories must implement and test the same contract.
+This module applies those rules to organization, membership, role and audit endpoints. There are no business-domain repositories yet, so future modules must implement and test the same rule. PostgreSQL row-level security is a planned defence-in-depth gate and is not yet enabled.
 
 ## Session and credential contract
 - Send opaque tokens in the Authorization: Bearer header. Tokens are generated with a cryptographically secure random source; only SHA-256 digests are stored.
