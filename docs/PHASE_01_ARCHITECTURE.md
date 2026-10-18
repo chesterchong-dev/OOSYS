@@ -9,7 +9,7 @@ Status: IN PROGRESS. This document defines current scaffold boundaries; it does 
 - app/core/database.py provides an explicitly invoked SQLAlchemy engine factory, session factory and FastAPI-compatible session dependency. It creates no global engine and opens no connection at import or app construction; missing database configuration fails closed. A schema/migration baseline is deferred until the first real schema is defined.
 - app/api/operations.py exposes unversioned liveness at /health.
 - app/api/v1/router.py currently defines an empty APIRouter placeholder; no business endpoints are registered under /api/v1 yet. The configured prefix is verified by a test-only probe router, and the prefix will appear in the real OpenAPI schema when module routes are registered.
-- Root / and /health behavior are preserved and tested through the public ASGI interface.
+- Root / and /health behavior are preserved and tested through the public ASGI interface.\n- app/api/errors.py defines a stable `{error: {code, message, details?}}` contract. HTTP errors preserve status and headers while using safe messages; validation details omit submitted input; unexpected errors return a generic 500 response.
 - App construction and imports must not connect to databases or external services.
 
 ## Layer responsibilities and dependency direction
@@ -28,7 +28,7 @@ Proposed domain ownership and duplicated map-topic resolution are documented in 
 
 ## API and operations
 
-Business APIs use /api/v1; operational liveness/readiness remains outside business versioning. Validate input at the API boundary and use explicit schemas. Do not expose ORM objects. Errors should use stable codes and safe messages; never expose stack traces, SQL, secrets or private record existence. Preserve / and /health behavior until a documented compatibility change is approved. OpenAPI is the API contract; additive changes may remain in v1, breaking changes need a new version or time-bounded compatibility plan.
+Business APIs use /api/v1; operational liveness/readiness remains outside business versioning. Validate input at the API boundary and use explicit schemas. Do not expose ORM objects. Errors use the stable `ErrorResponse` Pydantic schema and handlers in app/api/errors.py. HTTP exceptions preserve status and headers but do not echo arbitrary exception details. Validation responses include location, message and validator code, but omit rejected input and context. Unexpected exceptions return a generic internal error; stack traces, SQL, secrets and private record existence are not exposed. Preserve / and /health behavior until a documented compatibility change is approved. OpenAPI is the API contract; additive changes may remain in v1, breaking changes need a new version or time-bounded compatibility plan.
 
 ## Configuration and lifecycle
 
@@ -44,4 +44,4 @@ Authentication and server-side authorization are prerequisites for protected API
 
 ## Testing and deferred scope
 
-The current suite covers settings, factory injection, root and liveness behavior, generated OpenAPI basics, configured router prefix, and app construction/basic requests without socket connections. CI uses pytest and compileall; tests should use the public HTTPX ASGI transport rather than deprecated Starlette TestClient integration. Deferred: identity/session lifecycle, RBAC, tenant enforcement, audit persistence, Alembic migration baseline/schema versioning, business modules, frontend, deployment, dependency scanning and production operations.
+The current suite covers settings, factory injection, root and liveness behavior, generated OpenAPI basics, configured router prefix, app construction/basic requests without socket connections, and the HTTP error contract (404, HTTP exceptions, validation failures and unexpected exceptions). CI uses pytest and compileall; tests should use the public HTTPX ASGI transport rather than deprecated Starlette TestClient integration. Deferred: identity/session lifecycle, RBAC, tenant enforcement, audit persistence, Alembic migration baseline/schema versioning, business modules, frontend, deployment, dependency scanning and production operations.
