@@ -8,6 +8,7 @@ from app.identity.dependencies import Principal, get_identity_session, require_p
 from app.identity.models import AuthSession, Membership, MembershipRole, Organization, Role, RolePermission, User
 from app.identity.schemas import MemberCreate, MemberPatch, OrganizationOut, OrganizationPatch, UserOut
 from app.identity.security import utc_now
+from app.identity.tenant_context import set_tenant_context
 router = APIRouter()
 
 @router.get("/organizations/{organization_id}", response_model=OrganizationOut)

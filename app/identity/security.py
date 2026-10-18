@@ -1,5 +1,6 @@
 """Password hashing and opaque, revocable bearer-session primitives."""
 import hashlib
+import hmac
 import secrets
 from datetime import datetime, timedelta, timezone
 from pwdlib import PasswordHash
@@ -28,8 +29,10 @@ def token_digest(raw: str) -> str:
     return hashlib.sha256(raw.encode()).hexdigest()
 
 
-def opaque_key(value: str) -> str:
-    return hashlib.sha256(value.encode()).hexdigest()
+def opaque_key(value: str, secret: str | None = None) -> str:
+    """Return a keyed digest so stored rate-limit keys cannot be cheaply reversed."""
+    key = (secret or "oosys-development-only-rate-limit-key").encode()
+    return hmac.new(key, value.encode(), hashlib.sha256).hexdigest()
 
 
 def session_expiry(hours: int = 12) -> datetime:

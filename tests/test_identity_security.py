@@ -20,6 +20,8 @@ def test_bearer_tokens_are_random_and_only_digests_are_persisted():
     assert digest_a != digest_b
     assert opaque_key("same") == opaque_key("same")
     assert opaque_key("same") != opaque_key("other")
+    assert opaque_key("same", "key-a") != opaque_key("same", "key-b")
+    assert opaque_key("same", "key-a") != opaque_key("same")
 
 
 def test_session_expiry_is_in_the_future():

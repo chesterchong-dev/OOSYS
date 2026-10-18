@@ -1,7 +1,8 @@
 """Password recovery and email-backed organisation invitation workflows."""
 from datetime import timedelta
+import hashlib
 from fastapi import APIRouter, Depends, HTTPException, Request
-from sqlalchemy import select
+from sqlalchemy import select, text
 from sqlalchemy.orm import Session
 from app.identity.audit import record_event
 from app.identity.dependencies import Principal, get_identity_session, get_principal, require_permission
@@ -27,6 +28,13 @@ def request_password_reset(payload: PasswordResetRequest, request: Request, db: 
         return RESET_MESSAGE
     now = utc_now()
     set_tenant_context(db, None, user.id, user.email)
+    if db.bind and db.bind.dialect.name == "postgresql":
+        lock_id = int.from_bytes(hashlib.blake2b(("password-reset:" + user.id).encode(), digest_size=8).digest(), "big", signed=True)
+        db.execute(text("SELECT pg_advisory_xact_lock(:lock_id)"), {"lock_id": lock_id})
+    recent = db.scalar(select(PasswordResetToken.id).where(
+        PasswordResetToken.user_id == user.id, PasswordResetToken.created_at >= now - timedelta(minutes=2)).limit(1))
+    if recent:
+        return RESET_MESSAGE
     db.query(PasswordResetToken).filter(PasswordResetToken.user_id == user.id,
         PasswordResetToken.used_at.is_(None)).update({PasswordResetToken.used_at: now}, synchronize_session=False)
     raw, digest = issue_token()
@@ -109,6 +117,24 @@ def create_invitation(organization_id: str, payload: InvitationCreate, request: 
         db.commit()
         raise HTTPException(503, "Invitation delivery failed")
     return {"message": "Invitation sent."}
+
+
+@router.post("/organizations/{organization_id}/invitations/{invitation_id}/revoke", status_code=204)
+def revoke_invitation(organization_id: str, invitation_id: str,
+    principal: Principal = Depends(require_permission("members.invite")), db: Session = Depends(get_identity_session)):
+    if principal.organization_id != organization_id:
+        raise HTTPException(404, "Organisation not found")
+    invitation = db.scalar(select(OrganizationInvitation).where(
+        OrganizationInvitation.id == invitation_id,
+        OrganizationInvitation.organization_id == organization_id,
+        OrganizationInvitation.accepted_at.is_(None), OrganizationInvitation.revoked_at.is_(None)))
+    if invitation is None:
+        raise HTTPException(404, "Invitation not found")
+    invitation.revoked_at = utc_now()
+    record_event(db, action="organization.invitation.revoke", target_type="invitation",
+        organization_id=organization_id, actor_user_id=principal.user_id, target_id=invitation.id)
+    db.commit()
+    return None
 
 
 @router.post("/auth/invitations/accept", status_code=201)
