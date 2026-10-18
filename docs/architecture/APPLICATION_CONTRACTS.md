@@ -10,7 +10,7 @@
 - **Repository/persistence adapter:** implements an explicit port owned by the application/domain boundary. It owns SQL and ORM mapping, not business policy.
 - **Composition root:** constructs adapters and injects dependencies. Importing modules and creating the FastAPI app must not connect to external systems.
 
-Dependency direction is API → application → domain/ports; infrastructure implements ports and is wired at the composition root. Cross-domain calls use published application contracts or versioned events, never another domain's private ORM/table.
+The typed `app.application.contracts.UseCase[Command, Result]` protocol is the stable injection seam: API adapters call `execute(command)` and depend on the protocol, not a concrete service class. Use case implementations coordinate domain logic and persistence ports. `app.application.errors.ApplicationError` and its safe subclasses are the expected-failure contract; the API adapter maps them to HTTP responses. Dependency direction is API → application → domain/ports; infrastructure implements ports and is wired at the composition root. Cross-domain calls use published application contracts or versioned events, never another domain's private ORM/table.
 
 ## HTTP contract
 
