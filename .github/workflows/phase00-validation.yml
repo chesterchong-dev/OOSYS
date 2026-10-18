@@ -20,6 +20,20 @@ jobs:
   test:
     runs-on: ubuntu-latest
     timeout-minutes: 15
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_DB: oosys_ci
+          POSTGRES_USER: oosys
+          POSTGRES_PASSWORD: oosys
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U oosys -d oosys_ci"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
     steps:
       - name: Checkout genuine repository commit
         uses: actions/checkout@v4
@@ -43,6 +57,49 @@ jobs:
         run: |
           OOSYS_DATABASE_URL=sqlite:///./oosys-ci.db alembic upgrade head
           OOSYS_DATABASE_URL=sqlite:///./oosys-ci.db alembic downgrade base
+
+      - name: Validate migration and persistence against PostgreSQL
+        env:
+          OOSYS_DATABASE_URL: postgresql+psycopg://oosys:oosys@localhost:5432/oosys_ci
+        run: |
+          alembic upgrade head
+          python - <<'PY'
+          from sqlalchemy import create_engine, inspect, text
+          from sqlalchemy.exc import IntegrityError
+
+          url = "postgresql+psycopg://oosys:oosys@localhost:5432/oosys_ci"
+          engine = create_engine(url, pool_pre_ping=True)
+          try:
+              inspector = inspect(engine)
+              assert "platform_settings" in inspector.get_table_names()
+              columns = {column["name"]: column for column in inspector.get_columns("platform_settings")}
+              assert columns["setting_key"]["primary_key"] == 1
+              assert columns["value_json"]["nullable"] is False
+              with engine.begin() as connection:
+                  connection.execute(
+                      text("INSERT INTO platform_settings (setting_key, value_json) VALUES (:key, CAST(:value AS json))"),
+                      {"key": "ci.persistence.probe", "value": '"ok"'},
+                  )
+              with engine.connect() as connection:
+                  value = connection.execute(
+                      text("SELECT value_json FROM platform_settings WHERE setting_key = :key"),
+                      {"key": "ci.persistence.probe"},
+                  ).scalar_one()
+                  assert value == "ok"
+              try:
+                  with engine.begin() as connection:
+                      connection.execute(
+                          text("INSERT INTO platform_settings (setting_key, value_json) VALUES (:key, CAST(:value AS json))"),
+                          {"key": "", "value": '"invalid"'},
+                      )
+              except IntegrityError:
+                  pass
+              else:
+                  raise AssertionError("PostgreSQL non-empty key constraint was not enforced")
+          finally:
+              engine.dispose()
+          PY
+          alembic downgrade base
 
       - name: Compile application, migrations and tests
         run: python -m compileall -q app migrations tests
