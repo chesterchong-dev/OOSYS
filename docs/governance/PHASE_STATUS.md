@@ -26,6 +26,6 @@
 - [ ] Verify exact current HEAD with successful CI after the API contract changes.
 - [ ] At Phase 01 sign-off, confirm that the exact then-current HEAD has a successful GitHub Actions run and record its SHA and workflow URL.
 - [x] Confirm canonical domain ownership against the user-defined planning/CRM/Sales boundaries and document module responsibilities in DOMAIN_OWNERSHIP.md.
-- [ ] Confirm the remaining Phase 01 governance acceptance criteria are documented before sign-off.
+- [x] Document the remaining Phase 01 governance acceptance gates and explicit deferred scope; Phase 01 sign-off remains blocked only by exact-current-HEAD CI verification and recording its evidence.
 
 Phase 01 remains open until all acceptance gates are verified and documented. Traceability does not imply implementation. Do not mark Phase 01 complete or begin Phase 02 without verified acceptance evidence.
