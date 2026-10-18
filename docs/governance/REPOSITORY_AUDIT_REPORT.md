@@ -5,8 +5,8 @@
 
 ## Verified repository
 - Repository: `chesterchong-dev/OOSYS`; default branch `main`.
-- Development branch: `phase-00-02-starter`; pre-sign-off HEAD `165021aa43d7c798b8d80024c2c3b2448e3bdc06`.
-- `main` remains at `568a208d81ecbba293c5b563df4402230846bc5c`; development branch is 12 commits ahead and 0 behind.
+- Development branch: `phase-00-02-starter`; verified pre-reconciliation HEAD `8f78068c1a6b14039ad893cf98f4173bdb076bb1`.
+- `main` remains at `568a208d81ecbba293c5b563df4402230846bc5c`; development branch is 14 commits ahead and 0 behind.
 - Original starter baseline: `029fc55bd74a69a19532b5a25099fa65469c5403`.
 - Audit updates are restricted to the development branch.
 
@@ -27,7 +27,7 @@ Crosswalk UUIDs were read back from Xmind after adding the topics; no UUIDs were
 ## Code review and tests
 The repository is a minimal FastAPI scaffold: `app/main.py` exposes `GET /` and `GET /health`; the health endpoint returns `{"status":"ok"}` without checking database readiness. `tests/test_health.py` contains one test. No lockfile exists.
 
-GitHub Actions run [39053548654](https://github.com/chesterchong-dev/OOSYS/actions/runs/39053548654) checked out the genuine repository on GitHub-hosted infrastructure, installed `requirements.txt` with Python 3.12.15, ran `python -m pytest -q` (**1 passed, 1 warning in 0.21s**) and `python -m compileall -q app tests` (passed). The warning is a Starlette deprecation warning concerning `httpx` / `starlette.testclient`.
+GitHub Actions run [39053700849](https://github.com/chesterchong-dev/OOSYS/actions/runs/39053700849) checked out the genuine repository on GitHub-hosted infrastructure, installed `requirements.txt` with Python 3.12.15, ran `python -m pytest -q` (**1 passed, 1 warning in 0.22s**) and `python -m compileall -q app tests` (passed). The warning is a Starlette deprecation warning concerning `httpx` / `starlette.testclient`.
 
 ## Security and production limitations
 Authentication, session revocation, RBAC, tenant isolation, business modules, models/repositories, migrations, database integration, frontend, deployment manifests, coverage, lint/type checks and security/dependency scans are absent or unverified in this scaffold. No dynamic penetration test is claimed. Do not deploy it as a production multi-tenant service.

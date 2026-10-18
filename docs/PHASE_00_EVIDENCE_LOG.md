@@ -1,9 +1,11 @@
 # Phase 00 Evidence Log
 
+> This file is an append-only chronology. Earlier `PARTIAL` dispositions and earlier commit/run values describe the state at those historical checkpoints; the latest reconciliation section below is authoritative for the final Phase 00 audit status.
+
 **Audit date:** 2026-10-18  
 **Repository:** `chesterchong-dev/OOSYS`  
 **Branch:** `phase-00-02-starter`  
-**Verified baseline HEAD:** `029fc55bd74a69a19532b5a25099fa65469c5403`  
+**Initial scaffold baseline (historical):** `029fc55bd74a69a19532b5a25099fa65469c5403`  
 **Tree SHA:** `eea7ebb9850b2b92e050df280ece721105fa2da5`
 
 ## Repository evidence
@@ -50,7 +52,7 @@ A prior local clone failed because runtime DNS could not resolve `github.com`. F
 - Classification counts: exact_title=15, semantic_feature=34, semantic_parent=32, partial_coverage=1, proxy_gap=2, duplicate_title_disambiguated=3. Register dimensions and implementation statuses are unchanged.
 - At the start of this continuation, HEAD was `b6a6b9a46ed65ba3ed6353ea32606f8c5db0ec15` and main was `568a208d81ecbba293c5b563df4402230846bc5c`. `git --version` returned `git version 2.47.3`; `getent ahosts github.com` returned 0 entries; `find /mnt/data -maxdepth 3 -type d -name .git` found no checkout. A genuine checkout test remains blocked.
 
-**Disposition: PARTIAL — Phase 00 is not signed off.**
+**Historical disposition at this checkpoint: PARTIAL — Phase 00 was not signed off at that time.**
 
 
 ## Continuation verification — 2026-10-18
@@ -101,3 +103,11 @@ A prior local clone failed because runtime DNS could not resolve `github.com`. F
 - Verified branch HEAD at the start of this evidence-only follow-up: `9972dd981239c197529a6f538899bc4cfce2eea8`; tree `8e16e1710d4db8a5c12d96f811c426725a9451a8`. `main` remains `568a208d81ecbba293c5b563df4402230846bc5c`; compare shows the development branch 13 commits ahead and 0 behind.
 - Final crosswalk validation: 87 data rows, 87 unique IDs; classifications exact_title=15, semantic_feature=37, semantic_parent=32, duplicate_title_disambiguated=3. The canonical register remains 87 rows / 14 columns and implementation statuses remain 84 `missing`, 3 `partial`.
 - The three former traceability blockers are resolved by canonical Xmind topics whose UUIDs were read back from the edited maps. The audit baseline is accepted. This sign-off is not a production-readiness or security certification; known implementation and security limitations remain documented in `docs/governance/KNOWN_LIMITATIONS.md`.
+
+## Final cross-chat reconciliation — 2026-10-18
+- Live GitHub evidence at the start of reconciliation: `phase-00-02-starter` HEAD `8f78068c1a6b14039ad893cf98f4173bdb076bb1` (message: `Record final Phase 00 verification evidence`); `main` `568a208d81ecbba293c5b563df4402230846bc5c`; comparison `main...phase-00-02-starter`: 14 ahead, 0 behind. The comparison reported additions only relative to main, with no deletions. The latest commit before this reconciliation changed only this evidence log.
+- GitHub Actions run [39053700849](https://github.com/chesterchong-dev/OOSYS/actions/runs/39053700849) tested exact commit `8f78068c1a6b14039ad893cf98f4173bdb076bb1` and completed successfully. On Python 3.12.15, dependency installation succeeded, `python -m pytest -q` reported 1 passed and 1 Starlette/httpx deprecation warning, and `python -m compileall -q app tests` passed. This is scaffold smoke-test evidence only.
+- CSV validation performed against the live branch: register 87 data rows, 14 columns, 87 unique nonblank IDs; status counts remain 84 `missing`, 3 `partial`. Crosswalk 87 data rows, 8 columns, 87 unique IDs; ID set exactly matches the register; no duplicate/missing IDs or malformed-width rows; classifications exact_title=15, semantic_feature=37, semantic_parent=32, duplicate_title_disambiguated=3; no `proxy_gap` or `partial_coverage` classification remains.
+- Re-read live Xmind master map `QsPytPPH` (198 topics) and all four sheets of blueprint `EkL12TxG` (143, 173, 132, 181 topics). All 105 unique source UUIDs cited by the crosswalk were found among the 827 live map topics. Canonical topic UUIDs cited by the crosswalk were present for `OOSYS-CORE-010`, `OOSYS-CORE-013`, and `OOSYS-OPS-086`. These are source traceability links only; register implementation statuses remain unchanged.
+- This reconciliation updates stale metadata in the audit, phase status, audit report and limitations documents while preserving older evidence as historical chronology. The new documentation-only commit must be independently checked against its own GitHub Actions run after push; its resulting SHA/run cannot be embedded in the same immutable commit without creating another commit.
+- Final Phase 00 scope: audit and source traceability accepted; no production-readiness claim. Authentication, session lifecycle, RBAC, tenant enforcement, persistence/migrations, business modules, security scans, coverage and deployment remain future implementation/verification work. No Phase 01 implementation is started by this reconciliation.
