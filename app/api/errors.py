@@ -1,0 +1,70 @@
+"""Stable, non-sensitive HTTP error responses for the OOSYS API."""
+from typing import Any
+
+from fastapi import FastAPI, Request
+from fastapi.exceptions import RequestValidationError
+from fastapi.responses import JSONResponse
+from pydantic import BaseModel
+
+
+class ErrorDetail(BaseModel):
+    """Safe validation detail without rejected input values."""
+
+    location: list[str | int]
+    message: str
+    code: str
+
+
+class ErrorBody(BaseModel):
+    """Stable error envelope shared by all HTTP error handlers."""
+
+    code: str
+    message: str
+    details: list[ErrorDetail] | None = None
+
+
+class ErrorResponse(BaseModel):
+    """Top-level error response contract."""
+
+    error: ErrorBody
+
+
+def _validation_details(errors: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Keep only safe, stable fields from Pydantic validation errors."""
+    return [
+        {
+            "location": list(error.get("loc", ())),
+            "message": str(error.get("msg", "Invalid value")),
+            "code": str(error.get("type", "invalid_value")),
+        }
+        for error in errors
+    ]
+
+
+def install_error_handlers(application: FastAPI) -> None:
+    """Install safe handlers for HTTP, validation and unexpected errors."""
+
+    @application.exception_handler(RequestValidationError)
+    async def validation_error(
+        request: Request, exc: RequestValidationError
+    ) -> JSONResponse:
+        del request
+        body = ErrorResponse(
+            error=ErrorBody(
+                code="validation_error",
+                message="Request validation failed.",
+                details=_validation_details(exc.errors()),
+            )
+        )
+        return JSONResponse(status_code=422, content=body.model_dump(exclude_none=True))
+
+    @application.exception_handler(Exception)
+    async def unexpected_error(request: Request, exc: Exception) -> JSONResponse:
+        del request, exc
+        body = ErrorResponse(
+            error=ErrorBody(
+                code="internal_error",
+                message="An unexpected error occurred.",
+            )
+        )
+        return JSONResponse(status_code=500, content=body.model_dump(exclude_none=True))
