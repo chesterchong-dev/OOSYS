@@ -4,9 +4,9 @@
 
 - The development branch remains a starter scaffold, not the full OOSYS product.
 - app/main.py provides the root and liveness endpoints plus a composition root. The versioned API router is currently empty; no business endpoints are registered under /api/v1.
-- Authentication, session expiry/revocation, RBAC, tenant enforcement, business modules, models/repositories, database migrations/integration, frontend and deployment manifests are not implemented.
+- Authentication, session expiry/revocation, RBAC, tenant enforcement, business modules, ORM models/domain repositories, Alembic migrations/live PostgreSQL integration, frontend and deployment manifests are not implemented. A generic lazy SQLAlchemy engine/session factory exists; it is not a schema or migration implementation.
 - Requirements statuses remain 84 missing and 3 partial; source-map traceability does not mean the requirements are implemented.
-- Proposed domain ownership is recorded in docs/architecture/DOMAIN_OWNERSHIP.md, but product-owner sign-off remains outstanding for cross-domain boundaries, particularly MRP and CRM/Sales.
+- Canonical planning boundaries are recorded in docs/architecture/DOMAIN_OWNERSHIP.md and ADR-0002. MRP owns material/demand planning and planned requirements/schedules; CRM owns customer pipeline forecasting; Procurement owns purchasing execution; Manufacturing Execution owns actual production. Detailed domain schemas and APIs remain unimplemented.
 
 ## Verification
 
@@ -15,7 +15,7 @@
 - Latest full-workflow checkpoint before the final evidence-log update: CI run [39095605637](https://github.com/chesterchong-dev/OOSYS/actions/runs/39095605637) passed against exact SHA 741bc34abf76633e7c9c2510e56de472b9732b7d. It checked out the real repository on Python 3.12.15, installed declared dependencies (including FastAPI 0.143.3, Starlette 1.8.0 and HTTPX 0.28.1), ran pytest (8 passed, no pytest warnings), and ran compileall successfully.
 - The test suite uses HTTPX ASGITransport rather than Starlette TestClient, avoiding the observed Starlette/httpx deprecation warning without adding an unneeded dependency or pinning framework versions solely to hide the warning.
 - Any subsequent commit, including documentation-only updates, requires its own exact-SHA CI check before Phase 01 sign-off. GitHub Actions is authoritative for the live branch head.
-- The workflow runs python -m pytest -q and python -m compileall -q app tests on Python 3.12. It does not currently run lint, type checks, coverage, dependency vulnerability scanning, frontend build, database/migration integration, or security scanning.
+- The workflow runs python -m pytest -q and python -m compileall -q app tests on Python 3.12. The database lifecycle foundation adds tests for SQLite session use, missing database configuration, rollback, and PostgreSQL engine construction without a socket connection. CI does not currently run lint, type checks, coverage, dependency vulnerability scanning, frontend build, Alembic migration checks, live PostgreSQL integration, or security scanning.
 - No database/migration integration, coverage report, lint/type check, frontend build, dynamic security scan, dependency vulnerability scan, deployment check or end-to-end test has been performed.
 - The verification commits are unsigned/unverified; branch protection was recorded as disabled during the prior audit. Repository protection settings were not changed during this work. Keep development changes on the development branch and protect main through repository rules.
 
