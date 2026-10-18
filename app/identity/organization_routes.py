@@ -76,6 +76,7 @@ def add_member(organization_id: str, payload: MemberCreate,
     principal: Principal = Depends(require_permission("members.invite")), db: Session = Depends(get_identity_session)):
     if principal.organization_id != organization_id:
         raise HTTPException(404, "Organisation not found")
+    set_tenant_context(db, organization_id, principal.user_id, principal.email, lookup_user_id=payload.user_id)
     user = db.get(User, payload.user_id)
     role = db.scalar(select(Role).where(Role.id == payload.role_id, Role.organization_id == organization_id,
                                          Role.archived_at.is_(None)))

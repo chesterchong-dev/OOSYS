@@ -21,6 +21,7 @@ def register(payload: RegisterRequest, request: Request, db: Session = Depends(g
     if not request.app.state.settings.allow_self_registration:
         raise HTTPException(403, "Self-service registration is disabled")
     email = str(payload.email).lower()
+    set_tenant_context(db, None, user_email=email)
     if db.scalar(select(User.id).where(User.email == email)):
         raise HTTPException(409, "Email already registered")
     if db.scalar(select(Organization.id).where(Organization.slug == payload.organization_slug)):
@@ -67,6 +68,7 @@ def login(payload: LoginRequest, request: Request, db: Session = Depends(get_ide
         (LoginAttempt.email_key == email_key) | (LoginAttempt.ip_key == ip_key))) or 0
     if failed >= request.app.state.settings.login_max_attempts:
         raise HTTPException(429, "Too many login attempts; try again later")
+    set_tenant_context(db, None, user_email=email)
     user = db.scalar(select(User).where(User.email == email))
     password_valid = verify_password(payload.password, user.password_hash if user else DUMMY_PASSWORD_HASH)
     valid = user is not None and user.is_active and user.archived_at is None and password_valid

@@ -4,7 +4,7 @@ from sqlalchemy.orm import Session
 
 
 def set_tenant_context(session: Session, organization_id: str | None, user_id: str | None = None,
-                       user_email: str | None = None, reset_token_hash: str | None = None, session_token_hash: str | None = None) -> None:
+                       user_email: str | None = None, reset_token_hash: str | None = None, session_token_hash: str | None = None, lookup_user_id: str | None = None) -> None:
     """Set fail-closed transaction-local context; SQLite tests intentionally no-op."""
     if session.get_bind().dialect.name != "postgresql":
         return
@@ -13,6 +13,7 @@ def set_tenant_context(session: Session, organization_id: str | None, user_id: s
         "set_config('app.user_id', :user_id, true), "
         "set_config('app.user_email', :email, true), "
         "set_config('app.reset_token_hash', :reset_hash, true), "
-        "set_config('app.session_token_hash', :session_hash, true)"
+        "set_config('app.session_token_hash', :session_hash, true), "
+        "set_config('app.lookup_user_id', :lookup_user_id, true)"
     ), {"tenant": organization_id or "", "user_id": user_id or "",
-        "email": user_email or "", "reset_hash": reset_token_hash or "", "session_hash": session_token_hash or ""})
+        "email": user_email or "", "reset_hash": reset_token_hash or "", "session_hash": session_token_hash or "", "lookup_user_id": lookup_user_id or ""})

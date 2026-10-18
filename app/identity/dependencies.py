@@ -52,6 +52,7 @@ def get_principal(request: Request, session: Session = Depends(get_identity_sess
         AuthSession.expires_at > now))
     if auth_session is None:
         raise HTTPException(401, "Invalid or expired session", headers={"WWW-Authenticate": "Bearer"})
+    set_tenant_context(session, None, auth_session.user_id)
     user = session.get(User, auth_session.user_id)
     if user is None or not user.is_active or user.archived_at is not None:
         raise HTTPException(401, "Account unavailable")

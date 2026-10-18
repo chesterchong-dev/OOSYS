@@ -20,6 +20,7 @@ def request_password_reset(payload: PasswordResetRequest, request: Request, db: 
     settings = request.app.state.settings
     if not settings.smtp_host or not settings.email_from or not settings.password_reset_url:
         raise HTTPException(503, "Password recovery delivery is not configured")
+    set_tenant_context(db, None, user_email=str(payload.email).lower())
     user = db.scalar(select(User).where(User.email == str(payload.email).lower(),
         User.is_active.is_(True), User.archived_at.is_(None)))
     if user is None:
@@ -50,6 +51,7 @@ def confirm_password_reset(payload: PasswordResetConfirm, db: Session = Depends(
         PasswordResetToken.used_at.is_(None), PasswordResetToken.expires_at > now))
     if token is None:
         raise HTTPException(400, "Invalid or expired password reset token")
+    set_tenant_context(db, None, token.user_id)
     user = db.get(User, token.user_id)
     if user is None or not user.is_active or user.archived_at is not None:
         raise HTTPException(400, "Invalid or expired password reset token")
@@ -76,6 +78,7 @@ def create_invitation(organization_id: str, payload: InvitationCreate, request: 
     if not settings.smtp_host or not settings.email_from or not settings.invitation_accept_url:
         raise HTTPException(503, "Invitation delivery is not configured")
     email = str(payload.email).lower()
+    set_tenant_context(db, organization_id, principal.user_id, email)
     user = db.scalar(select(User).where(User.email == email, User.is_active.is_(True), User.archived_at.is_(None)))
     if user is None:
         raise HTTPException(404, "Invitee must have an active OOSYS account")

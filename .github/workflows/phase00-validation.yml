@@ -118,6 +118,11 @@ jobs:
                   assert client.get("/api/v1/auth/me", headers=headers_a).status_code == 200
                   assert client.get(f"/api/v1/organizations/{org_b}", headers=headers_a).status_code == 404
                   org_a = first.json()["organization"]["id"]
+                  with app.state.identity_engine.begin() as connection:
+                      connection.execute(text("SELECT set_config('app.tenant_id', :tenant, true), set_config('app.user_id', :user_id, true), set_config('app.user_email', :email, true)"),
+                          {"tenant": org_a, "user_id": first.json()["user"]["id"], "email": "rls-a@example.com"})
+                      hidden_user = connection.execute(text("SELECT id FROM identity_users WHERE email = 'rls-b@example.com'")).scalar()
+                      assert hidden_user is None, "PostgreSQL RLS leaked a user outside this tenant"
                   roles = client.get(f"/api/v1/organizations/{org_a}/roles", headers=headers_a)
                   assert roles.status_code == 200, roles.text
                   owner_role = next(role["id"] for role in roles.json() if role["name"] == "Owner")
