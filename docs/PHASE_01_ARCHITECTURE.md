@@ -9,7 +9,8 @@ Status: IN PROGRESS. This document defines current scaffold boundaries; it does 
 - app/core/database.py provides an explicitly invoked SQLAlchemy engine factory, session factory and FastAPI-compatible session dependency. It creates no global engine and opens no connection at import or app construction; missing database configuration fails closed. Alembic is configured and the initial versioned schema is `20261018_0001` for deployment-wide, non-secret `platform_settings`; migrations remain explicit operator/CI actions.
 - app/api/operations.py exposes unversioned liveness at /health.
 - app/api/v1/router.py currently defines an empty APIRouter placeholder; no business endpoints are registered under /api/v1 yet. The configured prefix is verified by a test-only probe router, and the prefix will appear in the real OpenAPI schema when module routes are registered.
-- Root / and /health behavior are preserved and tested through the public ASGI interface.\n- app/api/errors.py defines a stable `{error: {code, message, details?}}` contract. HTTP errors preserve status and headers while using safe messages; validation details omit submitted input; unexpected errors return a generic 500 response.
+- Root / and /health behavior are preserved and tested through the public ASGI interface.
+- app/api/errors.py defines a stable `{error: {code, message, details?}}` contract. HTTP errors preserve status and headers while using safe messages; validation details omit submitted input; unexpected errors return a generic 500 response.
 - App construction and imports must not connect to databases or external services.
 
 ## Layer responsibilities and dependency direction
