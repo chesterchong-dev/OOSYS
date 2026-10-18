@@ -117,7 +117,7 @@ jobs:
               try:
                   with engine.begin() as connection:
                       connection.execute(
-                          text("INSERT INTO platform_settings (setting_key, value_json) VALUES (:key, CAST(:value AS json)"),
+                          text("INSERT INTO platform_settings (setting_key, value_json) VALUES (:key, CAST(:value AS json))"),
                           {"key": "", "value": '"invalid"'},
                       )
               except IntegrityError:
