@@ -17,8 +17,11 @@
 - [x] Verify root, health, OpenAPI basics, configured router prefix and construction without external services in the test design.
 - [x] Remove Starlette TestClient usage from the current test suite; the verified run reports no deprecation warning.
 - [x] Review the live master product map, all four Developer Implementation Blueprint sheets, requirements register and source crosswalk.
-- [x] Document modular-monolith layers and proposed canonical module ownership, including duplicated MRP, CRM/Sales, QMS and workflow areas.
+- [x] Document modular-monolith layers and canonical module ownership, resolving MRP versus CRM forecasting and separating planning from purchasing and production execution.
 - [x] Reconcile the requirements summary counts against the live 87-row CSV register and crosswalk without changing implementation statuses.
+- [x] Add explicit database URL configuration, lazy SQLAlchemy engine/session factory and rollback-on-use-case-error session dependency without app-startup connections.
+- [x] Add in-memory SQLAlchemy tests and a no-socket test for PostgreSQL engine construction.
+- [ ] Add Alembic migration baseline and migration/upgrade tests when the first real schema is defined; do not add an empty placeholder migration.
 - [ ] At Phase 01 sign-off, confirm that the exact then-current HEAD has a successful GitHub Actions run and record its SHA and workflow URL.
 - [ ] Obtain product-owner sign-off on proposed domain ownership and unresolved boundaries, especially MRP and CRM/Sales.
 - [ ] Confirm the remaining Phase 01 governance acceptance criteria are documented before sign-off.
