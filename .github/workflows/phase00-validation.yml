@@ -150,7 +150,17 @@ jobs:
           finally:
               engine.dispose()
           PY
-          alembic downgrade base
+
+      - name: Verify concurrent one-time recovery token consumption under PostgreSQL
+        env:
+          OOSYS_DATABASE_URL: postgresql+psycopg://oosys_app_test:ci-only-secret@localhost:5432/oosys_ci
+          OOSYS_RUN_POSTGRES_CONCURRENCY: "1"
+        run: python -m pytest -q tests/test_identity_postgres_concurrency.py
+
+      - name: Downgrade PostgreSQL schema
+        env:
+          OOSYS_DATABASE_URL: postgresql+psycopg://oosys:oosys@localhost:5432/oosys_ci
+        run: alembic downgrade base
 
       - name: Compile application, migrations and tests
         run: python -m compileall -q app migrations tests
