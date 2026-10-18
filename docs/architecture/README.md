@@ -5,8 +5,8 @@
 
 ## Responsibilities
 - `app/api/`: HTTP routing, request/response mapping, transport validation.
-- `app/application/`: use-case orchestration and transaction boundaries, introduced with the first business module.
-- `app/domain/`: entities, value objects, invariants and domain policies, introduced with the first business module.
+- `app/application/`: typed `UseCase[Command, Result]` injection contract, expected application errors and the future home for use-case orchestration/transaction boundaries; no business use cases are implemented yet.
+- `app/domain/`: future entities, value objects, invariants and domain policies; no empty domain package is created before an owning module needs it.
 - `app/repositories/`: persistence contracts, introduced with persistence work.
 - `app/infrastructure/`: database and external adapters, introduced when needed.
 - `app/core/`: cross-cutting runtime configuration and framework-independent utilities.
