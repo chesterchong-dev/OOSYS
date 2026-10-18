@@ -47,13 +47,13 @@ def _register(client, email: str, slug: str):
     return response.json()
 
 
-def _post_twice(app, path: str, headers: dict[str, str], payload: dict):
-    def send():
+def _post_concurrently(app, path: str, requests: list[tuple[dict[str, str], dict]]):
+    def send(headers, payload):
         return TestClient(app).post(path, headers=headers, json=payload).status_code
 
-    with ThreadPoolExecutor(max_workers=2) as pool:
-        return sorted([pool.submit(send), pool.submit(send)][i].result()
-                      for i in range(2))
+    with ThreadPoolExecutor(max_workers=len(requests)) as pool:
+        futures = [pool.submit(send, headers, payload) for headers, payload in requests]
+        return sorted(future.result() for future in futures)
 
 
 def test_concurrent_password_reset_confirmation_is_single_use(monkeypatch):
@@ -70,9 +70,10 @@ def test_concurrent_password_reset_confirmation_is_single_use(monkeypatch):
     assert response.status_code == 202
     assert len(sent) == 1
 
-    statuses = _post_twice(app, "/api/v1/auth/password-reset/confirm", {}, {
-        "token": sent[0], "new_password": "Another-Strong-Password-456",
-    })
+    payload = {"token": sent[0], "new_password": "Another-Strong-Password-456"}
+    statuses = _post_concurrently(app, "/api/v1/auth/password-reset/confirm", [
+        ({}, payload), ({}, payload),
+    ])
     assert statuses == [204, 400]
 
 
@@ -108,8 +109,8 @@ def test_concurrent_invitation_acceptance_is_single_use(monkeypatch):
 
     path = "/api/v1/auth/invitations/accept"
     payload = {"token": sent[0]}
-    statuses = sorted([
-        TestClient(app).post(path, headers={"Authorization": f"Bearer {invitee['access_token']}"}, json=payload).status_code,
-        TestClient(app).post(path, headers={"Authorization": f"Bearer {second_session.json()['access_token']}"}, json=payload).status_code,
+    statuses = _post_concurrently(app, path, [
+        ({"Authorization": f"Bearer {invitee['access_token']}"}, payload),
+        ({"Authorization": f"Bearer {second_session.json()['access_token']}"}, payload),
     ])
     assert statuses == [201, 400]
