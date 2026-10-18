@@ -28,3 +28,7 @@ Live HEAD is `113e47434bf87fc6881cb9afb8af2857202c55cd`; `main` remains `568a208
 
 ## Latest verified documentation checkpoint — 2026-10-18
 The immediately preceding documentation-only reconciliation HEAD was `7ead5d67ee971a41f11e0dc3ccd2abbebc54549b`, tested successfully by exact-SHA GitHub Actions run [39094138486](https://github.com/chesterchong-dev/OOSYS/actions/runs/39094138486). It passed genuine checkout, Python 3.12.15 dependency installation, pytest (1 passed with one Starlette/httpx deprecation warning) and compileall. `main` remained `568a208d81ecbba293c5b563df4402230846bc5c`; the branch was 24 commits ahead, 0 behind. The current closure follow-up is verified separately; no product implementation or production readiness is implied.
+
+
+## Phase 01 foundation checkpoint — 2026-10-18
+The first Phase 01 foundation commit `d3a939bfdc17d51ce23beb68b58e9e6788cb07bf` passed exact-SHA CI run [39094708094](https://github.com/chesterchong-dev/OOSYS/actions/runs/39094708094). This does not verify authentication, tenant enforcement, persistence, migrations, frontend, security scans, or deployment. Later changes require their own exact-SHA CI evidence.
