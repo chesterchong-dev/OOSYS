@@ -21,9 +21,9 @@
 - [x] Reconcile the requirements summary counts against the live 87-row CSV register and crosswalk without changing implementation statuses.
 - [x] Add explicit database URL configuration, lazy SQLAlchemy engine/session factory and rollback-on-use-case-error session dependency without app-startup connections.
 - [x] Add in-memory SQLAlchemy tests and a no-socket test for PostgreSQL engine construction.
-- [ ] Add Alembic migration baseline and migration/upgrade tests when the first real schema is defined; do not add an empty placeholder migration.
+- [x] Define and test a stable API error envelope for HTTP errors, request validation and unexpected failures; verify submitted input and internal exception details are not returned.\n- [x] Record migration readiness decision: no ORM schema exists, so an empty Alembic migration is intentionally prohibited; introduce Alembic with the first real schema and test fresh install/upgrade then.\n- [ ] Verify exact current HEAD with successful CI after the API contract changes.
 - [ ] At Phase 01 sign-off, confirm that the exact then-current HEAD has a successful GitHub Actions run and record its SHA and workflow URL.
-- [ ] Obtain product-owner sign-off on proposed domain ownership and unresolved boundaries, especially MRP and CRM/Sales.
+- [x] Confirm canonical domain ownership against the user-defined planning/CRM/Sales boundaries and document module responsibilities in DOMAIN_OWNERSHIP.md.
 - [ ] Confirm the remaining Phase 01 governance acceptance criteria are documented before sign-off.
 
 Phase 01 remains open until all acceptance gates are verified and documented. Traceability does not imply implementation. Do not mark Phase 01 complete or begin Phase 02 without verified acceptance evidence.
