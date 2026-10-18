@@ -1,7 +1,7 @@
 """Stable, non-sensitive HTTP error responses for the OOSYS API."""
 from typing import Any
 
-from fastapi import FastAPI, HTTPException, Request
+from fastapi import FastAPI, Request\nfrom starlette.exceptions import HTTPException as StarletteHTTPException
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
@@ -44,7 +44,7 @@ def _validation_details(errors: list[dict[str, Any]]) -> list[dict[str, Any]]:
 def install_error_handlers(application: FastAPI) -> None:
     """Install safe handlers for HTTP, validation and unexpected errors."""
 
-    @application.exception_handler(HTTPException)
+    @application.exception_handler(StarletteHTTPException)
     async def http_error(request: Request, exc: HTTPException) -> JSONResponse:
         del request
         if exc.status_code == 404:
