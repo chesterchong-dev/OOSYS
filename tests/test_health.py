@@ -29,6 +29,21 @@ def test_readiness_checks_configured_database(monkeypatch) -> None:
     engine.dispose()
 
 
+def test_readiness_reuses_existing_identity_engine(monkeypatch) -> None:
+    engine = create_engine("sqlite:///:memory:")
+    monkeypatch.setattr(
+        "app.api.operations.create_database_engine",
+        lambda settings: (_ for _ in ()).throw(AssertionError("must reuse existing engine")),
+    )
+    custom_app = create_app(Settings(database_url="sqlite:///:memory:", _env_file=None))
+    custom_app.state.identity_engine = engine
+    response = asgi_get(custom_app, "/health/ready")
+    assert response.status_code == 200
+    assert response.json() == {"status": "ready", "checks": {"database": "ok"}}
+    assert engine.pool is not None
+    engine.dispose()
+
+
 def test_readiness_failure_is_generic_and_disposes_temporary_engine(monkeypatch) -> None:
     class FailedConnection:
         def __enter__(self):
