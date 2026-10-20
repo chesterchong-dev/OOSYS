@@ -15,7 +15,7 @@ def health_check() -> dict[str, str]:
     return {"status": "ok"}
 
 
-@router.get("/health/ready")
+@router.get("/health/ready", response_model=None)
 def readiness_check(request: Request) -> JSONResponse | dict[str, object]:
     """Check database readiness without exposing connection or configuration details."""
     settings: Settings = request.app.state.settings
