@@ -14,3 +14,4 @@ No architecture decision is considered approved merely because it appears in thi
 - [ADR-0002 — Database engine and session lifecycle](ADR-0002-database-lifecycle.md)
 - [ADR-0003 — Initial platform settings schema](ADR-0003-initial-platform-settings-schema.md)
 - [ADR-0004 — Identity, sessions and tenant-scoped RBAC](ADR-0004-identity-sessions-rbac.md)
+- [ADR-0006 — Operational readiness probe](ADR-0006-operational-readiness.md)

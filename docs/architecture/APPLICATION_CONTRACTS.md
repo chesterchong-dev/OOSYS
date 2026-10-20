@@ -20,7 +20,8 @@ The typed `app.application.contracts.UseCase[Command, Result]` protocol is the s
 - Validation details expose only location and validator code with a generic message. Never return rejected input, validator context, stack traces, SQL or exception text.
 - Expected application errors map to stable safe status/code/message values. Unknown errors return generic HTTP 500. HTTP exception status and headers are preserved.
 - Breaking changes to published response fields or meanings require a new API version or an explicitly time-bounded compatibility plan. Additive optional fields may be introduced compatibly.
-- Pagination, filtering, sorting, idempotency, authentication and tenant authorization are not yet implemented; each must be specified and tested before business endpoints depend on it.
+- Pagination, filtering, sorting and idempotency must be specified and tested before business endpoints depend on them. Authentication and tenant authorization are implemented for the Phase 02 identity slice; each tenant-owned business module still needs its own scoped queries and negative cross-tenant tests.
+- Operational readiness is unversioned at /health/ready. It returns 200 only when a configured database answers SELECT 1, and a generic 503 otherwise. It does not run migrations or check external providers.
 
 ## Persistence and transaction contract
 
@@ -32,4 +33,4 @@ The typed `app.application.contracts.UseCase[Command, Result]` protocol is the s
 
 ## Contract verification
 
-The current suite checks safe 404/HTTP/validation/500 errors, app factory and liveness behavior, explicit session lifecycle and SQLite migration upgrade/downgrade. These checks do not establish PostgreSQL integration, auth/tenant security or production readiness.
+The suite checks safe 404/HTTP/validation/500 errors, app factory and liveness/readiness behavior, explicit session lifecycle and SQLite migration upgrade/downgrade. The CI workflow also runs PostgreSQL migration/persistence/RLS smoke checks and compileall. These checks do not establish full production readiness.
