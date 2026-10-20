@@ -24,7 +24,7 @@ OOSYS is planned as a modular enterprise platform spanning ERP, WMS, CRM, accoun
 
 ## Governance
 - Keep phase work on phase-00-02-starter; do not write phase work directly to main.
-- CI installs declared dependencies, runs pytest with identity-module coverage, checks migrations on SQLite and PostgreSQL, and compiles application/migration/test code. A green run proves only tested behavior.
+- CI installs declared dependencies, runs pytest with identity and operations-module coverage, checks migrations on SQLite and PostgreSQL, and compiles application/migration/test code. A green run proves only tested behavior.
 - Never commit secrets. Configuration uses OOSYS_-prefixed environment variables.
 - Phase 02 identity, authentication, sessions, RBAC and tenant isolation are implemented for their accepted scope. Broader tenant lifecycle and future business-table RLS still require work.
 - Tenant settings CRUD, shared notifications/files/search/workflow/integration/subscription/AI services, business modules, frontend and production deployment remain unimplemented or deferred.

@@ -18,7 +18,7 @@
 - [x] Document scope assumptions and requirement-level inclusion/deferment in docs/PHASE_03_CORE_PLATFORM_FOUNDATION.md.
 - [x] Preserve stable liveness endpoint and stable error contract.
 - [x] Add readiness probe with fail-closed, non-disclosing behavior.
-- [ ] Verify tests, migration checks, PostgreSQL integration and compileall on exact resulting commit.
+- [ ] Verify tests, migration checks, PostgreSQL integration, compileall and operations-module coverage on exact resulting commit.
 - [ ] Reconcile final requirement evidence and known limitations with CI output.
 - [ ] Phase 03 sign-off.
 

@@ -13,6 +13,6 @@
 ## Verification limitations
 - Phase 03 code changes must be verified by CI against their exact commit before acceptance.
 - Local commands were not run in this GitHub-web-only workflow. Do not report local test, type-check, lint, build or migration success.
-- The existing workflow runs pytest with --cov=app.identity, SQLite Alembic upgrade/downgrade, PostgreSQL 16 migration/persistence/RLS smoke probes and compileall. Identity coverage does not measure the new operations endpoint's coverage.
+- The existing workflow runs pytest with --cov=app.identity and --cov=app.api.operations, SQLite Alembic upgrade/downgrade, PostgreSQL 16 migration/persistence/RLS smoke probes and compileall. The actual operations-module coverage percentage must be read from the final exact-HEAD CI output; no percentage is claimed before that run completes.
 - Dedicated type-check, lint, dependency-vulnerability scanning, broad security scanning, frontend build and end-to-end production checks are not configured.
 - Branch protection is disabled on the development branch; review/CI gates remain governance risks.

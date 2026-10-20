@@ -58,4 +58,4 @@ The remaining 61 non-CORE rows in the 87-row register map to business-domain and
 
 ## Verification gates
 
-Phase 03 is not complete until the resulting exact commit's CI passes, readiness tests pass, and documentation/status reflects verified evidence. This bounded implementation does not satisfy acceptance for deferred shared platform services.
+Phase 03 is not complete until the resulting exact commit's CI passes, readiness tests pass, operations-module coverage is reported and reviewed against the 90% target, and documentation/status reflects verified evidence. This bounded implementation does not satisfy acceptance for deferred shared platform services.
