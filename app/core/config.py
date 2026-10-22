@@ -1,7 +1,7 @@
 """Typed environment-backed settings for OOSYS."""
 from functools import lru_cache
 
-from pydantic import Field, SecretStr, model_validator
+from pydantic import Field, SecretStr, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -18,6 +18,7 @@ class Settings(BaseSettings):
     login_max_attempts: int = Field(default=8, ge=3, le=50)
     login_window_minutes: int = Field(default=15, ge=1, le=1440)
     login_rate_limit_secret: SecretStr | None = Field(default=None, repr=False)
+    cors_allowed_origins: str = ""
     smtp_host: str | None = None
     smtp_port: int = Field(default=587, ge=1, le=65535)
     smtp_username: str | None = None
@@ -25,6 +26,17 @@ class Settings(BaseSettings):
     email_from: str | None = None
     password_reset_url: str | None = None
     invitation_accept_url: str | None = None
+
+    @field_validator("cors_allowed_origins")
+    @classmethod
+    def validate_cors_origins(cls, value: str) -> str:
+        origins = [origin.strip() for origin in value.split(",") if origin.strip()]
+        if "*" in origins:
+            raise ValueError("Wildcard CORS origins are not supported; specify explicit origins")
+        for origin in origins:
+            if not origin.startswith(("http://", "https://")) or "/" in origin.split("://", 1)[1].rstrip("/"):
+                raise ValueError("CORS origins must be scheme and host only, without a path")
+        return ",".join(origins)
 
     @model_validator(mode="after")
     def require_rate_limit_secret_in_production(self):
