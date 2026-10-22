@@ -14,7 +14,7 @@ The canonical sources were inspected through the connected Xmind account:
 - Master product map, “OOSYS — Only One System”: 198 topics.
 - Developer Implementation Blueprint: four sheets with 143, 173, 132 and 181 topics (629 total).
 
-Traceability confirms where requirements are represented in the source maps; it is not proof of implemented functionality. Phase 05 was reconciled against the 23-phase roadmap and the two original XMind source maps on 2026-10-22 through the connected Xmind account; the exact canonical UUID crosswalk remains unchanged. Cross-domain ownership overlaps are documented in [DOMAIN_OWNERSHIP.md](../architecture/DOMAIN_OWNERSHIP.md) as proposed boundaries requiring product-owner sign-off.
+Traceability confirms where requirements are represented in the source maps; it is not proof of implemented functionality. Phase 05 was reconciled against the 23-phase roadmap and the two original XMind source maps on 2026-10-22 through the connected XMind account; the exact canonical UUID crosswalk remains unchanged. The current Phase 05 acceptance matrix and blockers are recorded in [PHASE_05_SECURITY_OBSERVABILITY_RECOVERY.md](../PHASE_05_SECURITY_OBSERVABILITY_RECOVERY.md). Cross-domain ownership overlaps are documented in [DOMAIN_OWNERSHIP.md](../architecture/DOMAIN_OWNERSHIP.md) as proposed boundaries requiring product-owner sign-off.
 
 ## Status rules
 
