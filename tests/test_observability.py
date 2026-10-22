@@ -1,6 +1,5 @@
 """Correlation and security-header regression tests."""
 import json
-import logging
 
 from fastapi import Request
 
@@ -41,19 +40,21 @@ def test_generated_request_id_is_visible_to_downstream_endpoint() -> None:
     assert response.json()["request_id"] == response.headers["X-Request-ID"]
 
 
-def test_structured_logs_do_not_include_query_or_auth_headers(caplog) -> None:
+def test_structured_logs_do_not_include_query_or_auth_headers(monkeypatch) -> None:
+    from app.core import observability
+
+    captured: list[str] = []
+    monkeypatch.setattr(observability._logger, "log", lambda _level, message: captured.append(message))
     application = create_app(Settings(_env_file=None))
-    with caplog.at_level(logging.INFO, logger="oosys.request"):
-        asgi_get(
-            application,
-            "/health?password=should-not-appear",
-            headers={"Authorization": "Bearer secret-token-value", "X-Request-ID": "trace-42"},
-        )
-    entries = [record.message for record in caplog.records if record.name == "oosys.request"]
-    assert entries
-    assert all("should-not-appear" not in entry for entry in entries)
-    assert all("secret-token-value" not in entry for entry in entries)
-    parsed = json.loads(entries[-1])
+    asgi_get(
+        application,
+        "/health?password=should-not-appear",
+        headers={"Authorization": "Bearer secret-token-value", "X-Request-ID": "trace-42"},
+    )
+    assert captured
+    assert all("should-not-appear" not in entry for entry in captured)
+    assert all("secret-token-value" not in entry for entry in captured)
+    parsed = json.loads(captured[-1])
     assert parsed["request_id"] == "trace-42"
     assert parsed["path"] == "/health"
 
