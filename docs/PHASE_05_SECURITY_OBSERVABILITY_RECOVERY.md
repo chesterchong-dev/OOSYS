@@ -8,6 +8,21 @@ Phase 05 builds on the accepted Phase 00–04 baseline. The existing API already
 
 This phase must not claim the database is ready when the probe fails, change the established `/health` or `/health/ready` response contracts, or expose dependency details.
 
+## Requirement traceability
+
+| Requirement | Baseline | Phase 05 change/evidence | Status |
+|---|---|---|---|
+| Structured logging and correlation IDs | No common access log/correlation middleware | JSON request logs, safe ID normalization and response header; tests added | Implemented; CI pending |
+| Safe errors and sensitive-data redaction | Generic error envelope already exists | Access logs exclude query strings, bodies and headers; regression test added | Implemented; CI pending |
+| Health/readiness | Existing liveness and DB SELECT 1 readiness | Preserved without contract/schema changes | Existing; regression suite pending |
+| Secret/configuration safety | Environment-backed settings and production login secret requirement | Placeholder-only .env example; strict CORS origin validation | Implemented; CI pending |
+| Rate limiting | DB-backed login limiter and per-account reset-request cooldown exist | No schema change; review reset-confirm/invitation abuse paths remains required | Partially implemented |
+| Security headers/CORS | No central CORS middleware found in inspected composition root | Baseline headers; explicit origins only; bearer model and no credentials | Implemented; CI pending |
+| Dependency/supply-chain checks | No audit workflow found at inspected paths | Added scheduled and PR/push pip-audit workflow | Implemented; scan result pending |
+| Backup/restore | No tested restore evidence found | PostgreSQL backup/restore runbook documented | Partially implemented; real restore blocked |
+| Incident runbooks | No Phase 05 runbook found | Startup/readiness, secret exposure, dependency, backup/restore and rate-limit runbooks | Implemented; review pending |
+| Requirements/architecture traceability | Existing 87-row register/crosswalk referenced by Phase 03 | Phase 05 ADR and phase record added; source-node crosswalk reconciliation still pending | Partially implemented |
+
 ## Controls introduced
 
 - Request correlation IDs are accepted only when they match a bounded safe character set; otherwise the API generates a UUID. IDs are returned in `X-Request-ID`.
@@ -15,6 +30,7 @@ This phase must not claim the database is ready when the probe fails, change the
 - Baseline security response headers are added: `X-Content-Type-Options`, `X-Frame-Options`, `Referrer-Policy` and `Permissions-Policy`.
 - CORS is disabled unless exact origins are configured using comma-separated `OOSYS_CORS_ALLOWED_ORIGINS`; wildcard origins and credentialed cross-origin requests are not supported. Bearer authorization remains the authentication model; do not add cookie authentication without a separate CSRF design review.
 - `.env.example` contains placeholders only.
+- A dependency audit workflow runs `pip-audit` against the installed dependency set on pull requests, selected branch pushes and a weekly schedule.
 
 ## Configuration and secrets
 
@@ -87,4 +103,4 @@ For a real incident: stop writes or place the service in maintenance mode if req
 - Verify database-backed login rate limiting across concurrent PostgreSQL workers and review token/recovery endpoints for equivalent abuse protection.
 - Run dependency vulnerability scanning and triage findings.
 - Perform an actual backup restore in a disposable PostgreSQL database and record the evidence.
-- Review the requirements register/crosswalk and XMind source maps before marking acceptance. The XMind references were not readable by the repository tools during this work; do not silently infer source-node mappings.
+- Reconcile the 87-row requirements register and source-node crosswalk, and verify the master roadmap and two original XMind maps before marking acceptance. The XMind references were not readable by the repository tools during this work; do not silently infer source-node mappings.
