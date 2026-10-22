@@ -96,6 +96,8 @@ def test_metrics_endpoint_requires_scrape_token_and_exposes_only_aggregate_label
     asgi_get(application, "/health?secret-query-value=private")
     denied = asgi_get(application, "/metrics")
     assert denied.status_code == 404
+    rejected = asgi_get(application, "/metrics", headers={"X-Metrics-Token": "incorrect-metrics-token"})
+    assert rejected.status_code == 404
     accepted = asgi_get(application, "/metrics", headers={"X-Metrics-Token": token})
     assert accepted.status_code == 200
     assert "oosys_http_requests_total" in accepted.text
