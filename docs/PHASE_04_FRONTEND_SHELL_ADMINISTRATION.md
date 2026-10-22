@@ -1,6 +1,6 @@
 # Phase 04 — Frontend Shell & Administration
 
-**Status:** Implementation committed; acceptance requires exact-HEAD GitHub Actions and live integration verification.
+**Status:** ACCEPTED for the scoped frontend shell and existing-API administration milestone. Exact-HEAD CI run 39781349969 passed on implementation SHA 8ee393638887c8dea894af7427b01a0d5cc0e47b.
 **Baseline:** Phase 03 accepted at 07a1e444754c8ef0e743c117a13c22d2c8025856.
 **Stack:** React 18, TypeScript, Vite, Tailwind CSS 3; existing FastAPI/Pydantic API. No backend schema or shared API contract changes.
 
@@ -31,3 +31,13 @@ Phase 04 is the first visual milestone. It delivers a real sign-in screen, permi
 
 ## Known limitations
 No invitation list/revocation UI, role-assignment readback, profile-name readback, tenant/user settings CRUD or analytics-grade dashboard is implemented because the required read contracts/services are absent. The dashboard is an initial administrative overview, not a reporting product. No production deployment is claimed. CI must pass on the exact final commit before Phase 04 can be accepted.
+
+## Final verification evidence
+
+Exact-HEAD GitHub Actions run 39781349969 on commit 8ee393638887c8dea894af7427b01a0d5cc0e47b passed: frontend 8 tests and Vite production build; backend 51 passed, 2 skipped; 2 PostgreSQL concurrency tests passed; SQLite and PostgreSQL migration lifecycle, PostgreSQL persistence/RLS and compileall passed. See https://github.com/chesterchong-dev/OOSYS/actions/runs/39781349969.
+
+- Frontend: 3 test files, 8 tests passed; Vite production build succeeded.
+- Backend: 51 passed, 2 skipped in the standard suite; dedicated PostgreSQL concurrency checks: 2 passed.
+- Migration/security checks: SQLite upgrade/downgrade, PostgreSQL 16 migration/persistence/RLS probes, PostgreSQL downgrade and compileall passed.
+- Warnings: Starlette/httpx deprecation, Node action runtime deprecation and existing npm dependency deprecation notices. No new backend route, schema or migration was required.
+- Local commands were not run; verification was executed in GitHub Actions.

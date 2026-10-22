@@ -2,7 +2,7 @@
 
 **Updated:** 2026-10-22  
 **Current phase:** Phase 04 — Frontend Shell & Administration  
-**Status:** Phase 03 remains accepted; Phase 04 implementation is committed and awaits exact-HEAD frontend/backend CI verification.
+**Status:** Phase 03 remains accepted; Phase 04 accepted for its scoped frontend shell and existing-API administration milestone. The broader OOSYS product remains in development.
 
 | Phase | Status | Verified scope |
 |---|---|---|
@@ -10,7 +10,7 @@
 | Phase 01 — Architecture & Development Governance | Complete (foundation scope) | Modular-monolith contract, injectable settings, route/error contracts, lazy SQLAlchemy lifecycle, Alembic migrations and CI evidence. Foundation only, not product completeness. |
 | Phase 02 — Identity, Authentication & Multi-Tenancy | Complete for scoped acceptance | Identity/session/RBAC, organisation/hierarchy APIs, recovery/invitation flows and PostgreSQL RLS. Evidence and caveats in docs/PHASE_02_IDENTITY_MULTITENANCY.md; future business-table RLS and production review remain open. |
 | Phase 03 — Core Platform Foundation | **Accepted — bounded scope only** | Database readiness endpoint, operational tests, scope matrix and reconciled requirement evidence. Implementation SHA `724b0a8a2ea41173e5acb73a8b7fb474b4030c5b` passed CI run [39513802070](https://github.com/chesterchong-dev/OOSYS/actions/runs/39513802070); final requirements/docs SHA `df96f6f3fd2362c70fa404c524225603aaee0b52` passed exact-HEAD CI run [39775847343](https://github.com/chesterchong-dev/OOSYS/actions/runs/39775847343). `app/api/operations.py` coverage 100%. Broader CORE-011/012 criteria and deferred services remain partial/missing. |
-| Phase 04 — Frontend Shell & Administration | Implemented; verification pending | React/TypeScript/Vite/Tailwind shell, existing-API sign-in, dashboard, permission-aware navigation, local command search and organization/member/role/hierarchy/audit administration. See docs/PHASE_04_FRONTEND_SHELL_ADMINISTRATION.md; acceptance requires exact-HEAD CI. |
+| Phase 04 — Frontend Shell & Administration | **Accepted — scoped UI milestone** | React/TypeScript/Vite/Tailwind shell, existing-API sign-in, dashboard, permission-aware navigation, local command search and organization/member/role/hierarchy/audit administration. Exact-HEAD CI run [39781349969](https://github.com/chesterchong-dev/OOSYS/actions/runs/39781349969) passed on SHA 8ee393638887c8dea894af7427b01a0d5cc0e47b. Full criteria and limitations in docs/PHASE_04_FRONTEND_SHELL_ADMINISTRATION.md. |
 
 ## Phase 03 acceptance gates
 
@@ -27,3 +27,14 @@
 ## Historical baseline
 
 Starting HEAD was verified live as 190d510ecb482aca650896a55246794b0f5334ab. Baseline CI run [39437172371](https://github.com/chesterchong-dev/OOSYS/actions/runs/39437172371) was verified as completed successfully against that exact SHA. This baseline predates Phase 03 changes and is not evidence for them.
+
+## Phase 04 acceptance gates
+
+- [x] Recover approved React/TypeScript/Vite/Tailwind stack and Phase 04 first-visual-milestone intent from project decisions.
+- [x] Preserve the Phase 03 baseline and implement on phase-00-02-starter without modifying main.
+- [x] Add login, multi-organization selection, permission-aware navigation, local command search and responsive dashboard shell.
+- [x] Connect organization, member, role, hierarchy, audit and password-management screens to existing API contracts; no mock API data or invented success responses.
+- [x] Add frontend API/login/command-search tests and backend OpenAPI contract test.
+- [x] Exact-HEAD GitHub Actions run 39781349969 passed: 8 frontend tests, Vite production build, 51 backend tests passed/2 skipped, 2 PostgreSQL concurrency tests passed, SQLite/PostgreSQL migrations and persistence/RLS probes, PostgreSQL downgrade and compileall.
+- [x] Update requirements register, ADR-0007, phase documentation, known limitations and setup instructions.
+- [ ] Production hosting, reverse proxy/CORS deployment and full analytics/product modules remain outside Phase 04 acceptance.

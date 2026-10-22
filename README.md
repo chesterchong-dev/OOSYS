@@ -1,6 +1,6 @@
 # OOSYS — Only One System
 
-**Current state: Phases 00–02 accepted for their scoped criteria; Phase 03 accepted for its bounded API/readiness foundation scope. OOSYS is not production-ready.**
+**Current state: Phases 00–03 accepted for their scoped criteria; Phase 04 accepted for the scoped frontend shell and existing-API administration milestone. OOSYS is not production-ready.**
 
 OOSYS is planned as a modular enterprise platform spanning ERP, WMS, CRM, accounting, HRMS, manufacturing/engineering, integrations and AI. The product map and requirements register remain the scope authority; implementation status must be evidence-based.
 
