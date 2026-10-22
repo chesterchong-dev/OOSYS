@@ -44,14 +44,17 @@ Phase 05 branch HEAD tested: `dd1c72665f4a7af03f587d3efd39d80eef7351aa`. The Pha
 The CI restore is verified only for synthetic data in a disposable PostgreSQL 16 service. It does not establish production backup retention, encrypted/off-site storage, recovery-point/recovery-time objectives, or recovery of a production deployment. The report above distinguishes that limitation from the verified CI restore.
 ## PostgreSQL backup/restore drill details
 
-In run 39799962837, the following workflow step concluded success on candidate `342e5f6fe161dd0ee636db69912cb6e810f819f0`:
-1. Dumped the CI-only source database into a permission-restricted custom-format backup.
-2. Verified the backup archive could be listed.
-3. Restored into a separately created `oosys_restore_target` disposable database.
-4. Compared the Alembic version/revision, the `ci.persistence.probe` sentinel value and identity-user row counts between source and restored databases.
-5. Completed later PostgreSQL downgrade and CI cleanup steps successfully.
+The exact tested candidate's backup/restore evidence is documented under [Phase 00 validation run 39805260559](https://github.com/chesterchong-dev/OOSYS/actions/runs/39805260559) and branch HEAD `dd1c72665f4a7af03f587d3efd39d80eef7351aa`.
 
-No production database or credentials were used in the drill. A production-equivalent restore rehearsal, RPO/RTO test and backup-retention/off-site storage verification remain unperformed and outside this evidence.
+The workflow:
+1. Dumped the ephemeral PostgreSQL 16 CI source database into a custom-format archive stored in a runner temporary file.
+2. Verified the archive with `pg_restore --list`.
+3. Restored the archive into a separately created disposable `oosys_restore_target` database.
+4. Compared the Alembic revision, a `ci.persistence.probe` sentinel, and identity-user row counts between source and restored databases.
+5. Reported `Backup/restore drill passed: migration=20261018_0006; identity_users=5; sentinel="ok"`.
+6. Completed the PostgreSQL downgrade and CI cleanup steps successfully.
+
+Only generated CI test data was used. No production database or production credentials were used. This proves the tested backup/archive/restore path and the stated data-integrity checks in an isolated environment; it does not prove production backup retention, encrypted/off-site storage, recovery-point/recovery-time objectives, or a production-system recovery rehearsal.
 
 ## Architecture and compatibility notes
 
