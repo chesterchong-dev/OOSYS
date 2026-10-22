@@ -44,7 +44,7 @@ def test_structured_logs_do_not_include_query_or_auth_headers(caplog) -> None:
     assert parsed["path"] == "/health"
 
 
-def test_cors_wildcard_is_rejected() -> None:
+def test_cors_wildcard_and_path_origins_are_rejected() -> None:
     import pytest
     from pydantic import ValidationError
 
