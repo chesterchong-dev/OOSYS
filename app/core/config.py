@@ -19,6 +19,8 @@ class Settings(BaseSettings):
     login_window_minutes: int = Field(default=15, ge=1, le=1440)
     login_rate_limit_secret: SecretStr | None = Field(default=None, repr=False)
     cors_allowed_origins: str = ""
+    metrics_enabled: bool = False
+    metrics_token: SecretStr | None = Field(default=None, repr=False)
     smtp_host: str | None = None
     smtp_port: int = Field(default=587, ge=1, le=65535)
     smtp_username: str | None = None
@@ -39,12 +41,19 @@ class Settings(BaseSettings):
         return ",".join(origins)
 
     @model_validator(mode="after")
-    def require_rate_limit_secret_in_production(self):
+    def validate_runtime_secrets(self):
         if self.environment.strip().lower() == "production" and (
             self.login_rate_limit_secret is None
             or not self.login_rate_limit_secret.get_secret_value().strip()
         ):
             raise ValueError("OOSYS_LOGIN_RATE_LIMIT_SECRET is required in production")
+        if self.metrics_enabled and (
+            self.metrics_token is None
+            or len(self.metrics_token.get_secret_value()) < 32
+        ):
+            raise ValueError(
+                "OOSYS_METRICS_TOKEN must contain at least 32 characters when metrics are enabled"
+            )
         return self
 
     model_config = SettingsConfigDict(
