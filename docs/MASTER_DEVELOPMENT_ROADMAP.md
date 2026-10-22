@@ -44,7 +44,7 @@ Acceptance is scoped: it does not mean all requirements associated with a domain
 | 13 | Projects, Tasks & Resource Planning | Not started — [CHE-19](https://linear.app/chester-chong/issue/CHE-19/oosys-phase-13-projects-tasks-and-resource-planning) |
 | 14 | HRMS, Attendance & Payroll | Not started — [CHE-20](https://linear.app/chester-chong/issue/CHE-20/oosys-phase-14-hrms-attendance-and-payroll) |
 | 15 | Engineering & Product Lifecycle (PLM) | Not started — [CHE-21](https://linear.app/chester-chong/issue/CHE-21/oosys-phase-15-engineering-and-product-lifecycle-plm) |
-| 16 | Manufacturing & Production | Not started — [CHE-22](https://linear.app/chester-chong/issue/CHE-22-oosys-phase-16-manufacturing-and-production) |
+| 16 | Manufacturing & Production | Not started — [CHE-22](https://linear.app/chester-chong/issue/CHE-22/oosys-phase-16-manufacturing-and-production) |
 | 17 | Quality, Maintenance & Asset Management | Not started — [CHE-23](https://linear.app/chester-chong/issue/CHE-23-oosys-phase-17-quality-maintenance-and-asset-management) |
 | 18 | Email, WhatsApp & Internal Communications | Not started — [CHE-24](https://linear.app/chester-chong/issue/CHE-24-oosys-phase-18-email-whatsapp-and-internal-communications) |
 | 19 | Integration, API & Automation Platform | Not started — [CHE-25](https://linear.app/chester-chong/issue/CHE-25-oosys-phase-19-integration-api-and-automation-platform) |
