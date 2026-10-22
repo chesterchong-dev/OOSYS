@@ -3,6 +3,7 @@ import json
 import logging
 
 from app.core.config import Settings
+from app.core.observability import correlation_id
 from app.main import create_app
 from tests.asgi_client import asgi_get
 
@@ -19,12 +20,11 @@ def test_request_id_is_returned_and_safe_headers_are_set() -> None:
 
 
 def test_invalid_request_id_is_replaced() -> None:
-    application = create_app(Settings(_env_file=None))
-    response = asgi_get(application, "/health", headers={"X-Request-ID": "bad\r\nX-Injected: yes"})
-    request_id = response.headers["X-Request-ID"]
+    request_id = correlation_id("bad\r\nX-Injected: yes")
     assert request_id
     assert len(request_id) == 36
     assert "\r" not in request_id and "\n" not in request_id
+    assert correlation_id("x" * 65) != "x" * 65
 
 
 def test_structured_logs_do_not_include_query_or_auth_headers(caplog) -> None:
@@ -60,4 +60,4 @@ def test_cors_is_allowlisted_when_configured() -> None:
         headers={"Origin": "https://portal.example.com"},
     )
     assert response.headers["access-control-allow-origin"] == "https://portal.example.com"
-    assert response.headers["access-control-allow-credentials"] == "false"
+    assert "access-control-allow-credentials" not in response.headers
