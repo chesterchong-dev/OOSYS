@@ -1,14 +1,16 @@
 """OOSYS application composition root."""
+import hmac
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import PlainTextResponse
 
 from app.api.errors import install_error_handlers
 from app.api.operations import router as operations_router
 from app.api.v1.router import router as v1_router
 from app.core.config import Settings, get_settings
-from app.core.observability import install_observability
+from app.core.observability import install_observability, valid_metrics_token
 
 
 def create_app(settings: Settings | None = None) -> FastAPI:
@@ -51,6 +53,21 @@ def create_app(settings: Settings | None = None) -> FastAPI:
 
     application.include_router(operations_router)
     application.include_router(v1_router, prefix=active_settings.api_prefix)
+
+    @application.get("/metrics", tags=["Operations"], include_in_schema=False)
+    def metrics(request: Request) -> PlainTextResponse:
+        """Expose bounded aggregate metrics only when explicitly enabled and authenticated."""
+        metrics_settings: Settings = request.app.state.settings
+        if not metrics_settings.metrics_enabled or metrics_settings.metrics_token is None:
+            return PlainTextResponse("Not found", status_code=404)
+        supplied_token = request.headers.get("X-Metrics-Token")
+        configured_token = metrics_settings.metrics_token.get_secret_value()
+        if not valid_metrics_token(supplied_token, configured_token):
+            return PlainTextResponse("Not found", status_code=404)
+        return PlainTextResponse(
+            request.app.state.request_metrics.render_prometheus(),
+            media_type="text/plain; version=0.0.4; charset=utf-8",
+        )
 
     @application.get("/", tags=["Operations"])
     def root() -> dict[str, str]:
