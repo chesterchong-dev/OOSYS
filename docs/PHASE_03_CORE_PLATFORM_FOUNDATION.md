@@ -1,6 +1,6 @@
 # Phase 03 — Core Platform Foundation
 
-**Status:** Bounded Phase 03 scope implemented and verified on code commit `724b0a8a2ea41173e5acb73a8b7fb474b4030c5b`; exact-HEAD CI run `39513802070` passed. This acceptance covers only the bounded API/readiness foundation, not every Shared Platform Services capability.
+**Status:** ACCEPTED for the bounded API/readiness foundation scope. Implementation commit `724b0a8a2ea41173e5acb73a8b7fb474b4030c5b` passed exact-HEAD CI run `39513802070`; the reconciled requirements/documentation HEAD `df96f6f3fd2362c70fa404c524225603aaee0b52` passed exact-HEAD CI run `39775847343`. This acceptance does not mean every Shared Platform Services capability or CORE-011/CORE-012's broader requirements are complete.
 
 ## Scope resolution and evidence
 
@@ -58,4 +58,4 @@ The remaining 61 non-CORE rows in the 87-row register map to business-domain and
 
 ## Verification gates
 
-Verified evidence for implementation commit `724b0a8a2ea41173e5acb73a8b7fb474b4030c5b`: exact-HEAD CI run `39513802070` passed. The coverage report measured `app/api/operations.py` at 100% (26 statements, zero missed), overall configured coverage at 92%, with 50 tests passed and 2 PostgreSQL-only tests skipped in the standard suite. Separate PostgreSQL concurrency checks passed 2 tests. SQLite upgrade/downgrade, PostgreSQL migration/persistence/RLS, PostgreSQL downgrade and compileall passed. The workflow emitted one Starlette/httpx deprecation warning. The latest documentation reconciliation commit must also pass its own exact-HEAD CI before the branch's final acceptance sign-off. Deferred Shared Platform Services are explicitly outside this bounded acceptance.
+Verified evidence for implementation commit `724b0a8a2ea41173e5acb73a8b7fb474b4030c5b`: exact-HEAD CI run `39513802070` passed. The coverage report measured `app/api/operations.py` at 100% (26 statements, zero missed), overall configured coverage at 92%, with 50 tests passed and 2 PostgreSQL-only tests skipped in the standard suite. Separate PostgreSQL concurrency checks passed 2 tests. SQLite upgrade/downgrade, PostgreSQL migration/persistence/RLS, PostgreSQL downgrade and compileall passed. The workflow emitted one Starlette/httpx deprecation warning. The reconciled requirements/documentation commit `df96f6f3fd2362c70fa404c524225603aaee0b52` passed exact-HEAD CI run `39775847343`. Deferred Shared Platform Services are explicitly outside this bounded acceptance.

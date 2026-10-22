@@ -1,15 +1,15 @@
 # OOSYS Phase Status
 
-**Updated:** 2026-10-21  
+**Updated:** 2026-10-22  
 **Current phase:** Phase 03 — Core Platform Foundation  
-**Status:** Bounded Phase 03 implementation verified; documentation reconciliation and exact resulting HEAD CI are the final sign-off gate.
+**Status:** Phase 03 accepted for the bounded API/readiness foundation scope; the broader OOSYS platform remains in development.
 
 | Phase | Status | Verified scope |
 |---|---|---|
 | Phase 00 — Repository Audit & Development Baseline | Complete | Repository/source inventory, 87-row requirements register and crosswalk, limitations and baseline CI evidence. Audit/traceability only. |
 | Phase 01 — Architecture & Development Governance | Complete (foundation scope) | Modular-monolith contract, injectable settings, route/error contracts, lazy SQLAlchemy lifecycle, Alembic migrations and CI evidence. Foundation only, not product completeness. |
 | Phase 02 — Identity, Authentication & Multi-Tenancy | Complete for scoped acceptance | Identity/session/RBAC, organisation/hierarchy APIs, recovery/invitation flows and PostgreSQL RLS. Evidence and caveats in docs/PHASE_02_IDENTITY_MULTITENANCY.md; future business-table RLS and production review remain open. |
-| Phase 03 — Core Platform Foundation | Bounded scope implemented; final sign-off pending latest docs commit CI | API/operations readiness foundation and scope matrix. Exact implementation commit `724b0a8a2ea41173e5acb73a8b7fb474b4030c5b` passed CI run [39513802070](https://github.com/chesterchong-dev/OOSYS/actions/runs/39513802070); operations coverage 100%. Deferred services remain outside scope. |
+| Phase 03 — Core Platform Foundation | **Accepted — bounded scope only** | Database readiness endpoint, operational tests, scope matrix and reconciled requirement evidence. Implementation SHA `724b0a8a2ea41173e5acb73a8b7fb474b4030c5b` passed CI run [39513802070](https://github.com/chesterchong-dev/OOSYS/actions/runs/39513802070); final requirements/docs SHA `df96f6f3fd2362c70fa404c524225603aaee0b52` passed exact-HEAD CI run [39775847343](https://github.com/chesterchong-dev/OOSYS/actions/runs/39775847343). `app/api/operations.py` coverage 100%. Broader CORE-011/012 criteria and deferred services remain partial/missing. |
 
 ## Phase 03 acceptance gates
 
@@ -20,8 +20,8 @@
 - [x] Add readiness probe with fail-closed, non-disclosing behavior.
 - [x] Verify implementation commit tests, SQLite/PostgreSQL migration lifecycle, PostgreSQL persistence/RLS and concurrency checks, compileall and operations-module coverage using exact-HEAD CI run 39513802070.
 - [x] Reconcile CORE-011/CORE-012 evidence and known limitations with the measured coverage output; retain both requirements as partial.
-- [ ] Verify the final documentation-reconciliation commit's own exact-HEAD CI run.
-- [ ] Final Phase 03 sign-off after that run succeeds.
+- [x] Verify final requirements/documentation reconciliation on exact-HEAD CI run 39775847343 (SHA df96f6f3fd2362c70fa404c524225603aaee0b52).
+- [x] Accept Phase 03 for the explicitly bounded API/readiness foundation scope; retain broader CORE-011/012 and deferred platform capabilities as partial/missing.
 
 ## Historical baseline
 
