@@ -8,13 +8,22 @@ OOSYS is planned as a modular enterprise platform spanning ERP, WMS, CRM, accoun
 - Python 3.12+, FastAPI and Pydantic Settings
 - PostgreSQL and SQLAlchemy 2 for persistence
 - Alembic migrations, Pytest and GitHub Actions
-- Frontend and deployment decisions remain unimplemented until their scoped phases.
+- Frontend stack is React 18, TypeScript, Vite and Tailwind CSS 3 (Phase 04); production deployment configuration remains unimplemented.
 
 ## Local setup
 1. Create a virtual environment with Python 3.12.
 2. Install dependencies: python -m pip install -r requirements.txt
 3. Run: uvicorn app.main:app --reload
 4. Open /docs for OpenAPI. /health is liveness; /health/ready checks configured database readiness and returns 503 when no database is configured or the check fails.
+
+## Frontend (Phase 04)
+1. Start the backend: install requirements, configure OOSYS_DATABASE_URL and run alembic upgrade head.
+2. Start the API with uvicorn app.main:app --reload.
+3. In another terminal run npm install and npm run dev; open the Vite URL (usually http://localhost:5173). The development proxy forwards /api to http://127.0.0.1:8000.
+4. Verify frontend with npm run test:ci and npm run build. GitHub Actions runs both commands.
+5. Sign in with an existing OOSYS account. Registration is disabled by default. Invitations require an existing active account and configured SMTP.
+
+Production hosting must route /api to FastAPI on the same origin or configure VITE_API_BASE_URL and a strict backend CORS allowlist.
 
 ## Database migrations
 - Configure OOSYS_DATABASE_URL outside source control before running migrations.

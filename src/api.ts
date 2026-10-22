@@ -1,0 +1,41 @@
+export type Principal={user_id:string;email:string;organization_id:string;membership_id:string;permissions:string[]};
+export type Organization={id:string;name:string;slug:string;status:string};
+export type Member={membership_id:string;status:string;user:{id:string;email:string;full_name:string;is_active:boolean}};
+export type Role={id:string;organization_id:string;name:string;description:string;is_system:boolean};
+export type Permission={key:string;description:string};
+export type Unit={id:string;organization_id:string;unit_type:string;name:string;code:string|null;parent_id:string|null;status:string};
+export type AuditEvent={id:string;actor_user_id:string|null;action:string;target_type:string;target_id:string|null;outcome:string;correlation_id:string|null;created_at:string};
+export type Page<T>={items:T[];limit:number;offset:number};
+export type LoginResult={access_token?:string;requires_organization_selection?:boolean;organizations?:{id:string}[]};
+const base=(import.meta.env.VITE_API_BASE_URL??"/api/v1").replace(/\/$/,"");
+export class ApiError extends Error{constructor(public status:number,message:string){super(message);this.name="ApiError";}}
+export async function request<T>(path:string,token?:string|null,init:RequestInit={}):Promise<T>{
+ const headers=new Headers(init.headers);headers.set("Accept","application/json");
+ if(init.body!==undefined&&!headers.has("Content-Type"))headers.set("Content-Type","application/json");
+ if(token)headers.set("Authorization","Bearer "+token);
+ const response=await fetch(base+path,{...init,headers});
+ if(!response.ok){let message="Request failed ("+response.status+")";try{const body=await response.json() as {detail?:unknown;message?:unknown};if(typeof body.detail==="string")message=body.detail;else if(typeof body.message==="string")message=body.message;}catch{}throw new ApiError(response.status,message);}
+ if(response.status===204)return undefined as T;
+ const text=await response.text();return (text?JSON.parse(text):undefined) as T;
+}
+const orgPath=(id:string)=>"/organizations/"+encodeURIComponent(id);
+export const api={
+ login:(email:string,password:string,organization_id?:string)=>request<LoginResult>("/auth/login",null,{method:"POST",body:JSON.stringify({email,password,...(organization_id?{organization_id}:{})})}),
+ me:(t:string)=>request<Principal>("/auth/me",t),logout:(t:string)=>request<void>("/auth/logout",t,{method:"POST"}),
+ organization:(t:string,id:string)=>request<Organization>(orgPath(id),t),
+ updateOrganization:(t:string,id:string,b:{name:string;status:string})=>request<Organization>(orgPath(id),t,{method:"PATCH",body:JSON.stringify(b)}),
+ archiveOrganization:(t:string,id:string)=>request<void>(orgPath(id)+"/archive",t,{method:"POST"}),
+ members:(t:string,id:string,offset=0)=>request<Page<Member>>(orgPath(id)+"/members?limit=50&offset="+offset,t),
+ updateMember:(t:string,id:string,user:string,b:{status?:string;role_id?:string})=>request<{membership_id:string;status:string}>(orgPath(id)+"/members/"+encodeURIComponent(user),t,{method:"PATCH",body:JSON.stringify(b)}),
+ invite:(t:string,id:string,email:string,role_id:string)=>request<{message:string}>(orgPath(id)+"/invitations",t,{method:"POST",body:JSON.stringify({email,role_id})}),
+ roles:(t:string,id:string)=>request<Role[]>(orgPath(id)+"/roles",t),permissions:(t:string,id:string)=>request<Permission[]>(orgPath(id)+"/permissions",t),
+ createRole:(t:string,id:string,b:{name:string;description:string;permissions:string[]})=>request<Role>(orgPath(id)+"/roles",t,{method:"POST",body:JSON.stringify(b)}),
+ updateRole:(t:string,id:string,r:string,b:{name:string;description:string})=>request<Role>(orgPath(id)+"/roles/"+encodeURIComponent(r),t,{method:"PATCH",body:JSON.stringify(b)}),
+ archiveRole:(t:string,id:string,r:string)=>request<void>(orgPath(id)+"/roles/"+encodeURIComponent(r)+"/archive",t,{method:"POST"}),
+ units:(t:string,id:string,offset=0)=>request<Page<Unit>>(orgPath(id)+"/units?limit=50&offset="+offset,t),
+ createUnit:(t:string,id:string,b:{unit_type:string;name:string;code:string|null;parent_id:string|null})=>request<Unit>(orgPath(id)+"/units",t,{method:"POST",body:JSON.stringify(b)}),
+ updateUnit:(t:string,id:string,u:string,b:{name:string;code:string|null;parent_id:string|null})=>request<Unit>(orgPath(id)+"/units/"+encodeURIComponent(u),t,{method:"PATCH",body:JSON.stringify(b)}),
+ archiveUnit:(t:string,id:string,u:string)=>request<void>(orgPath(id)+"/units/"+encodeURIComponent(u)+"/archive",t,{method:"POST"}),
+ audit:(t:string,id:string,offset=0)=>request<Page<AuditEvent>>(orgPath(id)+"/audit-events?limit=50&offset="+offset,t),
+ changePassword:(t:string,current_password:string,new_password:string)=>request<void>("/auth/me/password",t,{method:"POST",body:JSON.stringify({current_password,new_password})})
+};

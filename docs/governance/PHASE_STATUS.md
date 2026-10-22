@@ -1,8 +1,8 @@
 # OOSYS Phase Status
 
 **Updated:** 2026-10-22  
-**Current phase:** Phase 03 — Core Platform Foundation  
-**Status:** Phase 03 accepted for the bounded API/readiness foundation scope; the broader OOSYS platform remains in development.
+**Current phase:** Phase 04 — Frontend Shell & Administration  
+**Status:** Phase 03 remains accepted; Phase 04 implementation is committed and awaits exact-HEAD frontend/backend CI verification.
 
 | Phase | Status | Verified scope |
 |---|---|---|
@@ -10,6 +10,8 @@
 | Phase 01 — Architecture & Development Governance | Complete (foundation scope) | Modular-monolith contract, injectable settings, route/error contracts, lazy SQLAlchemy lifecycle, Alembic migrations and CI evidence. Foundation only, not product completeness. |
 | Phase 02 — Identity, Authentication & Multi-Tenancy | Complete for scoped acceptance | Identity/session/RBAC, organisation/hierarchy APIs, recovery/invitation flows and PostgreSQL RLS. Evidence and caveats in docs/PHASE_02_IDENTITY_MULTITENANCY.md; future business-table RLS and production review remain open. |
 | Phase 03 — Core Platform Foundation | **Accepted — bounded scope only** | Database readiness endpoint, operational tests, scope matrix and reconciled requirement evidence. Implementation SHA `724b0a8a2ea41173e5acb73a8b7fb474b4030c5b` passed CI run [39513802070](https://github.com/chesterchong-dev/OOSYS/actions/runs/39513802070); final requirements/docs SHA `df96f6f3fd2362c70fa404c524225603aaee0b52` passed exact-HEAD CI run [39775847343](https://github.com/chesterchong-dev/OOSYS/actions/runs/39775847343). `app/api/operations.py` coverage 100%. Broader CORE-011/012 criteria and deferred services remain partial/missing. |
+
+| Phase 04 — Frontend Shell & Administration | Implemented; verification pending | React/TypeScript/Vite/Tailwind shell, existing-API sign-in, dashboard, permission-aware navigation and organization/member/role/hierarchy/audit administration. See docs/PHASE_04_FRONTEND_SHELL_ADMINISTRATION.md; acceptance requires exact-HEAD CI. |
 
 ## Phase 03 acceptance gates
 
