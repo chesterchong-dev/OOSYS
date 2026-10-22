@@ -26,6 +26,10 @@ def install_observability(application: FastAPI) -> None:
     async def request_observability(request: Request, call_next) -> Response:
         request_id = correlation_id(request.headers.get("X-Request-ID"))
         request.state.correlation_id = request_id
+        request.scope["headers"] = [
+            (key, value) for key, value in request.scope["headers"]
+            if key.lower() != b"x-request-id"
+        ] + [(b"x-request-id", request_id.encode("ascii"))]
         started = time.perf_counter()
         status_code = 500
         raised = False
@@ -50,5 +54,7 @@ def install_observability(application: FastAPI) -> None:
                 "status_code": 500 if raised else status_code,
                 "duration_ms": round((time.perf_counter() - started) * 1000, 2),
             }
-            _logger.log(logging.ERROR if raised or status_code >= 500 else logging.INFO,
-                        json.dumps(entry, separators=(",", ":")))
+            _logger.log(
+                logging.ERROR if raised or status_code >= 500 else logging.INFO,
+                json.dumps(entry, separators=(",", ":")),
+            )
