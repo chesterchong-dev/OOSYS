@@ -32,7 +32,6 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     application.state.identity_engine = None
     application.state.identity_session_factory = None
     install_error_handlers(application)
-    install_observability(application)
 
     allowed_origins = [
         origin.strip()
@@ -48,6 +47,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             allow_headers=["Authorization", "Content-Type", "X-Request-ID"],
             expose_headers=["X-Request-ID"],
         )
+    install_observability(application)
 
     application.include_router(operations_router)
     application.include_router(v1_router, prefix=active_settings.api_prefix)
