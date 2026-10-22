@@ -97,10 +97,23 @@ For a real incident: stop writes or place the service in maintenance mode if req
 3. Do not bypass limits globally. Apply a scoped mitigation, verify legitimate login still works, and test across multiple workers using PostgreSQL.
 4. Escalate if abuse persists or the control can be evaded.
 
-## Remaining verification gates
+## Verification evidence and remaining gates
 
-- Full backend and frontend CI run [39791287085](https://github.com/chesterchong-dev/OOSYS/actions/runs/39791287085) passed on candidate `d51530d050cf25e0605cf1ea28905b588973c962` (57 passed, 1 failed, 2 skipped; first run's log-test failure was corrected afterward). Dependency audit run [39792499218](https://github.com/chesterchong-dev/OOSYS/actions/runs/39792499218) passed on candidate `b3d9320e8a3fc6809ccca40e68555a46dcaa8c63` after upgrading the pytest constraint. The newer recovery-test additions still require a completed exact-HEAD validation run.
-- Verify database-backed login rate limiting across concurrent PostgreSQL workers and review token/recovery endpoints for equivalent abuse protection.
-- Dependency audit run [39792499218](https://github.com/chesterchong-dev/OOSYS/actions/runs/39792499218) passed. Earlier run [39790464814](https://github.com/chesterchong-dev/OOSYS/actions/runs/39790464814) identified `pytest 8.4.2` / `PYSEC-2026-1845`; dependency constraint now requires `pytest>=9.0.3,<10.0`. Continue reviewing future scanner output; do not suppress advisories.
-- Perform an actual backup restore in a disposable PostgreSQL database and record the evidence.
-- Reconcile the 87-row requirements register and source-node crosswalk, and verify the master roadmap and two original XMind maps before marking acceptance. The XMind references were not readable by the repository tools during this work; do not silently infer source-node mappings.
+### Dependency audit
+- The initial audit run [39790464814](https://github.com/chesterchong-dev/OOSYS/actions/runs/39790464814) failed and identified `pytest 8.4.2` / `PYSEC-2026-1845`, fixed in version 9.0.3.
+- Updated `requirements.txt` to `pytest>=9.0.3,<10.0`, without suppressions.
+- Dependency audit run [39792499218](https://github.com/chesterchong-dev/OOSYS/actions/runs/39792499218) passed on candidate `b3d9320e8a3fc6809ccca40e68555a46dcaa8c63`.
+- The redaction test's initial failure in run [39790464759](https://github.com/chesterchong-dev/OOSYS/actions/runs/39790464759) was caused by relying on pytest's log capture for a middleware logger under the current ASGI test setup. Replaced it with direct logger spying while still asserting no query strings or Authorization values are emitted.
+- Candidate run [39791287085](https://github.com/chesterchong-dev/OOSYS/actions/runs/39791287085) passed after that test fix; its earlier candidate run had 57 passed, 1 failed, 2 skipped. The later reset/invitation expiry tests need the exact latest-head run below.
+
+### Backup/restore drill
+A disposable PostgreSQL 16 backup/restore step has now been added to `.github/workflows/phase00-validation.yml`. It dumps the CI-only `oosys_ci` database into a permission-restricted temporary custom-format file, restores it into a separate `oosys_restore_target` database, then compares the Alembic revision, the existing `ci.persistence.probe` sentinel and identity-user row counts. It uses only the ephemeral PostgreSQL service and synthetic CI test records; it does not connect to or alter production. The new step is **not yet verified** until GitHub Actions completes successfully on the current branch HEAD.
+
+### XMind / requirement traceability
+The connected XMind account was used on 2026-10-22 to read the Master Development Roadmap (23 phases), the master product map and the Developer Implementation Blueprint. The 87-row register and 87-row UUID crosswalk were retrieved from `docs/requirements/`. Existing source-node mapping classifications were preserved; source-map traceability was reconciled against the Phase 05 criteria. Traceability identifies intended scope but does not imply that a capability is implemented.
+
+### Remaining gates
+- Exact-head Phase 00 validation: backend tests, SQLite migration lifecycle, PostgreSQL migration/persistence/RLS and concurrency probes, disposable DB restore drill, frontend tests/build and compileall.
+- Confirm the new reset-token and invitation abuse tests pass on the exact final candidate.
+- Secret scanning is not yet implemented as a dedicated CI workflow; no dedicated metrics export/alerting service is configured. These remain partial and must not be silently marked complete.
+- Real production-equivalent restore, RPO/RTO validation and an operational alert delivery check remain unperformed. The CI drill proves tested backup/restore on synthetic data, not production recovery readiness.
