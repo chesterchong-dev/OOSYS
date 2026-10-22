@@ -1,0 +1,10 @@
+# ADR-0008 — Phase 05 Security, Observability and CORS
+
+- **Date:** 2026-10-22
+- **Status:** Proposed; validate through exact-commit CI and review before acceptance
+- **Context:** Phase 05 requires request correlation, safe operational logs and baseline security headers without changing existing API response contracts. The frontend uses bearer tokens rather than cookies, and deployments may be same-origin or use an explicit browser origin allowlist.
+- **Decision:** Generate a UUID request ID when the inbound X-Request-ID is absent or unsafe; accept only 1–64 ASCII letters, digits, dots, underscores and hyphens. Return the normalized value in X-Request-ID and attach it to request state. Emit JSON access logs containing method, URL path without query, status and elapsed time only. Add X-Content-Type-Options, X-Frame-Options, Referrer-Policy and Permissions-Policy. CORS remains disabled unless explicit comma-separated origins are configured; wildcard origins and credentialed CORS are rejected/disabled.
+- **Alternatives:** Trust any incoming request ID (rejected due to log injection); log query strings/headers for diagnostics (rejected due to token/PII exposure); enable wildcard CORS (rejected); add cookie authentication and CSRF exemptions (out of scope).
+- **Compatibility:** Existing /health and /health/ready response bodies remain unchanged. Same-origin deployments require no CORS setting. Cross-origin frontend deployments must set OOSYS_CORS_ALLOWED_ORIGINS to exact scheme-and-host origins and must not rely on cookies.
+- **Security implications:** The middleware deliberately does not record request bodies, query strings, authorization headers, cookies or exception text. These headers are a baseline, not a substitute for TLS, reverse-proxy policy, CSP decisions or a deployment security review.
+- **Follow-up:** Exact-commit CI, full auth/recovery abuse testing, dependency scan triage, requirements-register/crosswalk reconciliation and a disposable PostgreSQL restore drill are required before phase acceptance.
