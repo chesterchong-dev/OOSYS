@@ -1,6 +1,6 @@
 # OOSYS — Only One System
 
-**Current state: Phase 00–02 accepted for their scoped criteria; Phase 03 Core Platform Foundation is in progress. Not production-ready.**
+**Current state: Phase 00–02 accepted for their scoped criteria; Phase 03 bounded API/readiness foundation implemented and CI-verified; final documentation-commit CI sign-off pending. Not production-ready.**
 
 OOSYS is planned as a modular enterprise platform spanning ERP, WMS, CRM, accounting, HRMS, manufacturing/engineering, integrations and AI. The product map and requirements register remain the scope authority; implementation status must be evidence-based.
 
@@ -24,7 +24,7 @@ OOSYS is planned as a modular enterprise platform spanning ERP, WMS, CRM, accoun
 
 ## Governance
 - Keep phase work on phase-00-02-starter; do not write phase work directly to main.
-- CI installs declared dependencies, runs pytest with identity and operations-module coverage, checks migrations on SQLite and PostgreSQL, and compiles application/migration/test code. A green run proves only tested behavior.
+- CI installs declared dependencies, runs pytest with identity and operations-module coverage, checks migrations on SQLite and PostgreSQL, and compiles application/migration/test code. Implementation commit `724b0a8a2ea41173e5acb73a8b7fb474b4030c5b` passed exact-HEAD run [39513802070](https://github.com/chesterchong-dev/OOSYS/actions/runs/39513802070): 50 passed, 2 skipped, `app.api.operations.py` 100% coverage (26 statements), total configured coverage 92%, SQLite/PostgreSQL migration lifecycle, PostgreSQL persistence/RLS and concurrency probes, and compileall. The final documentation-only commit still requires its own green run.
 - Never commit secrets. Configuration uses OOSYS_-prefixed environment variables.
 - Phase 02 identity, authentication, sessions, RBAC and tenant isolation are implemented for their accepted scope. Broader tenant lifecycle and future business-table RLS still require work.
 - Tenant settings CRUD, shared notifications/files/search/workflow/integration/subscription/AI services, business modules, frontend and production deployment remain unimplemented or deferred.

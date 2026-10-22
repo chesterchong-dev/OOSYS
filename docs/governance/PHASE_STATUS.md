@@ -2,14 +2,14 @@
 
 **Updated:** 2026-10-21  
 **Current phase:** Phase 03 — Core Platform Foundation  
-**Status:** IN PROGRESS — bounded API/operations foundation implementation; exact-commit CI pending.
+**Status:** Bounded Phase 03 implementation verified; documentation reconciliation and exact resulting HEAD CI are the final sign-off gate.
 
 | Phase | Status | Verified scope |
 |---|---|---|
 | Phase 00 — Repository Audit & Development Baseline | Complete | Repository/source inventory, 87-row requirements register and crosswalk, limitations and baseline CI evidence. Audit/traceability only. |
 | Phase 01 — Architecture & Development Governance | Complete (foundation scope) | Modular-monolith contract, injectable settings, route/error contracts, lazy SQLAlchemy lifecycle, Alembic migrations and CI evidence. Foundation only, not product completeness. |
 | Phase 02 — Identity, Authentication & Multi-Tenancy | Complete for scoped acceptance | Identity/session/RBAC, organisation/hierarchy APIs, recovery/invitation flows and PostgreSQL RLS. Evidence and caveats in docs/PHASE_02_IDENTITY_MULTITENANCY.md; future business-table RLS and production review remain open. |
-| Phase 03 — Core Platform Foundation | In progress | Product-map Foundation branch reconciled with requirements. Adds database readiness probe and scope matrix; does not implement all Shared Platform Services. Exact-HEAD CI result is required before any completion claim. |
+| Phase 03 — Core Platform Foundation | Bounded scope implemented; final sign-off pending latest docs commit CI | API/operations readiness foundation and scope matrix. Exact implementation commit `724b0a8a2ea41173e5acb73a8b7fb474b4030c5b` passed CI run [39513802070](https://github.com/chesterchong-dev/OOSYS/actions/runs/39513802070); operations coverage 100%. Deferred services remain outside scope. |
 
 ## Phase 03 acceptance gates
 
@@ -18,9 +18,10 @@
 - [x] Document scope assumptions and requirement-level inclusion/deferment in docs/PHASE_03_CORE_PLATFORM_FOUNDATION.md.
 - [x] Preserve stable liveness endpoint and stable error contract.
 - [x] Add readiness probe with fail-closed, non-disclosing behavior.
-- [ ] Verify tests, migration checks, PostgreSQL integration, compileall and operations-module coverage on exact resulting commit.
-- [ ] Reconcile final requirement evidence and known limitations with CI output.
-- [ ] Phase 03 sign-off.
+- [x] Verify implementation commit tests, SQLite/PostgreSQL migration lifecycle, PostgreSQL persistence/RLS and concurrency checks, compileall and operations-module coverage using exact-HEAD CI run 39513802070.
+- [x] Reconcile CORE-011/CORE-012 evidence and known limitations with the measured coverage output; retain both requirements as partial.
+- [ ] Verify the final documentation-reconciliation commit's own exact-HEAD CI run.
+- [ ] Final Phase 03 sign-off after that run succeeds.
 
 ## Historical baseline
 

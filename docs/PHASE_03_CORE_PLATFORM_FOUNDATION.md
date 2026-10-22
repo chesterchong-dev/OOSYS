@@ -1,6 +1,6 @@
 # Phase 03 — Core Platform Foundation
 
-**Status:** IN PROGRESS — bounded foundation slice implemented; full phase acceptance not claimed.
+**Status:** Bounded Phase 03 scope implemented and verified on code commit `724b0a8a2ea41173e5acb73a8b7fb474b4030c5b`; exact-HEAD CI run `39513802070` passed. This acceptance covers only the bounded API/readiness foundation, not every Shared Platform Services capability.
 
 ## Scope resolution and evidence
 
@@ -58,4 +58,4 @@ The remaining 61 non-CORE rows in the 87-row register map to business-domain and
 
 ## Verification gates
 
-Phase 03 is not complete until the resulting exact commit's CI passes, readiness tests pass, operations-module coverage is reported and reviewed against the 90% target, and documentation/status reflects verified evidence. This bounded implementation does not satisfy acceptance for deferred shared platform services.
+Verified evidence for implementation commit `724b0a8a2ea41173e5acb73a8b7fb474b4030c5b`: exact-HEAD CI run `39513802070` passed. The coverage report measured `app/api/operations.py` at 100% (26 statements, zero missed), overall configured coverage at 92%, with 50 tests passed and 2 PostgreSQL-only tests skipped in the standard suite. Separate PostgreSQL concurrency checks passed 2 tests. SQLite upgrade/downgrade, PostgreSQL migration/persistence/RLS, PostgreSQL downgrade and compileall passed. The workflow emitted one Starlette/httpx deprecation warning. The latest documentation reconciliation commit must also pass its own exact-HEAD CI before the branch's final acceptance sign-off. Deferred Shared Platform Services are explicitly outside this bounded acceptance.

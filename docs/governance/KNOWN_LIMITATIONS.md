@@ -11,8 +11,8 @@
 - PostgreSQL CI probes are focused integration checks, not production deployment verification or full business persistence tests.
 
 ## Verification limitations
-- Phase 03 code changes must be verified by CI against their exact commit before acceptance.
+- Phase 03 implementation commit `724b0a8a2ea41173e5acb73a8b7fb474b4030c5b` passed exact-HEAD CI run `39513802070`. Final documentation reconciliation is awaiting its own exact-HEAD CI sign-off.
 - Local commands were not run in this GitHub-web-only workflow. Do not report local test, type-check, lint, build or migration success.
-- The existing workflow runs pytest with --cov=app.identity and --cov=app.api.operations, SQLite Alembic upgrade/downgrade, PostgreSQL 16 migration/persistence/RLS smoke probes and compileall. The actual operations-module coverage percentage must be read from the final exact-HEAD CI output; no percentage is claimed before that run completes.
+- Exact-HEAD run `39513802070` executed pytest with --cov=app.identity and --cov=app.api.operations: `app/api/operations.py` measured 100% (26 statements, 0 missed); overall measured coverage 92%; 50 passed, 2 skipped, one Starlette/httpx deprecation warning. SQLite Alembic upgrade/downgrade, PostgreSQL 16 migration/persistence/RLS probes, two PostgreSQL recovery-token concurrency tests, PostgreSQL downgrade and compileall all passed. This is not production readiness or full-platform coverage.
 - Dedicated type-check, lint, dependency-vulnerability scanning, broad security scanning, frontend build and end-to-end production checks are not configured.
 - Branch protection is disabled on the development branch; review/CI gates remain governance risks.
