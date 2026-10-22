@@ -28,6 +28,7 @@ def install_observability(application: FastAPI) -> None:
         request.state.correlation_id = request_id
         started = time.perf_counter()
         status_code = 500
+        raised = False
         try:
             response = await call_next(request)
             status_code = response.status_code
@@ -38,22 +39,16 @@ def install_observability(application: FastAPI) -> None:
             response.headers["Permissions-Policy"] = "camera=(), microphone=(), geolocation=()"
             return response
         except Exception:
-            _logger.error(json.dumps({
+            raised = True
+            raise
+        finally:
+            entry = {
                 "event": "http.request",
                 "request_id": request_id,
                 "method": request.method,
                 "path": request.url.path,
-                "status_code": 500,
+                "status_code": 500 if raised else status_code,
                 "duration_ms": round((time.perf_counter() - started) * 1000, 2),
-            }, separators=(",", ":")))
-            raise
-        finally:
-            if status_code != 500:
-                _logger.info(json.dumps({
-                    "event": "http.request",
-                    "request_id": request_id,
-                    "method": request.method,
-                    "path": request.url.path,
-                    "status_code": status_code,
-                    "duration_ms": round((time.perf_counter() - started) * 1000, 2),
-                }, separators=(",", ":")))
+            }
+            _logger.log(logging.ERROR if raised or status_code >= 500 else logging.INFO,
+                        json.dumps(entry, separators=(",", ":")))
