@@ -2,6 +2,8 @@
 import json
 import logging
 
+from fastapi import Request
+
 from app.core.config import Settings
 from app.core.observability import correlation_id
 from app.main import create_app
@@ -20,11 +22,23 @@ def test_request_id_is_returned_and_safe_headers_are_set() -> None:
 
 
 def test_invalid_request_id_is_replaced() -> None:
-    request_id = correlation_id("bad\r\nX-Injected: yes")
+    request_id = correlation_id("bad\\r\\nX-Injected: yes")
     assert request_id
     assert len(request_id) == 36
-    assert "\r" not in request_id and "\n" not in request_id
+    assert "\\r" not in request_id and "\\n" not in request_id
     assert correlation_id("x" * 65) != "x" * 65
+
+
+def test_generated_request_id_is_visible_to_downstream_endpoint() -> None:
+    application = create_app(Settings(_env_file=None))
+
+    @application.get("/test-correlation")
+    def echo_correlation(request: Request) -> dict[str, str]:
+        return {"request_id": request.headers["X-Request-ID"]}
+
+    response = asgi_get(application, "/test-correlation")
+    assert response.status_code == 200
+    assert response.json()["request_id"] == response.headers["X-Request-ID"]
 
 
 def test_structured_logs_do_not_include_query_or_auth_headers(caplog) -> None:
@@ -50,6 +64,8 @@ def test_cors_wildcard_and_path_origins_are_rejected() -> None:
 
     with pytest.raises(ValidationError):
         Settings(cors_allowed_origins="*", _env_file=None)
+    with pytest.raises(ValidationError):
+        Settings(cors_allowed_origins="https://portal.example.com/", _env_file=None)
 
 
 def test_cors_is_allowlisted_when_configured() -> None:
