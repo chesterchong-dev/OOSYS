@@ -3,6 +3,7 @@ import {Activity,Building2,LayoutDashboard,LogOut,Menu,Network,ShieldCheck,Users
 import {api,ApiError,type Organization,type Principal} from "./api";
 import {Login} from "./Login";
 import {Workspace} from "./Workspace";
+import {CommandSearch} from "./CommandSearch";
 export type View="overview"|"members"|"roles"|"organization"|"structure"|"audit"|"profile";
 const nav:{id:View;label:string;icon:typeof LayoutDashboard;permission?:string}[]=[
 {id:"overview",label:"Overview",icon:LayoutDashboard},{id:"members",label:"Members",icon:Users,permission:"members.read"},
@@ -28,7 +29,7 @@ return <div className="app-frame">{mobile&&<button className="mobile-scrim" aria
 <div className="workspace-label">WORKSPACE</div><div className="tenant-switcher"><div className="tenant-avatar">{org.name.slice(0,1).toUpperCase()}</div><div className="tenant-copy"><strong>{org.name}</strong><span>{org.slug}</span></div></div>
 <nav className="nav-list"><span className="nav-section">YOUR WORKSPACE</span>{links.map(n=>{const Icon=n.icon;return <button key={n.id} className={"nav-item "+(view===n.id?"nav-active":"")} aria-current={view===n.id?"page":undefined} onClick={()=>{setView(n.id);setMobile(false);setNotice(null);}}><Icon size={18}/><span>{n.label}</span></button>;})}</nav>
 <div className="sidebar-bottom"><div className="secure-label"><span className="status-dot"/>Secure session</div><div className="user-card"><div className="user-avatar">{principal.email.slice(0,1).toUpperCase()}</div><div className="user-copy"><strong>{principal.email}</strong><span>Signed in</span></div><button className="icon-button" aria-label="Sign out" onClick={logout}><LogOut size={16}/></button></div></div></aside>
-<div className="main-column"><header className="topbar"><button className="icon-button mobile-menu" aria-label="Open navigation" onClick={()=>setMobile(true)}><Menu size={19}/></button><div className="breadcrumbs"><span>Workspace</span><span>/</span><strong><ActiveIcon size={14}/>{active.label}</strong></div><span className="live-indicator"><span className="status-dot"/>API connected</span></header>
+<div className="main-column"><header className="topbar"><button className="icon-button mobile-menu" aria-label="Open navigation" onClick={()=>setMobile(true)}><Menu size={19}/></button><div className="breadcrumbs"><span>Workspace</span><span>/</span><strong><ActiveIcon size={14}/>{active.label}</strong></div><CommandSearch commands={links.map(n=>({id:n.id,label:n.label}))} onSelect={id=>{setView(id as View);setNotice(null);}}/><span className="live-indicator"><span className="status-dot"/>API connected</span></header>
 <main id="main-content" className="main-content">{notice&&<div className={"notice notice-"+notice.kind} role={notice.kind==="error"?"alert":"status"}><span>{notice.message}</span><button className="icon-button" aria-label="Dismiss notification" onClick={()=>setNotice(null)}><X size={15}/></button></div>}
 <Workspace view={view} token={token} principal={principal} organization={org} refreshKey={refreshKey} onMutation={onMutation} onError={onError}/>
 <footer className="page-footer"><span>OOSYS Platform Foundation</span><span>Tenant-scoped access · Secure by design</span></footer></main></div></div>;

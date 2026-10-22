@@ -10,7 +10,7 @@ Phase 04 is the first visual milestone. It delivers a real sign-in screen, permi
 ## Requirement crosswalk
 | Requirement | Phase 04 work | Acceptance evidence |
 |---|---|---|
-| OOSYS-CORE-018 Shared UI shell | Responsive shell, navigation, active workspace, semantic landmarks and visible keyboard focus | Frontend build and component tests; exact-HEAD CI |
+| OOSYS-CORE-018 Shared UI shell | Responsive shell, navigation, local command search, active workspace, semantic landmarks and visible keyboard focus | Frontend build and component tests; exact-HEAD CI |
 | OOSYS-CORE-019 Dashboards | Initial dashboard derives counts from permitted member, role, hierarchy and audit endpoints | Counts originate in authorized API responses; no fabricated data |
 | OOSYS-CORE-001 Tenant and organisation management | Existing organization read/update/archive endpoints surfaced in administration UI | Uses authenticated principal organization; server permission and tenant checks remain authoritative |
 | OOSYS-CORE-002 Authentication and sessions | Login, organization selection, bearer session, logout and password change | Existing /api/v1/auth contracts; tab-scoped sessionStorage, never localStorage |
