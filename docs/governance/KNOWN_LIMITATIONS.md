@@ -21,3 +21,5 @@
 - No invitation listing/revocation UI, role-permission readback, profile-name readback, tenant/user settings CRUD or analytics-grade dashboard exists because required read contracts/services are absent.
 - Production deployment must configure same-origin API routing or a reviewed CORS allowlist. Vite proxy is development-only.
 - Frontend acceptance requires the dedicated Node.js CI job to pass on the exact final commit; no local build is claimed in this GitHub-web workflow.
+
+- The member-list API does not return assigned role IDs; Phase 04 can assign/replace a role but cannot display the existing assignment. The UI states this before the table.
