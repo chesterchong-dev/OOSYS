@@ -21,3 +21,12 @@ def test_production_requires_non_empty_rate_limit_secret() -> None:
 
     with pytest.raises(ValidationError):
         Settings(environment="production", login_rate_limit_secret="", _env_file=None)
+
+
+
+def test_production_requires_non_empty_rate_limit_secret() -> None:
+    import pytest
+    from pydantic import ValidationError
+
+    with pytest.raises(ValidationError):
+        Settings(environment="production", login_rate_limit_secret="", _env_file=None)
