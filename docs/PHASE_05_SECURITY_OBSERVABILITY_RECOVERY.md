@@ -1,6 +1,6 @@
 # OOSYS Phase 05 — Security, Observability & Recovery
 
-**Status: In progress; not accepted until exact-commit CI and the required restore drill are evidenced.**
+**Status: In progress; not accepted until exact-commit CI, extended recovery-test CI and the required restore drill are evidenced.**
 
 ## Baseline
 
@@ -99,8 +99,8 @@ For a real incident: stop writes or place the service in maintenance mode if req
 
 ## Remaining verification gates
 
-- Run the full backend and frontend CI on the exact candidate commit.
+- Full backend and frontend CI run [39791287085](https://github.com/chesterchong-dev/OOSYS/actions/runs/39791287085) passed on candidate `d51530d050cf25e0605cf1ea28905b588973c962` (57 passed, 1 failed, 2 skipped; first run's log-test failure was corrected afterward). Dependency audit run [39792499218](https://github.com/chesterchong-dev/OOSYS/actions/runs/39792499218) passed on candidate `b3d9320e8a3fc6809ccca40e68555a46dcaa8c63` after upgrading the pytest constraint. The newer recovery-test additions still require a completed exact-HEAD validation run.
 - Verify database-backed login rate limiting across concurrent PostgreSQL workers and review token/recovery endpoints for equivalent abuse protection.
-- Run dependency vulnerability scanning and triage findings.
+- Dependency audit run [39792499218](https://github.com/chesterchong-dev/OOSYS/actions/runs/39792499218) passed. Earlier run [39790464814](https://github.com/chesterchong-dev/OOSYS/actions/runs/39790464814) identified `pytest 8.4.2` / `PYSEC-2026-1845`; dependency constraint now requires `pytest>=9.0.3,<10.0`. Continue reviewing future scanner output; do not suppress advisories.
 - Perform an actual backup restore in a disposable PostgreSQL database and record the evidence.
 - Reconcile the 87-row requirements register and source-node crosswalk, and verify the master roadmap and two original XMind maps before marking acceptance. The XMind references were not readable by the repository tools during this work; do not silently infer source-node mappings.
