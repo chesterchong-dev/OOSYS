@@ -27,7 +27,7 @@ OOSYS is planned as a modular enterprise platform spanning ERP, WMS, CRM, accoun
 Production hosting must route /api to FastAPI on the same origin or configure VITE_API_BASE_URL and a strict backend CORS allowlist. CORS is disabled unless exact comma-separated origins are configured in OOSYS_CORS_ALLOWED_ORIGINS. Bearer tokens are used rather than authentication cookies.
 
 ## Phase 05 security and operations
-See [Phase 05 implementation and recovery runbooks](docs/PHASE_05_SECURITY_OBSERVABILITY_RECOVERY.md). The phase is not accepted until exact-commit CI, dependency triage and a real disposable-database restore drill have evidence. The dependency audit workflow runs on pull requests, pushes to configured branches and weekly schedule.
+See [Phase 05 implementation and recovery runbooks](docs/PHASE_05_SECURITY_OBSERVABILITY_RECOVERY.md). The phase is not accepted until exact-commit CI, dependency triage and a real disposable-database restore drill have evidence. Dependency audit and secret scanning run on pull requests, pushes to configured branches and on a weekly schedule. Aggregate request metrics are disabled by default; enable with OOSYS_METRICS_ENABLED and a 32+ character OOSYS_METRICS_TOKEN, and restrict the endpoint to trusted scrapers.
 
 ## Database migrations
 - Configure OOSYS_DATABASE_URL outside source control before running migrations.
