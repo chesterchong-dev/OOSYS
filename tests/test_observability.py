@@ -78,3 +78,35 @@ def test_cors_is_allowlisted_when_configured() -> None:
     )
     assert response.headers["access-control-allow-origin"] == "https://portal.example.com"
     assert "access-control-allow-credentials" not in response.headers
+
+
+
+def test_metrics_endpoint_is_disabled_by_default() -> None:
+    application = create_app(Settings(_env_file=None))
+    response = asgi_get(application, "/metrics")
+    assert response.status_code == 404
+    assert "oosys_http_requests_total" not in response.text
+
+
+def test_metrics_endpoint_requires_scrape_token_and_exposes_only_aggregate_labels() -> None:
+    token = "metrics-scrape-token-with-32-chars-minimum"
+    application = create_app(
+        Settings(metrics_enabled=True, metrics_token=token, _env_file=None)
+    )
+    asgi_get(application, "/health?secret-query-value=private")
+    denied = asgi_get(application, "/metrics")
+    assert denied.status_code == 404
+    accepted = asgi_get(application, "/metrics", headers={"X-Metrics-Token": token})
+    assert accepted.status_code == 200
+    assert "oosys_http_requests_total" in accepted.text
+    assert 'method="GET"' in accepted.text
+    assert "secret-query-value" not in accepted.text
+    assert "private" not in accepted.text
+
+
+def test_metrics_cannot_be_enabled_without_a_long_token() -> None:
+    import pytest
+    from pydantic import ValidationError
+
+    with pytest.raises(ValidationError):
+        Settings(metrics_enabled=True, metrics_token="short", _env_file=None)
