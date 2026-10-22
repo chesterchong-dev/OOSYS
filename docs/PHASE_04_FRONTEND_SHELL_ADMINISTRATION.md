@@ -1,6 +1,6 @@
 # Phase 04 — Frontend Shell & Administration
 
-**Status:** ACCEPTED for the scoped frontend shell and existing-API administration milestone. Exact-HEAD CI run 39781349969 passed on implementation SHA 8ee393638887c8dea894af7427b01a0d5cc0e47b.
+**Status:** ACCEPTED for the scoped frontend shell and existing-API administration milestone. Exact-HEAD CI run 39781891982 passed on implementation SHA 12624c1b5b415ef97936aea476fe7ac623a48d27.
 **Baseline:** Phase 03 accepted at 07a1e444754c8ef0e743c117a13c22d2c8025856.
 **Stack:** React 18, TypeScript, Vite, Tailwind CSS 3; existing FastAPI/Pydantic API. No backend schema or shared API contract changes.
 
@@ -30,11 +30,11 @@ Phase 04 is the first visual milestone. It delivers a real sign-in screen, permi
 - Vite proxies /api to the backend in development. Production must configure same-origin reverse proxy routing or VITE_API_BASE_URL and a strict CORS allowlist.
 
 ## Known limitations
-No invitation list/revocation UI, role-assignment readback, profile-name readback, tenant/user settings CRUD or analytics-grade dashboard is implemented because the required read contracts/services are absent. The dashboard is an initial administrative overview, not a reporting product. No production deployment is claimed. CI must pass on the exact final commit before Phase 04 can be accepted.
+No invitation list/revocation UI, role-assignment readback, profile-name readback, tenant/user settings CRUD or analytics-grade dashboard is implemented because the required read contracts/services are absent. The dashboard is an initial administrative overview, not a reporting product. No production deployment is claimed. The scoped Phase 04 acceptance gates passed on the recorded exact implementation commit. Production deployment and broader modules remain out of scope.
 
 ## Final verification evidence
 
-Exact-HEAD GitHub Actions run 39781349969 on commit 8ee393638887c8dea894af7427b01a0d5cc0e47b passed: frontend 8 tests and Vite production build; backend 51 passed, 2 skipped; 2 PostgreSQL concurrency tests passed; SQLite and PostgreSQL migration lifecycle, PostgreSQL persistence/RLS and compileall passed. See https://github.com/chesterchong-dev/OOSYS/actions/runs/39781349969.
+Exact-HEAD GitHub Actions run 39781891982 on commit 12624c1b5b415ef97936aea476fe7ac623a48d27 passed: frontend 8 tests and Vite production build; backend 51 passed, 2 skipped; 2 PostgreSQL concurrency tests passed; SQLite and PostgreSQL migration lifecycle, PostgreSQL persistence/RLS and compileall passed. See https://github.com/chesterchong-dev/OOSYS/actions/runs/39781891982.
 
 - Frontend: 3 test files, 8 tests passed; Vite production build succeeded.
 - Backend: 51 passed, 2 skipped in the standard suite; dedicated PostgreSQL concurrency checks: 2 passed.
