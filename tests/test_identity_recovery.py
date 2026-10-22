@@ -113,7 +113,7 @@ def test_password_reset_invalid_token_does_not_change_any_password(tmp_path):
     try:
         run(request(app, "POST", "/api/v1/auth/register", json=register_payload("invalid-reset@example.com", "invalid-reset-org")))
         response = run(request(app, "POST", "/api/v1/auth/password-reset/confirm",
-            json={"token":"not-a-real-token","new_password":"a-new-strong-password-456"}))
+            json={"token":"x" * 32,"new_password":"a-new-strong-password-456"}))
         assert response.status_code == 400
         login = run(request(app, "POST", "/api/v1/auth/login", json={
             "email":"invalid-reset@example.com","password":"a-strong-password-123"}))
