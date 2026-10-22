@@ -1,7 +1,7 @@
-import {fireEvent,render,screen,waitFor} from "@testing-library/react";
+import {cleanup,fireEvent,render,screen,waitFor} from "@testing-library/react";
 import {afterEach,describe,expect,it,vi} from "vitest";
 import {Login} from "./Login";
-afterEach(()=>vi.unstubAllGlobals());
+afterEach(()=>{cleanup();vi.unstubAllGlobals();});
 describe("Login",()=>{
 it("passes the session token to the app",async()=>{vi.stubGlobal("fetch",vi.fn().mockResolvedValue(new Response(JSON.stringify({access_token:"session-123"}),{status:200,headers:{"Content-Type":"application/json"}})));const onLogin=vi.fn();render(<Login onLogin={onLogin}/>);fireEvent.change(screen.getByLabelText("Work email"),{target:{value:"admin@example.com"}});fireEvent.change(screen.getByLabelText("Password"),{target:{value:"correct-password"}});fireEvent.click(screen.getByRole("button",{name:/sign in/i}));await waitFor(()=>expect(onLogin).toHaveBeenCalledWith("session-123"));});
 it("shows the organization selector when the API requests selection",async()=>{vi.stubGlobal("fetch",vi.fn().mockResolvedValue(new Response(JSON.stringify({requires_organization_selection:true,organizations:[{id:"org-a"},{id:"org-b"}]}),{status:200,headers:{"Content-Type":"application/json"}})));render(<Login onLogin={vi.fn()}/>);fireEvent.change(screen.getByLabelText("Work email"),{target:{value:"admin@example.com"}});fireEvent.change(screen.getByLabelText("Password"),{target:{value:"correct-password"}});fireEvent.click(screen.getByRole("button",{name:/sign in/i}));await waitFor(()=>expect(screen.getByLabelText("Organization")).toBeInTheDocument());});
