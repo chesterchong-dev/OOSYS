@@ -2,16 +2,19 @@
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 
 from app.api.errors import install_error_handlers
 from app.api.operations import router as operations_router
 from app.api.v1.router import router as v1_router
 from app.core.config import Settings, get_settings
+from app.core.observability import install_observability
 
 
 def create_app(settings: Settings | None = None) -> FastAPI:
     """Build the API with injectable settings and no startup infrastructure calls."""
     active_settings = settings or get_settings()
+
     @asynccontextmanager
     async def lifespan(app: FastAPI):
         yield
@@ -29,6 +32,23 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     application.state.identity_engine = None
     application.state.identity_session_factory = None
     install_error_handlers(application)
+    install_observability(application)
+
+    allowed_origins = [
+        origin.strip()
+        for origin in active_settings.cors_allowed_origins.split(",")
+        if origin.strip()
+    ]
+    if allowed_origins:
+        application.add_middleware(
+            CORSMiddleware,
+            allow_origins=allowed_origins,
+            allow_credentials=False,
+            allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+            allow_headers=["Authorization", "Content-Type", "X-Request-ID"],
+            expose_headers=["X-Request-ID"],
+        )
+
     application.include_router(operations_router)
     application.include_router(v1_router, prefix=active_settings.api_prefix)
 
