@@ -1,120 +1,106 @@
 # OOSYS Phase 05 — Security, Observability & Recovery
 
-**Status: In progress; not accepted until exact-commit CI, extended recovery-test CI and the required restore drill are evidenced.**
+**Status: In progress. The candidate has backend, dependency-audit, migration and disposable-restore evidence; the exact-head frontend and secret-scan jobs have not yet completed. Production-equivalent recovery, alert delivery and independent security review are not demonstrated.**
 
-## Baseline
+## Baseline inspected
 
-Phase 05 builds on the accepted Phase 00–04 baseline. The existing API already has a liveness endpoint, a database readiness probe, safe error envelopes, environment-backed settings, and a database-backed login-attempt limiter. Login attempts are persisted in PostgreSQL, keyed by HMAC digests, and PostgreSQL advisory transaction locks serialize concurrent checks across workers. The configured production environment requires `OOSYS_LOGIN_RATE_LIMIT_SECRET`.
+Phase 05 continues the accepted Phase 00–04 baseline and preserves its API/database contracts. Before changes, the repository already had:
+- `GET /health` liveness, without dependency checks.
+- `GET /health/ready` database readiness via `SELECT 1`, with a generic 503 failure response.
+- A stable safe error envelope in `app/api/errors.py`.
+- Environment-backed Pydantic settings, including production validation for `OOSYS_LOGIN_RATE_LIMIT_SECRET`.
+- Database-backed login failure throttling with keyed email/IP identifiers and PostgreSQL advisory transaction locks.
+- Password-reset requests throttled per account, hashed reset/invitation tokens, expiry and revocation, single-use confirmation using row locking, session revocation and invitation email/tenant checks.
 
-This phase must not claim the database is ready when the probe fails, change the established `/health` or `/health/ready` response contracts, or expose dependency details.
+The phase deliberately keeps liveness and readiness response bodies unchanged, does not run migrations at startup, and introduces no database schema migration.
 
-## Requirement traceability
+## Requirement traceability matrix
 
-| Requirement | Baseline | Phase 05 change/evidence | Status |
-|---|---|---|---|
-| Structured logging and correlation IDs | No common access log/correlation middleware | JSON request logs, safe ID normalization and response header; tests added | Implemented; CI pending |
-| Safe errors and sensitive-data redaction | Generic error envelope already exists | Access logs exclude query strings, bodies and headers; regression test added | Implemented; CI pending |
-| Health/readiness | Existing liveness and DB SELECT 1 readiness | Preserved without contract/schema changes | Existing; regression suite pending |
-| Secret/configuration safety | Environment-backed settings and production login secret requirement | Placeholder-only .env example; strict CORS origin validation | Implemented; CI pending |
-| Rate limiting | DB-backed login limiter and per-account reset-request cooldown exist | No schema change; review reset-confirm/invitation abuse paths remains required | Partially implemented |
-| Security headers/CORS | No central CORS middleware found in inspected composition root | Baseline headers; explicit origins only; bearer model and no credentials | Implemented; CI pending |
-| Dependency/supply-chain checks | No audit workflow found at inspected paths | Added scheduled and PR/push pip-audit workflow | Implemented; scan result pending |
-| Backup/restore | No tested restore evidence found | PostgreSQL backup/restore runbook documented | Partially implemented; real restore blocked |
-| Incident runbooks | No Phase 05 runbook found | Startup/readiness, secret exposure, dependency, backup/restore and rate-limit runbooks | Implemented; review pending |
-| Requirements/architecture traceability | Existing 87-row register/crosswalk referenced by Phase 03 | Phase 05 ADR and phase record added; source-node crosswalk reconciliation still pending | Partially implemented |
+| Requirement | Change / verification evidence | Status |
+|---|---|---|
+| Structured logs and request correlation | `app/core/observability.py` emits JSON method/path/status/request-id/duration logs. Query strings, headers and bodies are excluded. Unsafe IDs are replaced; the normalized ID is returned and passed downstream. `tests/test_observability.py` verifies propagation and redaction. | Implemented; backend CI passed |
+| Safe unexpected errors | Existing generic HTTP 500 contract retained. No exception strings or sensitive header/body data are put in the request log. Earlier logger-capture test failure was fixed by spying on the logger deterministically. | Implemented; backend CI passed |
+| Health and readiness | Existing `/health` and `/health/ready` contract preserved; readiness continues to return 503 on unavailable/unconfigured database. | Existing, regression CI passed |
+| Metrics hooks | Bounded process-local counters/duration aggregates; no path, tenant, query or user labels. `/metrics` hidden and disabled by default; token-gated with constant-time compare and minimum token length when enabled. Tests verify disabled-by-default, token denial, and aggregate labels. | Implemented; backend CI passed; production metrics topology not verified |
+| Secret/configuration validation | Placeholder-only `.env.example`; CORS wildcard/path rejected; production requires a nonempty rate-limit secret; metrics token required if metrics enabled. | Implemented; backend CI passed |
+| Rate limiting and recovery abuse | Login failure limit remains database-backed with PostgreSQL lock serialization. Reset-request cooldown, expired/unknown/used reset-token tests, session revocation, invitation email-mismatch/replay/revocation/expiry/wrong-organization tests, and PostgreSQL one-time-token concurrency test are present. | Implemented for current identity flows; CI passed |
+| CORS and headers | Explicit-origin allowlist; no wildcard or credentialed CORS; bearer auth remains cookie-free. `X-Content-Type-Options`, `X-Frame-Options`, `Referrer-Policy`, `Permissions-Policy` added. | Implemented; backend CI passed |
+| Dependency/supply-chain | `pip-audit` workflow added. First scan found `pytest 8.4.2` / `PYSEC-2026-1845`; constraint updated to `pytest>=9.0.3,<10.0`, without suppressions. Current candidate audit run 39799962614 completed successfully. | Implemented; audit passed |
+| Secret scanning | Gitleaks workflow scans repository history; prior run 39794403938 passed with “no leaks found”. Current candidate run 39799963011 has been created but remains queued/incomplete at last inspection. | Implemented; exact-head scan pending |
+| PostgreSQL backup/restore | Workflow dumps only the ephemeral CI PostgreSQL 16 database with custom format, lists the archive, restores to a separate disposable target, compares Alembic revision, sentinel value and identity-user row count, then tears down. On latest candidate, run 39799962837: backup/restore step completed successfully. | CI restore drill verified on candidate; production-equivalent recovery remains partial |
+| Incident runbooks | Startup/readiness, suspected secret exposure, vulnerability, backup/restore and rate-limit incident guidance documented below. | Implemented; operational rehearsal not performed |
+| Source traceability | Master product map, Developer Implementation Blueprint, 23-phase roadmap, 87-row requirements register and 87-row UUID crosswalk are in repository/connected XMind records. Relevant canonical rows include CORE-002, CORE-006, CORE-011, CORE-012, CORE-014, CORE-015, OPS-085 and OPS-087. Mapping classifications remain unchanged. | Source mapping available; broader product requirements remain partial/missing as recorded in the register |
 
-## Controls introduced
+## CI evidence for current candidate
 
-- Request correlation IDs are accepted only when they match a bounded safe character set; otherwise the API generates a UUID. IDs are returned in `X-Request-ID`.
-- Request access logs are JSON structured and contain method, path (not query string), status, request ID and duration. Request bodies and headers are deliberately excluded.
-- Baseline security response headers are added: `X-Content-Type-Options`, `X-Frame-Options`, `Referrer-Policy` and `Permissions-Policy`.
-- CORS is disabled unless exact origins are configured using comma-separated `OOSYS_CORS_ALLOWED_ORIGINS`; wildcard origins and credentialed cross-origin requests are not supported. Bearer authorization remains the authentication model; do not add cookie authentication without a separate CSRF design review.
-- `.env.example` contains placeholders only.
-- A dependency audit workflow runs `pip-audit` against the installed dependency set on pull requests, selected branch pushes and a weekly schedule.
+Phase 05 branch head: `342e5f6fe161dd0ee636db69912cb6e810f819f0`.
 
-## Configuration and secrets
+- **Phase 00 validation**, run [39799962837](https://github.com/chesterchong-dev/OOSYS/actions/runs/39799962837): backend job completed successfully. Tests, SQLite migration upgrade/downgrade, PostgreSQL migration/persistence/RLS probes, PostgreSQL recovery-token concurrency test, disposable PostgreSQL backup/restore, PostgreSQL downgrade and compileall all completed successfully. The frontend tests/build job was still queued at last inspection, so the overall workflow is not yet recorded as fully green.
+- **Dependency Audit**, run [39799962614](https://github.com/chesterchong-dev/OOSYS/actions/runs/39799962614): `pip-audit` job completed successfully. The test environment installed pytest 9.1.1. The earlier vulnerability is addressed by the dependency constraint change rather than a scanner suppression.
+- **Secret Scan**, run [39799963011](https://github.com/chesterchong-dev/OOSYS/actions/runs/39799963011): queued at last inspection; do not treat the exact-head run as passed until GitHub records success.
+- **Previous secret scan** run [39794403938](https://github.com/chesterchong-dev/OOSYS/actions/runs/39794403938) passed on earlier candidate `b07aea1a502eb6c6c81dbc050c506b9de99c3bbc` and logged “28 commits scanned” / “no leaks found”. This is not a substitute for the latest exact-head run.
+- **Earlier dependency audit** run [39790464814](https://github.com/chesterchong-dev/OOSYS/actions/runs/39790464814) failed on pytest 8.4.2 / `PYSEC-2026-1845`. Current constraint is `pytest>=9.0.3,<10.0`; current candidate audit run 39799962614 passed.
+- **Earlier observability test failure** run [39790464759](https://github.com/chesterchong-dev/OOSYS/actions/runs/39790464759): log capture via pytest caplog yielded no entries in the ASGI middleware context. Test was revised to spy directly on the structured logger. A later candidate failed a different negative test because its “invalid token” was shorter than the schema's 32-character minimum, so it received 422 before the handler while the test expected 400. The test now sends a 32-character unknown token, preserving the schema/API contract and actually exercising handler-level invalid-token rejection. Current backend CI passed.
 
-Use environment variables or a managed secret store in deployment. Never put actual credentials in `.env.example`, source control, issue comments or logs. In production, set a strong randomly generated `OOSYS_LOGIN_RATE_LIMIT_SECRET`; changing it invalidates the keyed rate-limit identifiers but does not delete attempt rows. Restrict environment and backup access to operators who need it. Avoid printing environment variables in diagnostic commands.
+The CI restore drill uses only generated test data in its ephemeral PostgreSQL service. It is real evidence for archive/restore and checked data integrity in that disposable environment; it is not evidence of production retention, restore-point objectives, full RPO/RTO, encrypted off-site backup, or recovery of a production system.
 
-CORS example:
-```sh
-OOSYS_CORS_ALLOWED_ORIGINS=https://app.example.com,https://admin.example.com
-```
-Origins must contain scheme and host only; do not include a path. Keep this empty for same-origin reverse-proxy hosting.
+## PostgreSQL backup/restore drill details
 
-## PostgreSQL backup and restore runbook
+In run 39799962837, the following workflow step concluded success on candidate `342e5f6fe161dd0ee636db69912cb6e810f819f0`:
+1. Dumped the CI-only source database into a permission-restricted custom-format backup.
+2. Verified the backup archive could be listed.
+3. Restored into a separately created `oosys_restore_target` disposable database.
+4. Compared the Alembic version/revision, the `ci.persistence.probe` sentinel value and identity-user row counts between source and restored databases.
+5. Completed later PostgreSQL downgrade and CI cleanup steps successfully.
 
-Prerequisites: approved maintenance/recovery window, PostgreSQL client tools compatible with the server, access to the correct database, protected backup storage, and a separately configured **disposable restore database**. Never run the restore command against production as a test.
+No production database or credentials were used in the drill. A production-equivalent restore rehearsal, RPO/RTO test and backup-retention/off-site storage verification remain unperformed and outside this evidence.
 
-Create a custom-format backup (avoid embedding passwords in shell history):
-```sh
-pg_dump --format=custom --no-owner --file=oosys-$(date -u +%Y%m%dT%H%M%SZ).dump "$OOSYS_DATABASE_URL"
-```
-Restrict file permissions and transfer/store the artifact using the organisation's approved encrypted storage. Verify the artifact can be read:
-```sh
-pg_restore --list oosys-YYYYMMDDTHHMMSSZ.dump
-```
-Restore to a separately created empty disposable database, using a separately configured URL:
-```sh
-pg_restore --exit-on-error --no-owner --dbname="$OOSYS_RESTORE_DATABASE_URL" oosys-YYYYMMDDTHHMMSSZ.dump
-```
-Then verify the restored database is reachable, inspect the Alembic revision with `alembic current` configured for that database, run the application's migration compatibility checks and relevant read-only smoke tests. Compare expected table counts and representative non-sensitive records against the backup inventory. Do not run `alembic upgrade head` on a production database as part of a restore test. If the backup includes tenant/user data, treat the artifact as sensitive production data and preserve its access controls.
+## Architecture and compatibility notes
 
-For a real incident: stop writes or place the service in maintenance mode if required by the recovery plan; preserve logs and the original database; restore to a new database/instance; verify migrations and critical data; point the application to the restored instance only after approval; validate readiness and critical user flows; document data-loss window and incident timeline. Escalate if backup integrity, credentials or recovery point cannot be established.
-
-**Verification status:** No live database or disposable restore database was available through this repository-editing session. A real restore test is therefore blocked/unverified; the commands above are documented, not claimed as executed.
+- No migration was required; no schema was changed.
+- `/health` liveness and `/health/ready` readiness response bodies remain unchanged.
+- `/metrics` is not in the OpenAPI schema, is disabled by default, and returns 404 when disabled or unauthenticated. It exposes only low-cardinality aggregate method/status metrics; counters are process-local and do not by themselves provide cross-worker aggregation.
+- CORS remains disabled unless explicit origins are configured. Cookie auth/CSRF behavior has not been introduced; browser auth is bearer-token based. Reverse proxy TLS, CSP, trusted proxy configuration and deployment-level CSRF policy remain deployment review items.
+- A dedicated type checker/linter and external penetration test/security certification are not represented as passed or performed.
+- The runbook does not claim mail, object storage, search, AI, or external integrations are ready based on database readiness.
 
 ## Incident runbooks
 
 ### Startup or readiness failure
 1. Check deployment logs and `GET /health` to distinguish process liveness from readiness.
-2. Check `GET /health/ready`; it intentionally returns only `not_ready` on dependency failure.
-3. Verify `OOSYS_DATABASE_URL` exists in the deployment secret configuration without printing its value; confirm DNS, network, TLS and database availability.
-4. Check migration state using an authorised operator connection; do not auto-run migrations as a workaround.
-5. Recover connectivity or roll back a verified configuration change, then confirm readiness and critical API flows.
+2. Check `GET /health/ready`; this endpoint intentionally returns only `not_ready` on dependency failure.
+3. Verify that `OOSYS_DATABASE_URL` is present in deployment secret configuration without printing its value; confirm DNS, network, TLS and database availability.
+4. Check migration state with an authorised operator connection; do not run migrations automatically as a workaround.
+5. Restore connectivity or roll back a verified configuration change, then confirm readiness and critical API flows.
 
 ### Suspected secret exposure
 1. Treat the secret as compromised; preserve evidence and restrict access to affected logs/repositories.
-2. Revoke/rotate the affected credential with its provider; update the managed secret store and redeploy.
-3. Inspect access/audit logs for misuse, invalidate affected sessions/tokens where appropriate, and remove exposed artifacts from active branches without assuming history has been erased.
-4. Verify old credentials no longer work and document scope, impact and notification obligations.
+2. Revoke/rotate the credential with its provider; update the secret store and redeploy.
+3. Inspect audit logs for misuse, invalidate affected sessions/tokens where appropriate, and remove exposed artifacts from active branches without assuming that history is erased.
+4. Confirm old credentials no longer work and document impact and notification obligations.
 
 ### Dependency vulnerability
-1. Capture the scanner report, package/version, exploitability and reachable code path.
-2. Reproduce in an isolated environment and identify the narrowest compatible patched version.
-3. Update dependency constraints deliberately, run tests/build/migration checks and review transitive changes.
-4. If no safe patch exists, document mitigation, owner and review date; do not suppress findings silently.
+1. Capture package/version, scanner report, exploitability and reachable code path.
+2. Identify the narrowest compatible patched version and update constraints deliberately.
+3. Run audit, tests, migration checks and builds, and review transitive dependency changes.
+4. If no safe patch exists, document mitigation, an owner and a review date; do not suppress findings silently.
 
-### Backup or restore failure
+### Backup/restore failure
 1. Stop treating the failed artifact as recoverable; preserve it for diagnosis.
-2. Check exit code, free space, tool/server compatibility, permissions and database target.
+2. Check exit code, disk space, tool/server compatibility, permissions and target database.
 3. Retry only against a fresh disposable target after correcting the cause; never overwrite production during a drill.
-4. Verify data and migration state before authorising recovery. Escalate if the recovery point cannot be proven.
+4. Verify data and migration state before authorising recovery. Escalate if the recovery point cannot be established.
 
-### Rate limiting or security-control issue
-1. Confirm repeated login attempts, status codes and application/DB health without collecting passwords or bearer tokens.
-2. Check database availability, attempt-table growth, production rate-limit secret configuration and trusted proxy/IP behavior.
-3. Do not bypass limits globally. Apply a scoped mitigation, verify legitimate login still works, and test across multiple workers using PostgreSQL.
-4. Escalate if abuse persists or the control can be evaded.
+### Rate-limiting or security-control issue
+1. Confirm repeated failures, response codes and application/database health without collecting passwords or bearer tokens.
+2. Check database availability, attempt-table growth, rate-limit secret configuration and trusted proxy/IP behavior.
+3. Do not bypass limits globally. Apply a scoped mitigation and verify that legitimate login still works.
+4. Test concurrent behavior against PostgreSQL and escalate if abuse persists.
 
-## Verification evidence and remaining gates
+## Remaining acceptance gates
 
-### Dependency audit
-- The initial audit run [39790464814](https://github.com/chesterchong-dev/OOSYS/actions/runs/39790464814) failed and identified `pytest 8.4.2` / `PYSEC-2026-1845`, fixed in version 9.0.3.
-- Updated `requirements.txt` to `pytest>=9.0.3,<10.0`, without suppressions.
-- Dependency audit run [39792499218](https://github.com/chesterchong-dev/OOSYS/actions/runs/39792499218) passed on candidate `b3d9320e8a3fc6809ccca40e68555a46dcaa8c63`.
-- The redaction test's initial failure in run [39790464759](https://github.com/chesterchong-dev/OOSYS/actions/runs/39790464759) was caused by relying on pytest's log capture for a middleware logger under the current ASGI test setup. Replaced it with direct logger spying while still asserting no query strings or Authorization values are emitted.
-- Candidate run [39791287085](https://github.com/chesterchong-dev/OOSYS/actions/runs/39791287085) passed after that test fix; its earlier candidate run had 57 passed, 1 failed, 2 skipped. The later reset/invitation expiry tests need the exact latest-head run below.
-
-### Backup/restore drill
-A disposable PostgreSQL 16 backup/restore step has now been added to `.github/workflows/phase00-validation.yml`. It dumps the CI-only `oosys_ci` database into a permission-restricted temporary custom-format file, restores it into a separate `oosys_restore_target` database, then compares the Alembic revision, the existing `ci.persistence.probe` sentinel and identity-user row counts. It uses only the ephemeral PostgreSQL service and synthetic CI test records; it does not connect to or alter production. The new step is **not yet verified**: run 39793621992 was queued on current candidate 563e31a322d1b8003ae032e8b28777456a25d692 at last inspection, with no workflow steps started.
-
-### XMind / requirement traceability
-The connected XMind account was used on 2026-10-22 to read the Master Development Roadmap (23 phases), the master product map and the Developer Implementation Blueprint. The 87-row register and 87-row UUID crosswalk were retrieved from `docs/requirements/`. Existing source-node mapping classifications were preserved; source-map traceability was reconciled against the Phase 05 criteria. Traceability identifies intended scope but does not imply that a capability is implemented.
-
-### Remaining gates
-- Exact-head Phase 00 validation and dependency audit remain blocked by GitHub Actions runner queue: runs [39793621992](https://github.com/chesterchong-dev/OOSYS/actions/runs/39793621992) and [39793622070](https://github.com/chesterchong-dev/OOSYS/actions/runs/39793622070) target candidate `563e31a322d1b8003ae032e8b28777456a25d692` but have no executed steps as of the latest check. All prior pass claims below are explicitly limited to their older SHAs.
-- Confirm the new reset-token and invitation abuse tests pass on the exact final candidate.
-- Secret scanning is not yet implemented as a dedicated CI workflow; no dedicated metrics export/alerting service is configured. These remain partial and must not be silently marked complete.
-- PostgreSQL restore is not proven until the new exact-head job executes and emits its success line; the code addition alone is not restoration evidence.
-- Real production-equivalent restore, RPO/RTO validation and an operational alert delivery check remain unperformed. The CI drill proves tested backup/restore on synthetic data, not production recovery readiness.
+- Wait for exact-head frontend unit tests/build (run 39799962837) and Gitleaks (run 39799963011) to finish; keep the PR draft/open until the outcomes are confirmed.
+- Update the final acceptance matrix in this document/register if the exact-head checks reveal new findings.
+- Production-equivalent restore, backup retention/access-control review, recovery objectives and alert delivery remain partial/unverified.
+- Process-local metrics are implemented, but a central metrics backend and operational alert routing are not configured in this phase.
+- The overall OOSYS product is not production-ready; future tenant/business-domain RLS, module authorization, staging/rollback controls and broader release hardening remain subject to their owning requirements and phases.
