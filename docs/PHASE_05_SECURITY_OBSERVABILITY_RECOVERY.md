@@ -1,6 +1,6 @@
 # OOSYS Phase 05 — Security, Observability & Recovery
 
-**Status: In progress. The candidate has backend, dependency-audit, migration and disposable-restore evidence; the exact-head frontend and secret-scan jobs have not yet completed. Production-equivalent recovery, alert delivery and independent security review are not demonstrated.**
+**Status: Partially complete; not accepted as fully production-ready.** On current verified documentation candidate `e7b56bd75ea0718a3a2d11f0800ffbaa4c160522`, Phase 00 validation run 39800827099 passed backend and frontend jobs, Dependency Audit run 39800827064 passed, and Secret Scan run 39800827144 passed. The requirements-register follow-up is a documentation-only commit; verify checks on the latest final HEAD before acceptance. Production-equivalent recovery, central alert delivery, staged release/rollback and independent security review remain unverified.
 
 ## Baseline inspected
 
@@ -35,11 +35,11 @@ The phase deliberately keeps liveness and readiness response bodies unchanged, d
 
 Phase 05 branch head: `342e5f6fe161dd0ee636db69912cb6e810f819f0`.
 
-- **Phase 00 validation**, run [39799962837](https://github.com/chesterchong-dev/OOSYS/actions/runs/39799962837): backend job completed successfully. Tests, SQLite migration upgrade/downgrade, PostgreSQL migration/persistence/RLS probes, PostgreSQL recovery-token concurrency test, disposable PostgreSQL backup/restore, PostgreSQL downgrade and compileall all completed successfully. The frontend tests/build job was still queued at last inspection, so the overall workflow is not yet recorded as fully green.
-- **Dependency Audit**, run [39799962614](https://github.com/chesterchong-dev/OOSYS/actions/runs/39799962614): `pip-audit` job completed successfully. The test environment installed pytest 9.1.1. The earlier vulnerability is addressed by the dependency constraint change rather than a scanner suppression.
-- **Secret Scan**, run [39799963011](https://github.com/chesterchong-dev/OOSYS/actions/runs/39799963011): queued at last inspection; do not treat the exact-head run as passed until GitHub records success.
-- **Previous secret scan** run [39794403938](https://github.com/chesterchong-dev/OOSYS/actions/runs/39794403938) passed on earlier candidate `b07aea1a502eb6c6c81dbc050c506b9de99c3bbc` and logged “28 commits scanned” / “no leaks found”. This is not a substitute for the latest exact-head run.
-- **Earlier dependency audit** run [39790464814](https://github.com/chesterchong-dev/OOSYS/actions/runs/39790464814) failed on pytest 8.4.2 / `PYSEC-2026-1845`. Current constraint is `pytest>=9.0.3,<10.0`; current candidate audit run 39799962614 passed.
+- **Phase 00 validation**, run [39800827099](https://github.com/chesterchong-dev/OOSYS/actions/runs/39800827099), on `e7b56bd75ea0718a3a2d11f0800ffbaa4c160522`: both backend and frontend jobs passed. The backend test command `python -m pytest -q --cov=app.identity --cov=app.api.operations --cov-report=term-missing` reported **65 passed, 2 skipped, 92% total configured coverage**. PostgreSQL recovery-token concurrency tests reported **2 passed**. SQLite migration upgrade/downgrade, PostgreSQL migration/persistence/RLS probes, the disposable PostgreSQL backup/restore step, PostgreSQL downgrade and compileall passed. Frontend unit tests and Vite production build passed.
+- **Dependency Audit**, run [39800827064](https://github.com/chesterchong-dev/OOSYS/actions/runs/39800827064), on `e7b56bd75ea0718a3a2d11f0800ffbaa4c160522`: passed. The scan installed pytest 9.1.1. The earlier `PYSEC-2026-1845` finding against pytest 8.4.2 was addressed by setting `pytest>=9.0.3,<10.0`; no audit suppression was added.
+- **Secret Scan**, run [39800827144](https://github.com/chesterchong-dev/OOSYS/actions/runs/39800827144), on `e7b56bd75ea0718a3a2d11f0800ffbaa4c160522`: passed; the Gitleaks scan step completed successfully.
+- Earlier candidate scan [39794403938](https://github.com/chesterchong-dev/OOSYS/actions/runs/39794403938) also passed and logged “28 commits scanned” / “no leaks found”. The current-head evidence is the run above.
+- **Earlier dependency audit** run [39790464814](https://github.com/chesterchong-dev/OOSYS/actions/runs/39790464814) failed on pytest 8.4.2 / `PYSEC-2026-1845`. The dependency constraint was changed to `pytest>=9.0.3,<10.0` without suppression; current-head audit run 39800827064 passed.
 - **Earlier observability test failure** run [39790464759](https://github.com/chesterchong-dev/OOSYS/actions/runs/39790464759): log capture via pytest caplog yielded no entries in the ASGI middleware context. Test was revised to spy directly on the structured logger. A later candidate failed a different negative test because its “invalid token” was shorter than the schema's 32-character minimum, so it received 422 before the handler while the test expected 400. The test now sends a 32-character unknown token, preserving the schema/API contract and actually exercising handler-level invalid-token rejection. Current backend CI passed.
 
 The CI restore drill uses only generated test data in its ephemeral PostgreSQL service. It is real evidence for archive/restore and checked data integrity in that disposable environment; it is not evidence of production retention, restore-point objectives, full RPO/RTO, encrypted off-site backup, or recovery of a production system.
@@ -99,8 +99,8 @@ No production database or credentials were used in the drill. A production-equiv
 
 ## Remaining acceptance gates
 
-- Wait for exact-head frontend unit tests/build (run 39799962837) and Gitleaks (run 39799963011) to finish; keep the PR draft/open until the outcomes are confirmed.
-- Update the final acceptance matrix in this document/register if the exact-head checks reveal new findings.
-- Production-equivalent restore, backup retention/access-control review, recovery objectives and alert delivery remain partial/unverified.
+- The most recent checked Phase 05 documentation candidate was `e7b56bd75ea0718a3a2d11f0800ffbaa4c160522`; Phase 00 validation run 39800827099, Dependency Audit run 39800827064, and Secret Scan run 39800827144 all passed on that SHA. The requirements-register and narrative follow-up commits are documentation-only; verify checks against the final branch HEAD before acceptance.
+- Production-equivalent restore, backup retention/access-control review, recovery objectives and alert delivery remain partial/unverified; the verified restore is an automated CI drill using synthetic data in a disposable PostgreSQL 16 service.
 - Process-local metrics are implemented, but a central metrics backend and operational alert routing are not configured in this phase.
-- The overall OOSYS product is not production-ready; future tenant/business-domain RLS, module authorization, staging/rollback controls and broader release hardening remain subject to their owning requirements and phases.
+- Dedicated type-check/lint jobs, staged deployment/rollback controls and an independent penetration test are not configured or completed.
+- The overall OOSYS product is not production-ready; future tenant/business-domain RLS, module authorization and broader release hardening remain subject to their owning requirements and phases.
