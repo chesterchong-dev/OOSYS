@@ -40,7 +40,10 @@ class Settings(BaseSettings):
 
     @model_validator(mode="after")
     def require_rate_limit_secret_in_production(self):
-        if self.environment.strip().lower() == "production" and (\n            self.login_rate_limit_secret is None\n            or not self.login_rate_limit_secret.get_secret_value().strip()\n        ):
+        if self.environment.strip().lower() == "production" and (
+            self.login_rate_limit_secret is None
+            or not self.login_rate_limit_secret.get_secret_value().strip()
+        ):
             raise ValueError("OOSYS_LOGIN_RATE_LIMIT_SECRET is required in production")
         return self
 
