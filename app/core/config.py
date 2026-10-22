@@ -34,13 +34,13 @@ class Settings(BaseSettings):
         if "*" in origins:
             raise ValueError("Wildcard CORS origins are not supported; specify explicit origins")
         for origin in origins:
-            if not origin.startswith(("http://", "https://")) or "/" in origin.split("://", 1)[1].rstrip("/"):
+            if not origin.startswith(("http://", "https://")) or "/" in origin.split("://", 1)[1]:
                 raise ValueError("CORS origins must be scheme and host only, without a path")
         return ",".join(origins)
 
     @model_validator(mode="after")
     def require_rate_limit_secret_in_production(self):
-        if self.environment.strip().lower() == "production" and not self.login_rate_limit_secret:
+        if self.environment.strip().lower() == "production" and (\n            self.login_rate_limit_secret is None\n            or not self.login_rate_limit_secret.get_secret_value().strip()\n        ):
             raise ValueError("OOSYS_LOGIN_RATE_LIMIT_SECRET is required in production")
         return self
 
