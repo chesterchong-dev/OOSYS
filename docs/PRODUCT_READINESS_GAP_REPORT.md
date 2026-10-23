@@ -32,9 +32,9 @@ The register contains 87 stable requirement IDs: 13 marked `partial`, 74 marked 
 - GitHub Actions coverage for backend/frontend tests/build, migration and disposable PostgreSQL restore checks, dependency audit and repository-history secret scan.
 - All three workflows passed on the audit baseline SHA above.
 
-### Genuine repository-level improvement identified
+### Repository-level improvement implemented in this PR
 
-The CORS validator rejects wildcard and path-bearing origins but its string check can allow query/fragment/user-info forms that are not valid serialized origins. Tighten parsing to require an HTTP(S) scheme, a valid hostname/port, no credentials, no path, no query and no fragment; add regression tests. This is an in-scope configuration validation fix, not a change to the API or authentication contract. The fix requires exact-head CI before it is considered verified.
+The CORS validator now parses each configured origin and requires an HTTP(S) scheme, a valid hostname/port, no credentials, no path, no query and no fragment. Regression tests cover query/fragment URLs, credentials, invalid ports, non-HTTP(S) schemes and valid multiple explicit origins. This is an in-scope configuration validation fix; it does not change the API or authentication contract. Exact-head Phase 00 validation must pass before the change is considered verified.
 
 ### Remaining Phase 05 operational gaps
 
