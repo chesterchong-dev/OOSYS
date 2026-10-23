@@ -108,12 +108,12 @@ Only generated CI test data was used. No production database or production crede
 
 ## Latest current-head verification and operational acceptance plan
 
-Current known PR head: `8087430ff1f268658a6950318f9b14e273f23c61`.
+Implementation verification checkpoint: `8087430ff1f268658a6950318f9b14e273f23c61`. Subsequent commits added operational acceptance documentation and requirements/README reconciliation; exact-head CI for the final documentation commit is a separate acceptance check.
 
 - Phase 00 validation [39807993423](https://github.com/chesterchong-dev/OOSYS/actions/runs/39807993423): workflow and both jobs passed. The backend job passed test execution, SQLite migration upgrade/downgrade, PostgreSQL migration/persistence/RLS checks, PostgreSQL recovery-token concurrency, disposable PostgreSQL backup/restore, PostgreSQL downgrade and compileall. The frontend test and production build job passed.
 - Dependency Audit [39807993312](https://github.com/chesterchong-dev/OOSYS/actions/runs/39807993312): audit step passed.
 - Secret Scan [39807993363](https://github.com/chesterchong-dev/OOSYS/actions/runs/39807993363): Gitleaks scan step passed.
-- The current known PR head is documentation-only relative to the preceding implementation candidate. The current-head workflow results establish CI status for this checkpoint; detailed test counts and coverage figures documented above remain attributed to their stated implementation candidate and must not be reattributed without reading the corresponding run output.
+- The implementation verification checkpoint is documentation-only relative to the preceding implementation candidate. Workflow results establish CI status for that checkpoint; detailed test counts and coverage figures documented above remain attributed to their stated implementation candidate and must not be reattributed without reading the corresponding run output. Subsequent documentation-only commits must have their own successful exact-head CI before final acceptance.
 - The password-reset negative test retains the schema's 32-character minimum and tests an unknown token that passes schema validation, so handler-level invalid-token behavior is tested without weakening the 422 schema-validation contract.
 - The earlier dependency finding `PYSEC-2026-1845` was addressed with `pytest>=9.0.3,<10.0`; the current-head dependency audit passed.
 
