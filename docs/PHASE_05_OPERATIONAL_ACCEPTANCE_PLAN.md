@@ -177,3 +177,24 @@ The follow-up verification requested for this documentation head is now complete
 - Secret Scan [39960856652](https://github.com/chesterchong-dev/OOSYS/actions/runs/39960856652) — success.
 
 These results are for the exact SHA above. The restore evidence is still a disposable CI database using synthetic data; it does not close the production recovery gap. This paragraph is an acceptance-record update, so the new documentation commit will itself need its own exact-head CI check. No production infrastructure, approval, central alert delivery, staged release/rollback or independent penetration test was available or verified.
+
+
+## Exact-head verification and exit blockers — 2026-10-23
+
+Live GitHub verification at checkpoint `5a690acfdc5096bdec31497f6ea9e25fe6a29505` confirms all three pull-request workflows succeeded:
+
+- [Phase 00 validation — run 39961354573](https://github.com/chesterchong-dev/OOSYS/actions/runs/39961354573): backend and frontend jobs passed. Backend steps passed tests, SQLite migration upgrade/downgrade, PostgreSQL migration/persistence, recovery-token concurrency, disposable PostgreSQL backup/restore, PostgreSQL downgrade and compileall; frontend unit tests and production build passed.
+- [Dependency Audit — run 39961354869](https://github.com/chesterchong-dev/OOSYS/actions/runs/39961354869): success.
+- [Secret Scan — run 39961354686](https://github.com/chesterchong-dev/OOSYS/actions/runs/39961354686): success.
+
+This replaces the earlier pending statement for Phase 00 validation at this checkpoint. These workflow results are CI evidence only; they do not establish production operational acceptance. The new documentation commit will need its own exact-head workflow verification.
+
+| Requirement | Blocker and responsible owner role | Exit evidence |
+|---|---|---|
+| OOSYS-CORE-012 | No configured central collector, alert route or missing-telemetry watchdog is evidenced; metrics are process-local. Platform/operations owner must select the monitoring destination, provide access and name an on-call receiver. | Approved thresholds/routes; sanitized configuration; delivery receipt, acknowledgement and resolution; missing-telemetry alert test; proof labels/logs exclude secrets and tenant/user identifiers. |
+| OOSYS-CORE-014 | Production backup provider/environment, retention, encryption/key controls, isolated storage and production-equivalent restore are not evidenced. Product owner approves retention/data residency and recovery objectives; database/platform owner configures backup and restore. | Sanitized configuration; unauthorized-access denial; representative encrypted backup restored to an isolated target; integrity checks; timestamped measured RPO/RTO and operator/outcome. |
+| OOSYS-CORE-015 | Independent authorized penetration test and remediation/retest evidence are absent. Security owner authorizes scope and tester; risk owner disposition residual findings. | Authorized scope, independent report, remediation and retest evidence, formal disposition of residual risk. |
+| OOSYS-OPS-085 | Production on-call destination and timed operational recovery rehearsal are not evidenced. Operations owner names incident commander/on-call receiver and approves rehearsal. | End-to-end alert lifecycle evidence, timed isolated recovery rehearsal, after-action report and tracked remediation. |
+| OOSYS-OPS-087 | Staging environment, promotion approval, immutable artifact provenance and rollback rehearsal are not evidenced. Release owner approves release flow/triggers; platform owner provides environment and provenance. | Staging promotion tied to immutable artifact digest/commit; approvals and smoke tests; documented triggers/owner; successful timed rollback and post-rollback validation. |
+
+RPO ≤15 minutes and RTO ≤4 hours remain proposed, unapproved targets. Product-owner approval and measured recovery results are required before they can be represented as accepted objectives. No provider, credential, environment, approval or operational test result is assumed.
