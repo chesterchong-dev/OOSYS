@@ -1,6 +1,6 @@
 # OOSYS Phase 05 — Security, Observability & Recovery
 
-**Status: Partially complete; Phase 05 is not accepted as fully production-ready.** Candidate branch head `dd1c72665f4a7af03f587d3efd39d80eef7351aa` was tested by Phase 00 validation run [39805260559](https://github.com/chesterchong-dev/OOSYS/actions/runs/39805260559), Dependency Audit [39805260653](https://github.com/chesterchong-dev/OOSYS/actions/runs/39805260653), and Secret Scan [39805260563](https://github.com/chesterchong-dev/OOSYS/actions/runs/39805260563); all three workflows passed. Backend coverage now includes `app.core.config`, `app.core.metrics` and `app.core.observability`, all at 100%, with 93% total configured coverage. Production-equivalent recovery, central alert delivery, staged release/rollback controls and independent security review remain unverified.
+**Status: In Progress; Phase 05 is not accepted as fully production-ready.** The latest known PR head `8087430ff1f268658a6950318f9b14e273f23c61` has successful Phase 00 validation run [39807993423](https://github.com/chesterchong-dev/OOSYS/actions/runs/39807993423), Dependency Audit run [39807993312](https://github.com/chesterchong-dev/OOSYS/actions/runs/39807993312), and Secret Scan run [39807993363](https://github.com/chesterchong-dev/OOSYS/actions/runs/39807993363). The detailed test/coverage and disposable restore evidence from earlier candidate `dd1c72665f4a7af03f587d3efd39d80eef7351aa` remains historical implementation evidence; current-head workflow jobs also report success. Production-equivalent recovery, central alert delivery, staged release/rollback controls and independent security review remain unverified.
 
 ## Baseline inspected
 
@@ -105,3 +105,18 @@ Only generated CI test data was used. No production database or production crede
 - Production-equivalent restore, encrypted/off-site backup, retention/access-control review, recovery objectives and alert delivery remain partial/unverified. The verified restore is a disposable PostgreSQL CI drill using synthetic records.
 - Metrics counters are process-local with bounded labels; central aggregation, alert delivery and operational rehearsal are not configured. Dedicated type-check/lint jobs, staged deployment/rollback controls and independent penetration testing are not configured or completed.
 - `CORE-011`, `CORE-012`, `CORE-014`, `CORE-015`, `OPS-085` and `OPS-087` remain partial where their broader product requirements exceed the verified Phase 05 slice. No database migration was required; `/health` and `/health/ready` response contracts remain unchanged. OOSYS is not production-ready.
+
+## Latest current-head verification and operational acceptance plan
+
+Current known PR head: `8087430ff1f268658a6950318f9b14e273f23c61`.
+
+- Phase 00 validation [39807993423](https://github.com/chesterchong-dev/OOSYS/actions/runs/39807993423): workflow and both jobs passed. The backend job passed test execution, SQLite migration upgrade/downgrade, PostgreSQL migration/persistence/RLS checks, PostgreSQL recovery-token concurrency, disposable PostgreSQL backup/restore, PostgreSQL downgrade and compileall. The frontend test and production build job passed.
+- Dependency Audit [39807993312](https://github.com/chesterchong-dev/OOSYS/actions/runs/39807993312): audit step passed.
+- Secret Scan [39807993363](https://github.com/chesterchong-dev/OOSYS/actions/runs/39807993363): Gitleaks scan step passed.
+- The current known PR head is documentation-only relative to the preceding implementation candidate. The current-head workflow results establish CI status for this checkpoint; detailed test counts and coverage figures documented above remain attributed to their stated implementation candidate and must not be reattributed without reading the corresponding run output.
+- The password-reset negative test retains the schema's 32-character minimum and tests an unknown token that passes schema validation, so handler-level invalid-token behavior is tested without weakening the 422 schema-validation contract.
+- The earlier dependency finding `PYSEC-2026-1845` was addressed with `pytest>=9.0.3,<10.0`; the current-head dependency audit passed.
+
+The new [Phase 05 Operational Acceptance Plan](./PHASE_05_OPERATIONAL_ACCEPTANCE_PLAN.md) defines the proposed production backup policy, proposed RPO/RTO targets, central metrics/alert acceptance, staged release/rollback rehearsal, penetration-test scope, blockers and required evidence. These are acceptance criteria and proposals, not claims that production infrastructure is configured. RPO/RTO targets require product-owner approval; backup/metrics/deployment and independent penetration-test evidence remain blocked on the corresponding environment, operator and authorization.
+
+Requirements `OOSYS-CORE-012`, `OOSYS-CORE-014`, `OOSYS-CORE-015`, `OOSYS-OPS-085` and `OOSYS-OPS-087` remain `partial` for their broader product requirements. Their UUID mappings and classifications are checked against `docs/requirements/REQUIREMENT_SOURCE_NODE_CROSSWALK.csv`. Do not mark Phase 05 accepted until the operational gates are evidenced and the PR is reviewed.
