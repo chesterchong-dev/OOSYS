@@ -2,20 +2,20 @@
 
 **Status: Proposed acceptance criteria; production operations are not configured or verified by this repository task.**  
 **Applies to:** OOSYS Phase 05, PR #1, phase-05-security-observability  
-**Implementation verification checkpoint:** PR head 8087430ff1f268658a6950318f9b14e273f23c61 had successful CI workflows recorded below. This plan and the related register/README updates were committed afterward; verify CI for the latest PR head before acceptance. Do not treat the earlier checkpoint as exact-head verification for later documentation commits.  
+**Latest verified checkpoint before this acceptance-record update:** PR head 4cfb46209fa4029ad41a7edda02a2f4e73be832d. All three PR workflows succeeded on that exact SHA: Phase 00 validation run [39962507916](https://github.com/chesterchong-dev/OOSYS/actions/runs/39962507916), Dependency Audit run [39962507847](https://github.com/chesterchong-dev/OOSYS/actions/runs/39962507847), and Secret Scan run [39962507931](https://github.com/chesterchong-dev/OOSYS/actions/runs/39962507931). This establishes repository CI only, not production operational acceptance. This acceptance-record update changes the branch HEAD, so the new head must receive its own workflow verification before acceptance.  
 **Decision rule:** A documented plan is not proof that a production control is deployed. Keep Phase 05 In Progress until the applicable evidence exists.
 
 ## 1. Current repository verification
 
-The implementation checkpoint at PR head 8087430ff1f268658a6950318f9b14e273f23c61 had these completed successful GitHub Actions runs:
+At PR head `4cfb46209fa4029ad41a7edda02a2f4e73be832d`, commit-scoped GitHub Actions records confirm all three workflows completed successfully:
 
 | Workflow | Run | Result | Verified job evidence |
 |---|---:|---|---|
-| Phase 00 validation | [39807993423](https://github.com/chesterchong-dev/OOSYS/actions/runs/39807993423) | Success | Backend test/migration/PostgreSQL RLS and concurrency checks, disposable PostgreSQL restore, compileall, frontend tests and production build all succeeded |
-| Dependency Audit | [39807993312](https://github.com/chesterchong-dev/OOSYS/actions/runs/39807993312) | Success | pip-audit step succeeded |
-| Secret Scan | [39807993363](https://github.com/chesterchong-dev/OOSYS/actions/runs/39807993363) | Success | Gitleaks history scan step succeeded |
+| Phase 00 validation | [39962507916](https://github.com/chesterchong-dev/OOSYS/actions/runs/39962507916) | Success | Backend tests, SQLite migration upgrade/downgrade, PostgreSQL migration/persistence, recovery-token concurrency, disposable PostgreSQL backup/restore, PostgreSQL downgrade and compileall; frontend unit tests and production build |
+| Dependency Audit | [39962507847](https://github.com/chesterchong-dev/OOSYS/actions/runs/39962507847) | Success | pip-audit step succeeded |
+| Secret Scan | [39962507931](https://github.com/chesterchong-dev/OOSYS/actions/runs/39962507931) | Success | Gitleaks history scan succeeded |
 
-These workflow records are associated with the implementation checkpoint noted above, not automatically with subsequent documentation commits. The CI restore test used generated data in a disposable PostgreSQL 16 service. It does not establish production backup, monitoring, deployment or security-review operations. See the workflow links for the exact run evidence.
+This supersedes the earlier note that Phase 00 validation at this checkpoint was pending. The disposable PostgreSQL restore uses synthetic CI data in a temporary database. It does not establish production backup policy, central monitoring, production deployment or independent security testing. Any subsequent commit changes HEAD and requires a separate exact-head workflow check.
 
 ## 2. Production backup, encryption, retention and access
 
