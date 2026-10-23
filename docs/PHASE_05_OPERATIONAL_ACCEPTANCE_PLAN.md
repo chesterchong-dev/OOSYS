@@ -1,21 +1,20 @@
 # Phase 05 — Operational Acceptance Plan
 
-**Status: Proposed acceptance criteria; production operations are not configured or verified by this repository task.**  
-**Applies to:** OOSYS Phase 05, PR #1, phase-05-security-observability  
-**Latest verified checkpoint before this acceptance-record update:** PR head 4cfb46209fa4029ad41a7edda02a2f4e73be832d. All three PR workflows succeeded on that exact SHA: Phase 00 validation run [39962507916](https://github.com/chesterchong-dev/OOSYS/actions/runs/39962507916), Dependency Audit run [39962507847](https://github.com/chesterchong-dev/OOSYS/actions/runs/39962507847), and Secret Scan run [39962507931](https://github.com/chesterchong-dev/OOSYS/actions/runs/39962507931). This establishes repository CI only, not production operational acceptance. This acceptance-record update changes the branch HEAD, so the new head must receive its own workflow verification before acceptance.  
-**Decision rule:** A documented plan is not proof that a production control is deployed. Keep Phase 05 In Progress until the applicable evidence exists.
+**Status:** Production operations are not configured or verified by repository CI. Keep Phase 05 In Progress until all applicable evidence is approved.  
+**Applies to:** OOSYS Phase 05, PR #1, `phase-05-security-observability`  
+**Current exact-head checkpoint (2026-10-23):** PR HEAD `98571b69f53485ec029bdbb2288afde7a4b12be7`. Phase 00 validation [run 39964736384](https://github.com/chesterchong-dev/OOSYS/actions/runs/39964736384), Dependency Audit [run 39964736509](https://github.com/chesterchong-dev/OOSYS/actions/runs/39964736509), and Secret Scan [run 39964736540](https://github.com/chesterchong-dev/OOSYS/actions/runs/39964736540) all completed successfully on this SHA. Backend suite: 74 passed, 2 skipped; configured total coverage 92.63% (threshold 90%). PostgreSQL recovery-token concurrency check: 2 passed. SQLite and PostgreSQL migration lifecycle/persistence checks passed; disposable PostgreSQL restore drill passed with migration `20261018_0006`, 5 identity users and sentinel `"ok"`. Frontend: 3 test files, 8 tests passed, production build succeeded. Dependency audit and full-history secret scan passed. CI emitted non-failing dependency/runtime deprecation warnings (Starlette/httpx TestClient, Node/Punycode and GitHub actions Node 20 deprecation); track these as maintenance debt. This is repository CI evidence only, not production operations or independent security assurance.
 
 ## 1. Current repository verification
 
-At PR head `4cfb46209fa4029ad41a7edda02a2f4e73be832d`, commit-scoped GitHub Actions records confirm all three workflows completed successfully:
-
-| Workflow | Run | Result | Verified job evidence |
+| Workflow | Exact-head run | Result | Evidence |
 |---|---:|---|---|
-| Phase 00 validation | [39962507916](https://github.com/chesterchong-dev/OOSYS/actions/runs/39962507916) | Success | Backend tests, SQLite migration upgrade/downgrade, PostgreSQL migration/persistence, recovery-token concurrency, disposable PostgreSQL backup/restore, PostgreSQL downgrade and compileall; frontend unit tests and production build |
-| Dependency Audit | [39962507847](https://github.com/chesterchong-dev/OOSYS/actions/runs/39962507847) | Success | pip-audit step succeeded |
-| Secret Scan | [39962507931](https://github.com/chesterchong-dev/OOSYS/actions/runs/39962507931) | Success | Gitleaks history scan succeeded |
+| Phase 00 validation | [39964736384](https://github.com/chesterchong-dev/OOSYS/actions/runs/39964736384) | Success | 74 passed, 2 skipped, 92.63% configured total coverage; PostgreSQL concurrency; SQLite/PostgreSQL migration lifecycle; disposable PostgreSQL backup/restore; frontend 8 tests and production build |
+| Dependency Audit | [39964736509](https://github.com/chesterchong-dev/OOSYS/actions/runs/39964736509) | Success | pip-audit completed successfully |
+| Secret Scan | [39964736540](https://github.com/chesterchong-dev/OOSYS/actions/runs/39964736540) | Success | Gitleaks full-history scan completed successfully |
 
-This supersedes the earlier note that Phase 00 validation at this checkpoint was pending. The disposable PostgreSQL restore uses synthetic CI data in a temporary database. It does not establish production backup policy, central monitoring, production deployment or independent security testing. Any subsequent commit changes HEAD and requires a separate exact-head workflow check.
+The CORS regression cases are included in the passing backend test run on this exact SHA. The disposable PostgreSQL restore uses synthetic CI data in a temporary database. It does not establish production backup policy, central monitoring, production deployment or independent security testing. Any subsequent commit changes HEAD and requires a separate exact-head workflow check.
+
+**Decision rule:** Documentation and green CI do not prove production controls are deployed. Keep Phase 05 In Progress until the applicable evidence exists.
 
 ## 2. Production backup, encryption, retention and access
 
