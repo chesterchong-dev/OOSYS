@@ -3,13 +3,13 @@
 **Audit snapshot:** 2026-10-23  
 **Repository:** `chesterchong-dev/OOSYS`  
 **Branch reviewed:** `phase-05-security-observability`  
-**Exact-head evidence assessed:** `98571b69f53485ec029bdbb2288afde7a4b12be7`  
+**Application/test evidence checkpoint:** `555371277428a2ea6736c520b434f4d2c23e00a2`  
 **Phase 05 PR:** [#1](https://github.com/chesterchong-dev/OOSYS/pull/1) — open and draft at the time of review.  
 **Source maps:** [OOSYS — Only One System](https://app.xmind.com/share/QsPytPPH), [OOSYS Developer Implementation Blueprint](https://app.xmind.com/share/EkL12TxG), [OOSYS Master Development Roadmap — 23 Phases](https://app.xmind.com/share/JGrSGk06).
 
 ## Executive decision
 
-OOSYS is a foundation-stage software project, not a complete enterprise product and not yet ready for commercial release. Phases 00–04 are accepted only for their recorded scoped milestones. Phase 05 has repository-level security/observability controls; exact SHA `98571b69f53485ec029bdbb2288afde7a4b12be7` passed all three PR workflows: Phase 00 validation [39964736384](https://github.com/chesterchong-dev/OOSYS/actions/runs/39964736384), Dependency Audit [39964736509](https://github.com/chesterchong-dev/OOSYS/actions/runs/39964736509), and Secret Scan [39964736540](https://github.com/chesterchong-dev/OOSYS/actions/runs/39964736540). Phase 00 validation reports 74 passed, 2 skipped, 92.63% configured total coverage; 2 PostgreSQL recovery-token concurrency tests passed; SQLite/PostgreSQL migration lifecycle and persistence checks passed; the disposable restore drill passed; frontend reports 8 tests passed and a successful production build. These runs establish repository CI only; they do not establish production deployment or operational acceptance. Any subsequent commit requires new exact-head CI.
+OOSYS is a foundation-stage software project, not a complete enterprise product and not yet ready for commercial release. Phases 00–04 are accepted only for their recorded scoped milestones. Phase 05 has repository-level security/observability controls; exact code SHA `555371277428a2ea6736c520b434f4d2c23e00a2` passed all three PR workflows: Phase 00 validation [39965923995](https://github.com/chesterchong-dev/OOSYS/actions/runs/39965923995), Dependency Audit [39965924051](https://github.com/chesterchong-dev/OOSYS/actions/runs/39965924051), and Secret Scan [39965924064](https://github.com/chesterchong-dev/OOSYS/actions/runs/39965924064). Phase 00 validation reports 83 passed, 2 skipped, 92.46% configured total coverage; 2 PostgreSQL recovery-token concurrency tests passed; SQLite/PostgreSQL migration lifecycle and persistence checks passed; the disposable restore drill passed; frontend reports 8 tests passed and a successful production build. CORS origin validation also rejects malformed host authorities and empty query/fragment delimiters, with valid IPv4/IPv6 regression cases. These runs establish repository CI only; they do not establish production deployment or operational acceptance. Any subsequent commit requires new exact-head CI.
 
 The register contains 87 stable requirement IDs: 13 marked `partial`, 74 marked `missing`. These are broad product requirement statuses, not a count of all phase acceptance milestones. The accepted identity, API/readiness and UI-shell work is a reusable foundation, but core business modules and production operations remain substantially unimplemented.
 
@@ -32,9 +32,9 @@ The register contains 87 stable requirement IDs: 13 marked `partial`, 74 marked 
 - GitHub Actions coverage for backend/frontend tests/build, migration and disposable PostgreSQL restore checks, dependency audit and repository-history secret scan.
 - All three workflows passed on the audit baseline SHA above.
 
-### Repository-level improvement implemented in this PR
+### Repository-level improvement implemented and CI-verified
 
-The CORS validator now parses each configured origin and requires an HTTP(S) scheme, a valid hostname/port, no credentials, no path, no query and no fragment. Regression tests cover query/fragment URLs, credentials, invalid ports, non-HTTP(S) schemes and valid multiple explicit origins. This is an in-scope configuration validation fix; it does not change the API or authentication contract. Exact-head Phase 00 validation must pass before the change is considered verified.
+The CORS validator parses each configured origin and requires an HTTP(S) scheme, a valid hostname/port and syntactically valid DNS/IP host; it rejects credentials, paths, queries/fragments (including empty delimiters), malformed hostnames, empty/out-of-range ports and non-HTTP(S) schemes. Regression tests cover invalid forms and valid multiple explicit origins, including IPv4 and IPv6. This is an in-scope configuration validation fix and does not change the API or authentication contract. The cases passed in Phase 00 validation run [39965923995](https://github.com/chesterchong-dev/OOSYS/actions/runs/39965923995) on code SHA `555371277428a2ea6736c520b434f4d2c23e00a2`.
 
 ### Remaining Phase 05 operational gaps
 
