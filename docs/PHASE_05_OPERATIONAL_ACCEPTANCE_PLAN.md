@@ -166,3 +166,14 @@ The previous implementation checkpoint above is historical. The repository's cur
 - [Secret Scan, run 39960204464](https://github.com/chesterchong-dev/OOSYS/actions/runs/39960204464): Gitleaks history scan job passed.
 
 These are CI results for the intended SHA, not production operational evidence. The combined commit-status endpoint returned no separate status entries; the three workflow-run records and their jobs above are the evidence. Any subsequent commit changes the HEAD and must be checked separately before final acceptance. The Phase 00 disposable restore remains synthetic CI data only.
+
+
+## Follow-up exact-head CI result — documentation HEAD b80148e6f6c9bfe3409a2b7a82600191e78cbdaa
+
+The follow-up verification requested for this documentation head is now complete:
+
+- Phase 00 validation [39960856737](https://github.com/chesterchong-dev/OOSYS/actions/runs/39960856737) — workflow conclusion success. Backend job passed tests, isolated SQLite migration upgrade/downgrade, PostgreSQL migration/persistence, recovery-token concurrency, disposable PostgreSQL restore, PostgreSQL downgrade and compileall. Frontend unit tests and production build passed.
+- Dependency Audit [39960856880](https://github.com/chesterchong-dev/OOSYS/actions/runs/39960856880) — success.
+- Secret Scan [39960856652](https://github.com/chesterchong-dev/OOSYS/actions/runs/39960856652) — success.
+
+These results are for the exact SHA above. The restore evidence is still a disposable CI database using synthetic data; it does not close the production recovery gap. This paragraph is an acceptance-record update, so the new documentation commit will itself need its own exact-head CI check. No production infrastructure, approval, central alert delivery, staged release/rollback or independent penetration test was available or verified.
