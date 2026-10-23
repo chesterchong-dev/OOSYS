@@ -155,3 +155,14 @@ Phase 05 remains **In Progress** until:
 - The pull request has been reviewed and remains open until acceptance is explicitly authorized.
 
 No production service, production backup, monitoring provider, deployment or penetration test is claimed operational by this document.
+
+
+## Current intended-head CI verification (2026-10-23)
+
+The previous implementation checkpoint above is historical. The repository's current intended head at the start of this acceptance review was `6bf79bcb1a729fa6df56f6b5f8f07c2fb1e3f825`. GitHub's commit-scoped workflow lookup returned these completed successful runs for that SHA:
+
+- [Phase 00 validation, run 39960204359](https://github.com/chesterchong-dev/OOSYS/actions/runs/39960204359): backend job passed, including test suite, SQLite migration lifecycle, PostgreSQL migration/persistence, recovery-token concurrency, disposable PostgreSQL restore, PostgreSQL downgrade and compileall; frontend unit tests and production build job passed.
+- [Dependency Audit, run 39960204581](https://github.com/chesterchong-dev/OOSYS/actions/runs/39960204581): pip-audit job passed.
+- [Secret Scan, run 39960204464](https://github.com/chesterchong-dev/OOSYS/actions/runs/39960204464): Gitleaks history scan job passed.
+
+These are CI results for the intended SHA, not production operational evidence. The combined commit-status endpoint returned no separate status entries; the three workflow-run records and their jobs above are the evidence. Any subsequent commit changes the HEAD and must be checked separately before final acceptance. The Phase 00 disposable restore remains synthetic CI data only.
