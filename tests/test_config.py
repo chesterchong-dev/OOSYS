@@ -27,3 +27,27 @@ def test_cors_validation_rejects_wildcard_and_path() -> None:
         Settings(cors_allowed_origins="*", _env_file=None)
     with pytest.raises(ValidationError):
         Settings(cors_allowed_origins="https://portal.example.com/", _env_file=None)
+
+
+
+@pytest.mark.parametrize(
+    "origin",
+    [
+        "https://portal.example.com?next=https://attacker.example",
+        "https://portal.example.com#fragment",
+        "https://user:password@portal.example.com",
+        "https://portal.example.com:invalid",
+        "ftp://portal.example.com",
+    ],
+)
+def test_cors_validation_rejects_non_origin_urls(origin: str) -> None:
+    with pytest.raises(ValidationError):
+        Settings(cors_allowed_origins=origin, _env_file=None)
+
+
+def test_cors_validation_accepts_multiple_explicit_origins() -> None:
+    settings = Settings(
+        cors_allowed_origins=" https://portal.example.com, http://localhost:5173 ",
+        _env_file=None,
+    )
+    assert settings.cors_allowed_origins == "https://portal.example.com,http://localhost:5173"

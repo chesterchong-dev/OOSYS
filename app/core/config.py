@@ -1,5 +1,6 @@
 """Typed environment-backed settings for OOSYS."""
 from functools import lru_cache
+from urllib.parse import urlsplit
 
 from pydantic import Field, SecretStr, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -36,8 +37,24 @@ class Settings(BaseSettings):
         if "*" in origins:
             raise ValueError("Wildcard CORS origins are not supported; specify explicit origins")
         for origin in origins:
-            if not origin.startswith(("http://", "https://")) or "/" in origin.split("://", 1)[1]:
-                raise ValueError("CORS origins must be scheme and host only, without a path")
+            try:
+                parsed = urlsplit(origin)
+                # Accessing .port validates the numeric range and syntax.
+                parsed.port
+            except ValueError as exc:
+                raise ValueError("CORS origins must contain a valid host and port") from exc
+            if (
+                parsed.scheme not in {"http", "https"}
+                or not parsed.hostname
+                or parsed.username is not None
+                or parsed.password is not None
+                or parsed.path
+                or parsed.query
+                or parsed.fragment
+            ):
+                raise ValueError(
+                    "CORS origins must be HTTP(S) scheme and host only, without credentials, path, query or fragment"
+                )
         return ",".join(origins)
 
     @model_validator(mode="after")
