@@ -142,3 +142,23 @@ The pending Phase 00 validation result has now completed successfully on exact S
 - Secret Scan [39960856652](https://github.com/chesterchong-dev/OOSYS/actions/runs/39960856652): succeeded.
 
 This verifies the documentation HEAD stated above. The following documentation-only commit changes the HEAD and must receive its own exact-head workflow verification. No new application code or local test execution occurred in this continuation. Production operations and independent penetration testing remain unverified; all five broad requirements remain partial.
+
+
+## Exact-head CI reconciliation and remaining acceptance blockers — 2026-10-23
+
+At PR head `5a690acfdc5096bdec31497f6ea9e25fe6a29505`, live commit-scoped workflow records confirm:
+- Phase 00 validation [39961354573](https://github.com/chesterchong-dev/OOSYS/actions/runs/39961354573) — success; backend and frontend jobs passed. Backend included tests, SQLite migration lifecycle, PostgreSQL migration/persistence, recovery-token concurrency, disposable PostgreSQL restore, PostgreSQL downgrade and compileall; frontend tests and production build passed.
+- Dependency Audit [39961354869](https://github.com/chesterchong-dev/OOSYS/actions/runs/39961354869) — success.
+- Secret Scan [39961354686](https://github.com/chesterchong-dev/OOSYS/actions/runs/39961354686) — success.
+
+The previous pending note for Phase 00 validation at this SHA is superseded. CI success is not proof of production readiness. The PR remains open and draft.
+
+Acceptance gaps remain partial:
+- CORE-012: central collection, actionable alert routing, missing-telemetry detection and end-to-end alert receipt/acknowledgement/resolution need a platform/operations owner, selected destination, authorized access and verified delivery evidence.
+- CORE-014: production backup controls and measured recovery need product-owner approval of retention/data residency/RPO/RTO, database/platform configuration and an isolated timed restore with integrity/access-control evidence.
+- CORE-015: independent penetration testing needs authorized scope/tester, report, remediation/retest and risk-owner disposition.
+- OPS-085: incident response needs a named on-call receiver, alert lifecycle evidence and timed recovery rehearsal.
+- OPS-087: release controls need staging, immutable artifact provenance, promotion approvals, rollback triggers and an executed rollback rehearsal.
+- RPO ≤15 minutes and RTO ≤4 hours are proposed targets only until approved and measured.
+
+No shared API/database/permission/event contract changed. No database migration was introduced. The CI restore uses synthetic data in a disposable database and does not close production recovery gaps.
