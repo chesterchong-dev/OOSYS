@@ -131,3 +131,14 @@ The prior sections contain historical implementation checkpoints. At the start o
 - Secret Scan [39960204464](https://github.com/chesterchong-dev/OOSYS/actions/runs/39960204464): Gitleaks succeeded.
 
 The separate combined-status endpoint had no status entries; conclusions above come from the commit-scoped workflow runs and completed jobs. Any subsequent commit requires exact-head verification. CI results do not establish production backup, central monitoring, staged deployment/rollback or independent penetration-test completion. Requirements CORE-012, CORE-014, CORE-015, OPS-085 and OPS-087 remain partial.
+
+
+## Follow-up exact-head CI result — documentation HEAD b80148e6f6c9bfe3409a2b7a82600191e78cbdaa
+
+The pending Phase 00 validation result has now completed successfully on exact SHA `b80148e6f6c9bfe3409a2b7a82600191e78cbdaa`:
+
+- Phase 00 validation [39960856737](https://github.com/chesterchong-dev/OOSYS/actions/runs/39960856737): backend and frontend jobs succeeded. Backend steps for tests, SQLite migration lifecycle, PostgreSQL migration/persistence, recovery-token concurrency, disposable PostgreSQL backup/restore, PostgreSQL downgrade and compileall succeeded; frontend unit tests and production build succeeded.
+- Dependency Audit [39960856880](https://github.com/chesterchong-dev/OOSYS/actions/runs/39960856880): succeeded.
+- Secret Scan [39960856652](https://github.com/chesterchong-dev/OOSYS/actions/runs/39960856652): succeeded.
+
+This verifies the documentation HEAD stated above. The following documentation-only commit changes the HEAD and must receive its own exact-head workflow verification. No new application code or local test execution occurred in this continuation. Production operations and independent penetration testing remain unverified; all five broad requirements remain partial.
