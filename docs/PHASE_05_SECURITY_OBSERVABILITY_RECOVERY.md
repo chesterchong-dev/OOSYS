@@ -120,3 +120,14 @@ Implementation verification checkpoint: `8087430ff1f268658a6950318f9b14e273f23c6
 The new [Phase 05 Operational Acceptance Plan](./PHASE_05_OPERATIONAL_ACCEPTANCE_PLAN.md) defines the proposed production backup policy, proposed RPO/RTO targets, central metrics/alert acceptance, staged release/rollback rehearsal, penetration-test scope, blockers and required evidence. These are acceptance criteria and proposals, not claims that production infrastructure is configured. RPO/RTO targets require product-owner approval; backup/metrics/deployment and independent penetration-test evidence remain blocked on the corresponding environment, operator and authorization.
 
 Requirements `OOSYS-CORE-012`, `OOSYS-CORE-014`, `OOSYS-CORE-015`, `OOSYS-OPS-085` and `OOSYS-OPS-087` remain `partial` for their broader product requirements. Their UUID mappings and classifications are checked against `docs/requirements/REQUIREMENT_SOURCE_NODE_CROSSWALK.csv`. Do not mark Phase 05 accepted until the operational gates are evidenced and the PR is reviewed.
+
+
+## Current intended-head CI verification — 2026-10-23
+
+The prior sections contain historical implementation checkpoints. At the start of the latest acceptance review, the intended PR head was `6bf79bcb1a729fa6df56f6b5f8f07c2fb1e3f825`. GitHub's commit-scoped workflow lookup returned completed successful runs for that SHA:
+
+- Phase 00 validation [39960204359](https://github.com/chesterchong-dev/OOSYS/actions/runs/39960204359): backend and frontend jobs succeeded. The backend steps for tests, SQLite migration upgrade/downgrade, PostgreSQL migration/persistence, recovery-token concurrency, disposable PostgreSQL backup/restore, PostgreSQL downgrade and compileall all completed successfully; frontend unit tests and production build succeeded.
+- Dependency Audit [39960204581](https://github.com/chesterchong-dev/OOSYS/actions/runs/39960204581): pip-audit succeeded.
+- Secret Scan [39960204464](https://github.com/chesterchong-dev/OOSYS/actions/runs/39960204464): Gitleaks succeeded.
+
+The separate combined-status endpoint had no status entries; conclusions above come from the commit-scoped workflow runs and completed jobs. Any subsequent commit requires exact-head verification. CI results do not establish production backup, central monitoring, staged deployment/rollback or independent penetration-test completion. Requirements CORE-012, CORE-014, CORE-015, OPS-085 and OPS-087 remain partial.
