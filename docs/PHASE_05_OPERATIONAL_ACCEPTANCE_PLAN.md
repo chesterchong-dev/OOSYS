@@ -2,12 +2,12 @@
 
 **Status: Proposed acceptance criteria; production operations are not configured or verified by this repository task.**  
 **Applies to:** OOSYS Phase 05, PR #1, phase-05-security-observability  
-**Evidence baseline:** Current verified PR head 8087430ff1f268658a6950318f9b14e273f23c61; CI run IDs are recorded below.  
+**Implementation verification checkpoint:** PR head 8087430ff1f268658a6950318f9b14e273f23c61 had successful CI workflows recorded below. This plan and the related register/README updates were committed afterward; verify CI for the latest PR head before acceptance. Do not treat the earlier checkpoint as exact-head verification for later documentation commits.  
 **Decision rule:** A documented plan is not proof that a production control is deployed. Keep Phase 05 In Progress until the applicable evidence exists.
 
 ## 1. Current repository verification
 
-The current known PR head has these completed successful GitHub Actions runs:
+The implementation checkpoint at PR head 8087430ff1f268658a6950318f9b14e273f23c61 had these completed successful GitHub Actions runs:
 
 | Workflow | Run | Result | Verified job evidence |
 |---|---:|---|---|
@@ -15,7 +15,7 @@ The current known PR head has these completed successful GitHub Actions runs:
 | Dependency Audit | [39807993312](https://github.com/chesterchong-dev/OOSYS/actions/runs/39807993312) | Success | pip-audit step succeeded |
 | Secret Scan | [39807993363](https://github.com/chesterchong-dev/OOSYS/actions/runs/39807993363) | Success | Gitleaks history scan step succeeded |
 
-These workflow records are associated with the supplied current PR head. The CI restore test used generated data in a disposable PostgreSQL 16 service. It does not establish production backup, monitoring, deployment or security-review operations. See the workflow links for the exact run evidence.
+These workflow records are associated with the implementation checkpoint noted above, not automatically with subsequent documentation commits. The CI restore test used generated data in a disposable PostgreSQL 16 service. It does not establish production backup, monitoring, deployment or security-review operations. See the workflow links for the exact run evidence.
 
 ## 2. Production backup, encryption, retention and access
 
