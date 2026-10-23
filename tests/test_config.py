@@ -37,6 +37,11 @@ def test_cors_validation_rejects_wildcard_and_path() -> None:
         "https://portal.example.com#fragment",
         "https://user:password@portal.example.com",
         "https://portal.example.com:invalid",
+        "https://portal.example.com:",
+        "https://portal.example.com?",
+        "https://portal.example.com#",
+        "https://bad host.example.com",
+        "https://bad_host.example.com",
         "ftp://portal.example.com",
     ],
 )
@@ -51,3 +56,25 @@ def test_cors_validation_accepts_multiple_explicit_origins() -> None:
         _env_file=None,
     )
     assert settings.cors_allowed_origins == "https://portal.example.com,http://localhost:5173"
+
+
+
+@pytest.mark.parametrize(
+    "origin",
+    [
+        "https://[not-ipv6]/",
+        "https://portal.example.com:65536",
+        "https://portal.example.com\t.evil.example",
+    ],
+)
+def test_cors_validation_rejects_malformed_authority(origin: str) -> None:
+    with pytest.raises(ValidationError):
+        Settings(cors_allowed_origins=origin, _env_file=None)
+
+
+def test_cors_validation_accepts_ipv4_and_ipv6_origins() -> None:
+    settings = Settings(
+        cors_allowed_origins="http://127.0.0.1:8000,https://[::1]:8443",
+        _env_file=None,
+    )
+    assert settings.cors_allowed_origins == "http://127.0.0.1:8000,https://[::1]:8443"

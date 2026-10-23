@@ -1,5 +1,7 @@
 """Typed environment-backed settings for OOSYS."""
 from functools import lru_cache
+import ipaddress
+import re
 from urllib.parse import urlsplit
 
 from pydantic import Field, SecretStr, field_validator, model_validator
@@ -41,20 +43,46 @@ class Settings(BaseSettings):
                 parsed = urlsplit(origin)
                 # Accessing .port validates the numeric range and syntax.
                 parsed.port
+                host = parsed.hostname
             except ValueError as exc:
                 raise ValueError("CORS origins must contain a valid host and port") from exc
+
             if (
-                parsed.scheme not in {"http", "https"}
-                or not parsed.hostname
+                any(character.isspace() or ord(character) < 33 for character in origin)
+                or parsed.scheme not in {"http", "https"}
+                or not host
                 or parsed.username is not None
                 or parsed.password is not None
                 or parsed.path
                 or parsed.query
                 or parsed.fragment
+                or "?" in origin
+                or "#" in origin
+                or parsed.netloc.endswith(":")
             ):
                 raise ValueError(
                     "CORS origins must be HTTP(S) scheme and host only, without credentials, path, query or fragment"
                 )
+
+            try:
+                ipaddress.ip_address(host)
+            except ValueError:
+                if ":" in host:
+                    raise ValueError("CORS IPv6 origins must use a valid IPv6 address")
+                try:
+                    ascii_host = host.encode("idna").decode("ascii")
+                except UnicodeError as exc:
+                    raise ValueError("CORS origins must contain a valid hostname") from exc
+                labels = ascii_host.rstrip(".").split(".")
+                if (
+                    len(ascii_host) > 254
+                    or not labels
+                    or any(
+                        not re.fullmatch(r"[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?", label)
+                        for label in labels
+                    )
+                ):
+                    raise ValueError("CORS origins must contain a valid hostname or IP address")
         return ",".join(origins)
 
     @model_validator(mode="after")
