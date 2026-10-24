@@ -163,3 +163,10 @@ class WarehouseLocationOut(BaseModel):
     capacity_unit: str | None
     created_at: datetime
     updated_at: datetime
+
+    @field_validator("capacity_limit", mode="before")
+    @classmethod
+    def fixed_capacity_text(cls, value: object) -> str | None:
+        if value is None:
+            return None
+        return format(Decimal(value).quantize(Decimal("0.000001")), "f")

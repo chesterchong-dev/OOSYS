@@ -57,7 +57,7 @@ def test_initial_migration_creates_expected_schema_and_is_repeatable(tmp_path) -
             for item in inspector.get_check_constraints("platform_settings")
         )
         with engine.connect() as connection:
-            assert connection.exec_driver_sql("SELECT version_num FROM alembic_version").scalar_one() == "20261024_0013"
+            assert connection.exec_driver_sql("SELECT version_num FROM alembic_version").scalar_one() == "20261024_0014"
         assert {"inventory_products", "inventory_product_barcodes", "inventory_stock_balances", "inventory_movements",
                 "inventory_counts", "inventory_count_lines", "warehouses", "warehouse_locations"}.issubset(
                     inspector.get_table_names())
