@@ -419,6 +419,50 @@ def list_balances(organization_id: str, limit: int = Query(50, ge=1, le=100), of
     return {"items": items, "limit": limit, "offset": offset}
 
 
+@router.get("/organizations/{organization_id}/inventory/location-balances", response_model=dict)
+def list_location_balances(organization_id: str,
+                           warehouse_location_id: str | None = Query(default=None, min_length=1, max_length=36),
+                           product_id: str | None = Query(default=None, min_length=1, max_length=36),
+                           limit: int = Query(50, ge=1, le=100), offset: int = Query(0, ge=0),
+                           principal: Principal = Depends(require_permission("inventory.stock.read")),
+                           db: Session = Depends(get_identity_session)):
+    """Derive per-location stock from immutable movements; NULL is legacy unlocated stock."""
+    _scope(principal, organization_id)
+    query = select(
+        InventoryMovement.product_id,
+        InventoryMovement.warehouse_location_id,
+        func.sum(InventoryMovement.quantity_delta).label("on_hand"),
+        func.sum(InventoryMovement.reserved_delta).label("reserved"),
+    ).where(InventoryMovement.organization_id == organization_id)
+    if product_id:
+        query = query.where(InventoryMovement.product_id == product_id)
+    if warehouse_location_id:
+        query = query.where(InventoryMovement.warehouse_location_id == warehouse_location_id)
+    totals = query.group_by(
+        InventoryMovement.product_id, InventoryMovement.warehouse_location_id,
+    ).subquery()
+    rows = db.execute(select(
+        InventoryProduct.id.label("product_id"), InventoryProduct.sku, InventoryProduct.name,
+        totals.c.warehouse_location_id, totals.c.on_hand, totals.c.reserved,
+    ).join(totals, totals.c.product_id == InventoryProduct.id).where(
+        InventoryProduct.organization_id == organization_id,
+        InventoryProduct.kind == "sku",
+        InventoryProduct.archived_at.is_(None),
+    ).order_by(
+        InventoryProduct.sku, totals.c.warehouse_location_id,
+    ).offset(offset).limit(limit)).all()
+    return {
+        "items": [{
+            "product_id": row.product_id, "sku": row.sku, "product_name": row.name,
+            "warehouse_location_id": row.warehouse_location_id,
+            "unlocated": row.warehouse_location_id is None,
+            "on_hand": str(row.on_hand), "reserved": str(row.reserved),
+            "available": str(row.on_hand - row.reserved),
+        } for row in rows],
+        "limit": limit, "offset": offset,
+    }
+
+
 @router.get("/organizations/{organization_id}/inventory/reconciliation",
             response_model=InventoryReconciliationOut)
 def reconcile_balances(organization_id: str, limit: int = Query(50, ge=1, le=100),
@@ -725,3 +769,4 @@ def reject_count(organization_id: str, count_id: str, request: Request,
     result = _count_out(db, count)
     db.commit()
     return result
+

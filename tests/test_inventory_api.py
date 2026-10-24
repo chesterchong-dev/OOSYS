@@ -108,6 +108,51 @@ def test_inventory_movement_pagination_is_stable_and_bounded(tmp_path):
         engine.dispose()
 
 
+def test_location_ledger_projection_keeps_legacy_stock_unlocated(tmp_path):
+    app, engine, _factory, org_id, headers, product = setup_inventory(tmp_path)
+    base = f"/api/v1/organizations/{org_id}"
+    try:
+        warehouse = run(request(app, "POST", f"{base}/warehouses", headers=headers,
+                                json={"code": "WH-LOC", "name": "Location test"})).json()
+        location = run(request(app, "POST", f"{base}/warehouses/{warehouse['id']}/locations",
+                               headers=headers, json={"code": "BIN-1", "name": "Bin 1",
+                                                     "location_type": "bin"})).json()
+        legacy = run(request(app, "POST", f"{base}/inventory/movements", headers=headers,
+                             json=movement(product["id"], "receipt", "3", "location-legacy")))
+        unavailable_at_location = run(request(
+            app, "POST", f"{base}/inventory/movements", headers=headers,
+            json=movement(product["id"], "issue", "1", "location-empty-issue",
+                          warehouse_location_id=location["id"]),
+        ))
+        assert unavailable_at_location.status_code == 409
+        located = run(request(app, "POST", f"{base}/inventory/movements", headers=headers,
+                              json=movement(product["id"], "receipt", "4", "location-known",
+                                            warehouse_location_id=location["id"])))
+        assert legacy.status_code == located.status_code == 200
+        assert located.json()["warehouse_location_id"] == location["id"]
+
+        projection = run(request(app, "GET", f"{base}/inventory/location-balances?product_id={product['id']}",
+                                 headers=headers))
+        assert projection.status_code == 200
+        rows = {row["warehouse_location_id"]: row for row in projection.json()["items"]}
+        assert rows[None]["unlocated"] is True
+        assert rows[None]["on_hand"] == "3.000000"
+        assert rows[location["id"]]["unlocated"] is False
+        assert rows[location["id"]]["on_hand"] == "4.000000"
+        aggregate = run(request(app, "GET", f"{base}/inventory/balances", headers=headers))
+        assert aggregate.json()["items"][0]["on_hand"] == "7.000000"
+
+        zone = run(request(app, "POST", f"{base}/warehouses/{warehouse['id']}/locations",
+                           headers=headers, json={"code": "ZONE-1", "name": "Zone 1",
+                                                 "location_type": "zone"})).json()
+        rejected = run(request(app, "POST", f"{base}/inventory/movements", headers=headers,
+                               json=movement(product["id"], "receipt", "1", "location-zone",
+                                             warehouse_location_id=zone["id"])))
+        assert rejected.status_code == 409
+    finally:
+        engine.dispose()
+
+
 def test_product_barcodes_are_tenant_unique_searchable_and_managed_safely(tmp_path):
     app, engine, factory, org_id, headers, product = setup_inventory(tmp_path)
     base = f"/api/v1/organizations/{org_id}/inventory"
@@ -571,3 +616,4 @@ def test_traced_count_supports_multiple_lots_serials_and_full_stocktake_validati
         assert full.json()["count_type"] == "full_stocktake"
     finally:
         engine.dispose()
+

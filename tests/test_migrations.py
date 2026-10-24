@@ -44,7 +44,7 @@ def test_initial_migration_creates_expected_schema_and_is_repeatable(tmp_path) -
         assert "identity_users" in inspector.get_table_names()
         assert "identity_organizations" in inspector.get_table_names()
         with engine.connect() as connection:
-            assert connection.exec_driver_sql("SELECT COUNT(*) FROM identity_permissions").scalar_one() == 24
+            assert connection.exec_driver_sql("SELECT COUNT(*) FROM identity_permissions").scalar_one() == 26
         columns = {column["name"]: column for column in inspector.get_columns("platform_settings")}
         assert set(columns) == {
             "setting_key", "value_json", "description", "created_at", "updated_at"
@@ -57,7 +57,7 @@ def test_initial_migration_creates_expected_schema_and_is_repeatable(tmp_path) -
             for item in inspector.get_check_constraints("platform_settings")
         )
         with engine.connect() as connection:
-            assert connection.exec_driver_sql("SELECT version_num FROM alembic_version").scalar_one() == "20261024_0014"
+            assert connection.exec_driver_sql("SELECT version_num FROM alembic_version").scalar_one() == "20261024_0015"
         assert {"inventory_products", "inventory_product_barcodes", "inventory_stock_balances", "inventory_movements",
                 "inventory_counts", "inventory_count_lines", "warehouses", "warehouse_locations"}.issubset(
                     inspector.get_table_names())
@@ -69,7 +69,7 @@ def test_initial_migration_creates_expected_schema_and_is_repeatable(tmp_path) -
         barcode_columns = {column["name"] for column in inspector.get_columns("inventory_product_barcodes")}
         assert {"id", "organization_id", "product_id", "barcode", "created_at"}.issubset(barcode_columns)
         movement_columns = {column["name"] for column in inspector.get_columns("inventory_movements")}
-        assert "reversal_of_movement_id" in movement_columns
+        assert {"reversal_of_movement_id", "warehouse_location_id"}.issubset(movement_columns)
         location_columns = {column["name"] for column in inspector.get_columns("warehouse_locations")}
         assert {"organization_id", "warehouse_id", "parent_location_id", "location_type",
                 "capacity_limit", "capacity_unit"}.issubset(location_columns)
@@ -189,3 +189,4 @@ def test_migration_fails_closed_without_database_url(monkeypatch) -> None:
     config.set_main_option("sqlalchemy.url", "")
     with pytest.raises(RuntimeError, match="OOSYS_DATABASE_URL"):
         command.upgrade(config, "head")
+
