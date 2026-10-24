@@ -1,5 +1,6 @@
 """Tenant-scoped warehouse master data and receiving workflow endpoints."""
 import hashlib
+from decimal import Decimal
 from uuid import uuid4
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from sqlalchemy import func, select
