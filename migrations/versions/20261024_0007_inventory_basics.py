@@ -113,6 +113,12 @@ def upgrade() -> None:
     op.bulk_insert(sa.table("identity_permissions", sa.column("key", sa.String(120)),
                             sa.column("description", sa.String(255))), permissions)
     conn = op.get_bind()
+    if conn.dialect.name == "postgresql":
+        # This migration runs with the schema-owner role. Existing tenant RLS is
+        # FORCE-enabled, so temporarily remove FORCE for the two grant tables
+        # while backfilling every existing Owner role, then restore it.
+        op.execute('ALTER TABLE "identity_roles" NO FORCE ROW LEVEL SECURITY')
+        op.execute('ALTER TABLE "identity_role_permissions" NO FORCE ROW LEVEL SECURITY')
     owners = conn.execute(sa.text("SELECT organization_id, id FROM identity_roles WHERE name = 'Owner' AND is_system = TRUE")).mappings().all()
     for owner in owners:
         conn.execute(sa.text("""
@@ -123,6 +129,9 @@ def upgrade() -> None:
              "role_id": owner["id"], "permission_key": permission["key"]}
             for permission in permissions
         ])
+    if conn.dialect.name == "postgresql":
+        op.execute('ALTER TABLE "identity_roles" FORCE ROW LEVEL SECURITY')
+        op.execute('ALTER TABLE "identity_role_permissions" FORCE ROW LEVEL SECURITY')
 
     if conn.dialect.name == "postgresql":
         for table in ("inventory_categories", "inventory_units", "inventory_products",

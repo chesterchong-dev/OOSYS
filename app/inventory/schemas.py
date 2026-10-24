@@ -6,6 +6,12 @@ from typing import Literal
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 
+def _fixed_decimal_text(value: object) -> str:
+    """Return one portable six-place representation across PostgreSQL and SQLite."""
+    amount = Decimal(str(value))
+    return format(amount.quantize(Decimal("0.000001")), "f")
+
+
 class CategoryCreate(BaseModel):
     code: str = Field(min_length=1, max_length=60, pattern=r"^[A-Za-z0-9][A-Za-z0-9._-]*$")
     name: str = Field(min_length=1, max_length=120)
@@ -72,6 +78,11 @@ class ProductOut(BaseModel):
     created_at: datetime
     updated_at: datetime
 
+    @field_validator("average_cost", mode="before")
+    @classmethod
+    def fixed_cost_text(cls, value: object) -> str:
+        return _fixed_decimal_text(value)
+
 
 class MovementCreate(BaseModel):
     product_id: str = Field(min_length=1, max_length=36)
@@ -126,6 +137,11 @@ class MovementOut(BaseModel):
     actor_user_id: str
     created_at: datetime
 
+    @field_validator("quantity_delta", "reserved_delta", "unit_cost", mode="before")
+    @classmethod
+    def fixed_amount_text(cls, value: object) -> str | None:
+        return None if value is None else _fixed_decimal_text(value)
+
 
 class BalanceOut(BaseModel):
     model_config = ConfigDict(coerce_numbers_to_str=True)
@@ -139,6 +155,11 @@ class BalanceOut(BaseModel):
     average_cost: str
     cost_currency: str
     version: int
+
+    @field_validator("on_hand", "reserved", "available", "average_cost", mode="before")
+    @classmethod
+    def fixed_amount_text(cls, value: object) -> str:
+        return _fixed_decimal_text(value)
 
 
 class Page(BaseModel):

@@ -65,4 +65,4 @@ Reply with either **approve the AWS proposal for a costed staging design** or th
 4. The security owner who can commission and disposition an independent penetration test.
 5. The release owner for staging approval and rollback rehearsal.
 
-Until these are recorded, Phase 05 remains in progress and Phase 06 business-data implementation remains gated by the roadmap dependency.
+Until these are recorded, Phase 05 remains in progress and cloud deployment, live-data exposure, and pilot use remain gated. Per the approved sequencing adjustment in `MASTER_DEVELOPMENT_ROADMAP.md`, Phase 06 implementation may proceed locally with synthetic data while those operating decisions remain open.

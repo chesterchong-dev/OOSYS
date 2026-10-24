@@ -191,6 +191,7 @@ def post_movement(db: Session, organization_id: str, actor_user_id: str,
         actor_user_id=actor_user_id,
     )
     db.add(movement)
+    db.flush()
     record_event(
         db,
         action=f"inventory.stock.{kind}",

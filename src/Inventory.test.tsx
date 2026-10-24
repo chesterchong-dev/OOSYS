@@ -5,12 +5,13 @@ import {api,type Organization,type Principal} from "./api";
 
 vi.mock("./api",async importOriginal=>{
  const actual=await importOriginal<typeof import("./api")>();
- return { ...actual,
+ return { ...actual, api:{ ...actual.api,
   inventoryCategories:vi.fn().mockResolvedValue({items:[],limit:100,offset:0}),
   inventoryUnits:vi.fn().mockResolvedValue({items:[],limit:100,offset:0}),
   inventoryProducts:vi.fn().mockResolvedValue({items:[],limit:100,offset:0}),
   inventoryBalances:vi.fn().mockResolvedValue({items:[],limit:100,offset:0}),
   inventoryMovements:vi.fn().mockResolvedValue({items:[],limit:100,offset:0}),
+ },
  };
 });
 afterEach(()=>{cleanup();vi.clearAllMocks();});
