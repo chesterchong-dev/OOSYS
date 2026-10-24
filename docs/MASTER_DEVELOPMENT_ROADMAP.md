@@ -22,7 +22,7 @@ This file is a compact repository index for the authoritative roadmap XMind. Rea
 - Phase 03 — Core Platform Foundation: accepted for bounded API/readiness scope only. See [Phase 03 record](PHASE_03_CORE_PLATFORM_FOUNDATION.md). The older Linear Phase 03 title “Shared Platform Services” does not override the accepted boundary.
 - Phase 04 — Frontend Shell & Administration: accepted for the frontend shell and existing-API administration milestone. See [Phase 04 record](PHASE_04_FRONTEND_SHELL_ADMINISTRATION.md). The older Linear title “Navigation, Dashboard & Administration UI” does not override the accepted title.
 
-Acceptance is scoped: it does not mean all requirements associated with a domain are complete. The current requirements register reports 87 unique requirement IDs, 79 missing and 8 partial.
+Acceptance is scoped: it does not mean all requirements associated with a domain are complete. At Phase 05 PR head `57477a1052032a2884a769b1bf97e68a1a83020e`, the reconciled requirement view reports 87 unique IDs: 74 missing and 13 partial. No full product requirement is marked verified. See the Phase 05 record and PR #1 for current evidence.
 
 ## Phase index
 
@@ -33,7 +33,7 @@ Acceptance is scoped: it does not mean all requirements associated with a domain
 | 02 | Identity, Authentication & Multi-Tenancy | Accepted — scoped identity/auth/tenant controls |
 | 03 | Core Platform Foundation | Accepted — bounded API/readiness only |
 | 04 | Frontend Shell & Administration | Accepted — shell and existing-API administration |
-| 05 | Security, Observability & Recovery | Not started — [CHE-11](https://linear.app/chester-chong/issue/CHE-11/oosys-phase-05-security-observability-and-recovery) |
+| 05 | Security, Observability & Recovery | In progress — implementation and CI evidence recorded in [PR #1](https://github.com/chesterchong-dev/OOSYS/pull/1); production operational acceptance remains blocked — [CHE-11](https://linear.app/chester-chong/issue/CHE-11/oosys-phase-05-security-observability-and-recovery) |
 | 06 | Inventory Master Data & Stock Ledger | Linear says In Progress; implementation evidence must be reconciled — [CHE-12](https://linear.app/chester-chong/issue/CHE-12/oosys-phase-06-inventory-master-data-and-stock-ledger) |
 | 07 | Warehouse Operations (WMS) | Not started — [CHE-13](https://linear.app/chester-chong/issue/CHE-13/oosys-phase-07-warehouse-operations-wms) |
 | 08 | Suppliers & Purchasing | Not started — [CHE-14](https://linear.app/chester-chong/issue/CHE-14/oosys-phase-08-suppliers-and-purchasing) |
@@ -80,3 +80,4 @@ Dependencies: preserve Phases 00–04; build on existing configuration, authenti
 - Phase 03 did not implement all shared platform services. Shared master data, general notifications, file storage, global search, reusable workflow, subscription services and broad AI/integration capabilities remain future work unless separately verified.
 - The user's GitHub-web-only workflow means no local checkout cleanliness or local command execution is claimed.
 - A passing CI run verifies only the commit and checks actually run; documentation-only CI does not prove new application behaviour.
+

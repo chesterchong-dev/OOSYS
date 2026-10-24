@@ -197,3 +197,14 @@ This replaces the earlier pending statement for Phase 00 validation at this chec
 | OOSYS-OPS-087 | Staging environment, promotion approval, immutable artifact provenance and rollback rehearsal are not evidenced. Release owner approves release flow/triggers; platform owner provides environment and provenance. | Staging promotion tied to immutable artifact digest/commit; approvals and smoke tests; documented triggers/owner; successful timed rollback and post-rollback validation. |
 
 RPO ≤15 minutes and RTO ≤4 hours remain proposed, unapproved targets. Product-owner approval and measured recovery results are required before they can be represented as accepted objectives. No provider, credential, environment, approval or operational test result is assumed.
+
+## Latest exact-head CI checkpoint — 2026-10-23
+
+Live GitHub workflow records for current draft PR #1 head `57477a1052032a2884a769b1bf97e68a1a83020e` show all three PR workflows completed successfully:
+
+- [Phase 00 validation — run 39966262011](https://github.com/chesterchong-dev/OOSYS/actions/runs/39966262011): success. The PR records 83 backend tests passed, 2 skipped, 92.46% configured total coverage, PostgreSQL concurrency and migration checks, disposable PostgreSQL restore, 8 frontend tests and production build passed on associated code checkpoint `555371277428a2ea6736c520b434f4d2c23e00a2`.
+- [Dependency Audit — run 39966262097](https://github.com/chesterchong-dev/OOSYS/actions/runs/39966262097): success on exact PR head `57477a1052032a2884a769b1bf97e68a1a83020e`.
+- [Secret Scan — run 39966262000](https://github.com/chesterchong-dev/OOSYS/actions/runs/39966262000): success on exact PR head `57477a1052032a2884a769b1bf97e68a1a83020e`.
+
+The Phase 00 validation run is for the PR's merge commit and code checkpoint; the latest PR head adds documentation/evidence reconciliation. These CI results do not close the production operational blockers above. Keep PR #1 open and draft until the acceptance gate is satisfied and explicitly authorized.
+
