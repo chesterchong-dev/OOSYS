@@ -1226,6 +1226,9 @@ def seal_package(organization_id: str, warehouse_id: str, order_id: str, package
     record_event(db, action="warehouse.package.seal", target_type="warehouse_package",
                  organization_id=organization_id, actor_user_id=principal.user_id, target_id=package.id,
                  correlation_id=request.headers.get("X-Request-ID"), details={"order_id": order.id})
+    # Persist the seal before checking sealed-package totals. Some session configurations
+    # disable autoflush, which would otherwise leave this package counted as open.
+    db.flush()
     lines = db.scalars(select(WarehouseOutboundLine).where(
         WarehouseOutboundLine.organization_id == organization_id,
         WarehouseOutboundLine.order_id == order.id,
