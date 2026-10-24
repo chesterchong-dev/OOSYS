@@ -60,12 +60,14 @@ def install_observability(application: FastAPI) -> None:
         finally:
             duration = max(0.0, time.perf_counter() - started)
             final_status = 500 if raised else status_code
+            route = request.scope.get("route")
+            path_template = getattr(route, "path", "<unmatched>")
             metrics.observe(request.method, final_status, duration)
             entry = {
                 "event": "http.request",
                 "request_id": request_id,
                 "method": request.method,
-                "path": request.url.path,
+                "path": path_template,
                 "status_code": final_status,
                 "duration_ms": round(duration * 1000, 2),
             }
@@ -73,3 +75,4 @@ def install_observability(application: FastAPI) -> None:
                 logging.ERROR if raised or final_status >= 500 else logging.INFO,
                 json.dumps(entry, separators=(",", ":")),
             )
+
