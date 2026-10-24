@@ -113,6 +113,36 @@ def test_inventory_rls_hides_other_organization_products():
                   "lines": [{"product_id": product_b["id"], "quantity": "1"}]},
         )
         assert receipt_a.status_code == receipt_b.status_code == 201
+        destination_a = client.post(
+            f"/api/v1/organizations/{first['organization']['id']}/warehouses/{warehouse_a['id']}/locations",
+            headers={"Authorization": f"Bearer {first['access_token']}"},
+            json={"code": "DEST-A", "name": "Destination A", "location_type": "bin"},
+        )
+        destination_b = client.post(
+            f"/api/v1/organizations/{second['organization']['id']}/warehouses/{warehouse_b['id']}/locations",
+            headers={"Authorization": f"Bearer {second['access_token']}"},
+            json={"code": "DEST-B", "name": "Destination B", "location_type": "bin"},
+        )
+        assert destination_a.status_code == destination_b.status_code == 201
+        transfer_a = client.post(
+            f"/api/v1/organizations/{first['organization']['id']}/warehouse-transfers",
+            headers={"Authorization": f"Bearer {first['access_token']}"},
+            json={"source_warehouse_id": warehouse_a["id"], "source_location_id": location_a["id"],
+                  "destination_warehouse_id": warehouse_a["id"],
+                  "destination_location_id": destination_a.json()["id"],
+                  "product_id": product_a["id"], "quantity": "1",
+                  "idempotency_key": f"rls-transfer-a-{suffix}"},
+        )
+        transfer_b = client.post(
+            f"/api/v1/organizations/{second['organization']['id']}/warehouse-transfers",
+            headers={"Authorization": f"Bearer {second['access_token']}"},
+            json={"source_warehouse_id": warehouse_b["id"], "source_location_id": location_b["id"],
+                  "destination_warehouse_id": warehouse_b["id"],
+                  "destination_location_id": destination_b.json()["id"],
+                  "product_id": product_b["id"], "quantity": "1",
+                  "idempotency_key": f"rls-transfer-b-{suffix}"},
+        )
+        assert transfer_a.status_code == transfer_b.status_code == 201
         receipt_a_posted = client.post(
             f"/api/v1/organizations/{first['organization']['id']}/warehouses/{warehouse_a['id']}"
             f"/receipts/{receipt_a.json()['id']}/post",
@@ -150,6 +180,10 @@ def test_inventory_rls_hides_other_organization_products():
                 "SELECT id FROM warehouse_putaway_tasks WHERE receipt_id = :receipt_id"
             ), {"receipt_id": receipt_a.json()["id"]}).scalars().all()
             assert len(visible_putaway) == 1
+            visible_transfers = connection.execute(text(
+                "SELECT id FROM warehouse_transfers WHERE id IN (:a, :b) ORDER BY id"
+            ), {"a": transfer_a.json()["id"], "b": transfer_b.json()["id"]}).scalars().all()
+            assert visible_transfers == [transfer_a.json()["id"]]
 
 
 def test_concurrent_inventory_receipts_preserve_balance_and_replay_once():
@@ -222,4 +256,3 @@ def test_inventory_ledger_rejects_direct_update_and_delete():
                     DELETE FROM inventory_movements
                     WHERE organization_id = :tenant AND id = :movement_id
                 """), {"tenant": organization_id, "movement_id": movement_id})
-

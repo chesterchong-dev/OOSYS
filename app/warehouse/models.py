@@ -231,3 +231,75 @@ class WarehousePutawayTask(Base):
         Index("ix_warehouse_putaway_org_status_created", "organization_id", "status", "created_at"),
     )
 
+
+class WarehouseTransfer(Base):
+    """Two-step stock transfer with a visible in-transit staging location."""
+    __tablename__ = "warehouse_transfers"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=new_id)
+    organization_id: Mapped[str] = mapped_column(String(36), nullable=False)
+    transfer_number: Mapped[str] = mapped_column(String(40), nullable=False)
+    idempotency_key: Mapped[str] = mapped_column(String(100), nullable=False)
+    request_hash: Mapped[str] = mapped_column(String(64), nullable=False)
+    source_warehouse_id: Mapped[str] = mapped_column(String(36), nullable=False)
+    source_location_id: Mapped[str] = mapped_column(String(36), nullable=False)
+    destination_warehouse_id: Mapped[str] = mapped_column(String(36), nullable=False)
+    destination_location_id: Mapped[str] = mapped_column(String(36), nullable=False)
+    in_transit_location_id: Mapped[str | None] = mapped_column(String(36))
+    product_id: Mapped[str] = mapped_column(String(36), nullable=False)
+    quantity: Mapped[Decimal] = mapped_column(Numeric(20, 6), nullable=False)
+    lot_code: Mapped[str | None] = mapped_column(String(100))
+    serial_code: Mapped[str | None] = mapped_column(String(100))
+    expires_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    external_reference: Mapped[str | None] = mapped_column(String(160))
+    status: Mapped[str] = mapped_column(String(12), nullable=False, default="draft")
+    created_by_user_id: Mapped[str] = mapped_column(String(36), nullable=False)
+    dispatched_by_user_id: Mapped[str | None] = mapped_column(String(36))
+    received_by_user_id: Mapped[str | None] = mapped_column(String(36))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    dispatched_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    received_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+    __table_args__ = (
+        UniqueConstraint("organization_id", "id", name="uq_warehouse_transfer_org_id"),
+        UniqueConstraint("organization_id", "transfer_number", name="uq_warehouse_transfer_org_number"),
+        UniqueConstraint("organization_id", "idempotency_key", name="uq_warehouse_transfer_org_key"),
+        ForeignKeyConstraint(
+            ["organization_id", "source_warehouse_id"], ["warehouses.organization_id", "warehouses.id"],
+            ondelete="RESTRICT", name="fk_warehouse_transfer_source_warehouse_same_org",
+        ),
+        ForeignKeyConstraint(
+            ["organization_id", "source_warehouse_id", "source_location_id"],
+            ["warehouse_locations.organization_id", "warehouse_locations.warehouse_id",
+             "warehouse_locations.id"],
+            ondelete="RESTRICT", name="fk_warehouse_transfer_source_location_same_warehouse",
+        ),
+        ForeignKeyConstraint(
+            ["organization_id", "destination_warehouse_id"], ["warehouses.organization_id", "warehouses.id"],
+            ondelete="RESTRICT", name="fk_warehouse_transfer_destination_warehouse_same_org",
+        ),
+        ForeignKeyConstraint(
+            ["organization_id", "destination_warehouse_id", "destination_location_id"],
+            ["warehouse_locations.organization_id", "warehouse_locations.warehouse_id",
+             "warehouse_locations.id"],
+            ondelete="RESTRICT", name="fk_warehouse_transfer_destination_location_same_warehouse",
+        ),
+        ForeignKeyConstraint(
+            ["organization_id", "source_warehouse_id", "in_transit_location_id"],
+            ["warehouse_locations.organization_id", "warehouse_locations.warehouse_id",
+             "warehouse_locations.id"],
+            ondelete="RESTRICT", name="fk_warehouse_transfer_transit_location_same_warehouse",
+        ),
+        CheckConstraint("quantity > 0", name="ck_warehouse_transfer_quantity_positive"),
+        CheckConstraint("status IN ('draft','in_transit','received')", name="ck_warehouse_transfer_status"),
+        CheckConstraint("source_location_id != destination_location_id", name="ck_warehouse_transfer_distinct_locations"),
+        CheckConstraint("lot_code IS NULL OR serial_code IS NULL", name="ck_warehouse_transfer_trace_unambiguous"),
+        CheckConstraint("expires_at IS NULL OR lot_code IS NOT NULL", name="ck_warehouse_transfer_expiry_requires_lot"),
+        CheckConstraint(
+            "(status = 'draft' AND in_transit_location_id IS NULL) OR "
+            "(status IN ('in_transit','received') AND in_transit_location_id IS NOT NULL)",
+            name="ck_warehouse_transfer_transit_shape",
+        ),
+        Index("ix_warehouse_transfer_org_status_created", "organization_id", "status", "created_at"),
+        Index("ix_warehouse_transfer_org_product", "organization_id", "product_id", "created_at"),
+    )

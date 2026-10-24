@@ -29,7 +29,8 @@ PERMISSIONS: dict[str, str] = {
     "warehouse.receiving.write": "Create and post warehouse receipts",
     "warehouse.putaway.read": "View putaway tasks",
     "warehouse.putaway.write": "Assign and complete putaway tasks",
+    "warehouse.transfers.read": "View warehouse transfers",
+    "warehouse.transfers.write": "Create, dispatch and receive warehouse transfers",
 }
 
 OWNER_PERMISSIONS = frozenset(PERMISSIONS)
-

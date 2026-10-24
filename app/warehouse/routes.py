@@ -12,12 +12,14 @@ from app.identity.security import utc_now
 from app.inventory.contracts import (post_warehouse_putaway_transfer,
                                      post_warehouse_receipt_movement)
 from app.warehouse.models import (Warehouse, WarehouseLocation, WarehouseReceipt,
-                                  WarehouseReceiptLine, WarehousePutawayTask)
+                                  WarehouseReceiptLine, WarehousePutawayTask,
+                                  WarehouseTransfer)
 from app.warehouse.schemas import (WarehouseCreate, WarehouseLocationCreate,
                                    WarehouseLocationOut, WarehouseLocationPatch,
                                    WarehouseOut, WarehousePatch, WarehouseReceiptCreate,
                                    WarehouseReceiptOut, WarehousePutawayAssign,
-                                   WarehousePutawayTaskOut)
+                                   WarehousePutawayTaskOut, WarehouseTransferCreate,
+                                   WarehouseTransferOut)
 
 router = APIRouter(tags=["Warehouse"])
 
@@ -528,3 +530,216 @@ def complete_putaway_task(organization_id: str, warehouse_id: str, task_id: str,
         raise
     return result
 
+
+def _transfer(db: Session, organization_id: str, transfer_id: str,
+              *, lock: bool = False) -> WarehouseTransfer:
+    query = select(WarehouseTransfer).where(
+        WarehouseTransfer.organization_id == organization_id,
+        WarehouseTransfer.id == transfer_id,
+    )
+    if lock:
+        query = query.with_for_update()
+    transfer = db.scalar(query)
+    if transfer is None:
+        raise HTTPException(404, "Transfer not found")
+    return transfer
+
+
+@router.post("/organizations/{organization_id}/warehouse-transfers",
+             response_model=WarehouseTransferOut, status_code=201)
+def create_transfer(organization_id: str, payload: WarehouseTransferCreate, request: Request,
+                   principal: Principal = Depends(require_permission("warehouse.transfers.write")),
+                   db: Session = Depends(get_identity_session)):
+    _scope(principal, organization_id)
+    source_warehouse = _warehouse(db, organization_id, payload.source_warehouse_id)
+    destination_warehouse = _warehouse(db, organization_id, payload.destination_warehouse_id)
+    source = _location(db, organization_id, source_warehouse.id, payload.source_location_id)
+    destination = _location(db, organization_id, destination_warehouse.id, payload.destination_location_id)
+    for warehouse, location in ((source_warehouse, source), (destination_warehouse, destination)):
+        if warehouse.status != "active" or location.status != "active":
+            raise HTTPException(409, "Transfer warehouses and locations must be active")
+        if location.location_type == "zone":
+            raise HTTPException(409, "Transfers require operational locations, not zones")
+
+    request_hash = hashlib.sha256(payload.model_dump_json().encode("utf-8")).hexdigest()
+    existing = db.scalar(select(WarehouseTransfer).where(
+        WarehouseTransfer.organization_id == organization_id,
+        WarehouseTransfer.idempotency_key == payload.idempotency_key,
+    ))
+    if existing is not None:
+        if existing.request_hash != request_hash:
+            raise HTTPException(409, "Idempotency key was already used for a different transfer")
+        return WarehouseTransferOut.model_validate(existing)
+
+    transfer_id = str(uuid4())
+    transfer = WarehouseTransfer(
+        id=transfer_id,
+        organization_id=organization_id,
+        transfer_number=f"TR-{uuid4().hex[:12].upper()}",
+        idempotency_key=payload.idempotency_key,
+        request_hash=request_hash,
+        source_warehouse_id=source_warehouse.id,
+        source_location_id=source.id,
+        destination_warehouse_id=destination_warehouse.id,
+        destination_location_id=destination.id,
+        product_id=payload.product_id,
+        quantity=payload.quantity,
+        lot_code=payload.lot_code,
+        serial_code=payload.serial_code,
+        expires_at=payload.expires_at,
+        external_reference=payload.external_reference,
+        created_by_user_id=principal.user_id,
+    )
+    db.add(transfer)
+    db.flush()
+    record_event(db, action="warehouse.transfer.create", target_type="warehouse_transfer",
+                 organization_id=organization_id, actor_user_id=principal.user_id,
+                 target_id=transfer.id, correlation_id=request.headers.get("X-Request-ID"),
+                 details={"transfer_number": transfer.transfer_number,
+                          "source_location_id": source.id,
+                          "destination_location_id": destination.id,
+                          "product_id": transfer.product_id})
+    result = WarehouseTransferOut.model_validate(transfer)
+    try:
+        db.commit()
+    except IntegrityError as exc:
+        db.rollback()
+        raise HTTPException(409, "Transfer number or idempotency key conflicts with an existing transfer") from exc
+    return result
+
+
+@router.get("/organizations/{organization_id}/warehouse-transfers", response_model=dict)
+def list_transfers(organization_id: str,
+                   status: str | None = Query(default=None, pattern=r"^(draft|in_transit|received)$"),
+                   limit: int = Query(50, ge=1, le=100), offset: int = Query(0, ge=0),
+                   principal: Principal = Depends(require_permission("warehouse.transfers.read")),
+                   db: Session = Depends(get_identity_session)):
+    _scope(principal, organization_id)
+    query = select(WarehouseTransfer).where(WarehouseTransfer.organization_id == organization_id)
+    if status:
+        query = query.where(WarehouseTransfer.status == status)
+    rows = db.scalars(query.order_by(WarehouseTransfer.created_at.desc(), WarehouseTransfer.id.desc())
+                      .offset(offset).limit(limit)).all()
+    return {"items": [WarehouseTransferOut.model_validate(row).model_dump() for row in rows],
+            "limit": limit, "offset": offset}
+
+
+@router.get("/organizations/{organization_id}/warehouse-transfers/{transfer_id}",
+            response_model=WarehouseTransferOut)
+def get_transfer(organization_id: str, transfer_id: str,
+                 principal: Principal = Depends(require_permission("warehouse.transfers.read")),
+                 db: Session = Depends(get_identity_session)):
+    _scope(principal, organization_id)
+    return WarehouseTransferOut.model_validate(_transfer(db, organization_id, transfer_id))
+
+
+@router.post("/organizations/{organization_id}/warehouse-transfers/{transfer_id}/dispatch",
+             response_model=WarehouseTransferOut)
+def dispatch_transfer(organization_id: str, transfer_id: str, request: Request,
+                      principal: Principal = Depends(require_permission("warehouse.transfers.write")),
+                      db: Session = Depends(get_identity_session)):
+    _scope(principal, organization_id)
+    transfer = _transfer(db, organization_id, transfer_id, lock=True)
+    if transfer.status in {"in_transit", "received"}:
+        return WarehouseTransferOut.model_validate(transfer)
+    source_warehouse = _warehouse(db, organization_id, transfer.source_warehouse_id)
+    source = _location(db, organization_id, transfer.source_warehouse_id, transfer.source_location_id)
+    destination_warehouse = _warehouse(db, organization_id, transfer.destination_warehouse_id)
+    destination = _location(db, organization_id, transfer.destination_warehouse_id,
+                             transfer.destination_location_id)
+    if any(item.status != "active" for item in (source_warehouse, source, destination_warehouse, destination)):
+        raise HTTPException(409, "Transfer warehouses and source/destination locations must remain active")
+
+    transit = WarehouseLocation(
+        organization_id=organization_id,
+        warehouse_id=source_warehouse.id,
+        code=f"TR-{transfer.id.replace('-', '')[:16].upper()}",
+        name=f"In transit {transfer.transfer_number}",
+        location_type="staging",
+    )
+    db.add(transit)
+    try:
+        db.flush()
+        post_warehouse_putaway_transfer(
+            db, organization_id, principal.user_id,
+            product_id=transfer.product_id,
+            quantity=transfer.quantity,
+            source_location_id=source.id,
+            destination_location_id=transit.id,
+            operation_key=f"warehouse-transfer:{transfer.id}:dispatch",
+            lot_code=transfer.lot_code,
+            serial_code=transfer.serial_code,
+            expires_at=transfer.expires_at,
+            note=f"Transfer {transfer.transfer_number} dispatched",
+            correlation_id=request.headers.get("X-Request-ID"),
+        )
+        transfer.in_transit_location_id = transit.id
+        transfer.status = "in_transit"
+        transfer.dispatched_by_user_id = principal.user_id
+        transfer.dispatched_at = utc_now()
+        record_event(db, action="warehouse.transfer.dispatch", target_type="warehouse_transfer",
+                     organization_id=organization_id, actor_user_id=principal.user_id,
+                     target_id=transfer.id, correlation_id=request.headers.get("X-Request-ID"),
+                     details={"in_transit_location_id": transit.id,
+                              "quantity": str(transfer.quantity)})
+        result = WarehouseTransferOut.model_validate(transfer)
+        db.commit()
+    except IntegrityError as exc:
+        db.rollback()
+        raise HTTPException(409, "Transfer dispatch conflicts with a previous stock update") from exc
+    except HTTPException:
+        db.rollback()
+        raise
+    return result
+
+
+@router.post("/organizations/{organization_id}/warehouse-transfers/{transfer_id}/receive",
+             response_model=WarehouseTransferOut)
+def receive_transfer(organization_id: str, transfer_id: str, request: Request,
+                    principal: Principal = Depends(require_permission("warehouse.transfers.write")),
+                    db: Session = Depends(get_identity_session)):
+    _scope(principal, organization_id)
+    transfer = _transfer(db, organization_id, transfer_id, lock=True)
+    if transfer.status == "received":
+        return WarehouseTransferOut.model_validate(transfer)
+    if transfer.status != "in_transit" or transfer.in_transit_location_id is None:
+        raise HTTPException(409, "Only a dispatched transfer can be received")
+    destination_warehouse = _warehouse(db, organization_id, transfer.destination_warehouse_id)
+    transit = _location(db, organization_id, transfer.source_warehouse_id,
+                        transfer.in_transit_location_id)
+    destination = _location(db, organization_id, transfer.destination_warehouse_id,
+                            transfer.destination_location_id)
+    if (destination_warehouse.status != "active" or transit.status != "active"
+            or destination.status != "active" or destination.location_type == "zone"):
+        raise HTTPException(409, "Transit and destination locations must remain active")
+    try:
+        post_warehouse_putaway_transfer(
+            db, organization_id, principal.user_id,
+            product_id=transfer.product_id,
+            quantity=transfer.quantity,
+            source_location_id=transit.id,
+            destination_location_id=destination.id,
+            operation_key=f"warehouse-transfer:{transfer.id}:receive",
+            lot_code=transfer.lot_code,
+            serial_code=transfer.serial_code,
+            expires_at=transfer.expires_at,
+            note=f"Transfer {transfer.transfer_number} received",
+            correlation_id=request.headers.get("X-Request-ID"),
+        )
+        transfer.status = "received"
+        transfer.received_by_user_id = principal.user_id
+        transfer.received_at = utc_now()
+        record_event(db, action="warehouse.transfer.receive", target_type="warehouse_transfer",
+                     organization_id=organization_id, actor_user_id=principal.user_id,
+                     target_id=transfer.id, correlation_id=request.headers.get("X-Request-ID"),
+                     details={"destination_location_id": destination.id,
+                              "quantity": str(transfer.quantity)})
+        result = WarehouseTransferOut.model_validate(transfer)
+        db.commit()
+    except IntegrityError as exc:
+        db.rollback()
+        raise HTTPException(409, "Transfer receipt conflicts with a previous stock update") from exc
+    except HTTPException:
+        db.rollback()
+        raise
+    return result

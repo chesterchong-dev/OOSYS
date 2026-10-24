@@ -286,3 +286,71 @@ class WarehousePutawayTaskOut(BaseModel):
     def fixed_task_quantity(cls, value: object) -> str:
         return format(Decimal(value).quantize(Decimal("0.000001")), "f")
 
+
+class WarehouseTransferCreate(BaseModel):
+    source_warehouse_id: str = Field(min_length=1, max_length=36)
+    source_location_id: str = Field(min_length=1, max_length=36)
+    destination_warehouse_id: str = Field(min_length=1, max_length=36)
+    destination_location_id: str = Field(min_length=1, max_length=36)
+    product_id: str = Field(min_length=1, max_length=36)
+    quantity: Decimal = Field(gt=0, max_digits=20, decimal_places=6)
+    lot_code: str | None = Field(default=None, min_length=1, max_length=100)
+    serial_code: str | None = Field(default=None, min_length=1, max_length=100)
+    expires_at: datetime | None = None
+    external_reference: str | None = Field(default=None, max_length=160)
+    idempotency_key: str = Field(min_length=8, max_length=100, pattern=r"^[A-Za-z0-9._:-]+$")
+
+    @field_validator("quantity")
+    @classmethod
+    def finite_transfer_quantity(cls, value: Decimal) -> Decimal:
+        if not value.is_finite():
+            raise ValueError("Quantity must be finite")
+        return value
+
+    @field_validator("lot_code", "serial_code", "external_reference")
+    @classmethod
+    def trim_transfer_codes(cls, value: str | None) -> str | None:
+        trimmed = value.strip() if value is not None else None
+        if value is not None and not trimmed:
+            raise ValueError("Reference codes must not be empty")
+        return trimmed
+
+    @model_validator(mode="after")
+    def transfer_shape(self):
+        if self.source_location_id == self.destination_location_id:
+            raise ValueError("Source and destination locations must differ")
+        if self.lot_code and self.serial_code:
+            raise ValueError("A transfer can track a lot or a serial, not both")
+        if self.expires_at and not self.lot_code:
+            raise ValueError("Expiry date requires a lot code")
+        return self
+
+
+class WarehouseTransferOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True, coerce_numbers_to_str=True)
+    id: str
+    organization_id: str
+    transfer_number: str
+    source_warehouse_id: str
+    source_location_id: str
+    destination_warehouse_id: str
+    destination_location_id: str
+    in_transit_location_id: str | None
+    product_id: str
+    quantity: str
+    lot_code: str | None
+    serial_code: str | None
+    expires_at: datetime | None
+    external_reference: str | None
+    status: str
+    created_by_user_id: str
+    dispatched_by_user_id: str | None
+    received_by_user_id: str | None
+    created_at: datetime
+    dispatched_at: datetime | None
+    received_at: datetime | None
+
+    @field_validator("quantity", mode="before")
+    @classmethod
+    def fixed_transfer_quantity(cls, value: object) -> str:
+        return format(Decimal(value).quantize(Decimal("0.000001")), "f")

@@ -229,6 +229,69 @@ def test_warehouse_receipt_posts_once_to_inventory_location(tmp_path):
         engine.dispose()
 
 
+def test_warehouse_transfer_tracks_in_transit_stock_and_receives_once(tmp_path):
+    app, engine, _factory, org_id, headers, product = setup_inventory(tmp_path)
+    base = f"/api/v1/organizations/{org_id}"
+    try:
+        locations = []
+        for code in ("SOURCE", "DEST"):
+            warehouse = run(request(app, "POST", f"{base}/warehouses", headers=headers,
+                                    json={"code": f"WH-{code}", "name": f"{code} warehouse"})).json()
+            location = run(request(app, "POST", f"{base}/warehouses/{warehouse['id']}/locations",
+                                   headers=headers, json={"code": f"{code}-BIN", "name": f"{code} bin",
+                                                         "location_type": "bin"})).json()
+            locations.append((warehouse, location))
+        (source_warehouse, source), (destination_warehouse, destination) = locations
+        receipt = run(request(app, "POST", f"{base}/inventory/movements", headers=headers,
+                              json=movement(product["id"], "receipt", "4", "transfer-source-stock",
+                                            warehouse_location_id=source["id"])))
+        assert receipt.status_code == 200
+        create_payload = {
+            "source_warehouse_id": source_warehouse["id"], "source_location_id": source["id"],
+            "destination_warehouse_id": destination_warehouse["id"],
+            "destination_location_id": destination["id"],
+            "product_id": product["id"], "quantity": "3",
+            "idempotency_key": "transfer-create-001", "external_reference": "MOVE-EXT-1",
+        }
+        created = run(request(app, "POST", f"{base}/warehouse-transfers", headers=headers,
+                              json=create_payload))
+        assert created.status_code == 201, created.text
+        transfer = created.json()
+        dispatch_url = f"{base}/warehouse-transfers/{transfer['id']}/dispatch"
+        dispatched = run(request(app, "POST", dispatch_url, headers=headers))
+        assert dispatched.status_code == 200, dispatched.text
+        transit_id = dispatched.json()["in_transit_location_id"]
+        assert dispatched.json()["status"] == "in_transit"
+
+        interim = run(request(app, "GET", f"{base}/inventory/location-balances?product_id={product['id']}",
+                              headers=headers)).json()["items"]
+        interim_by_location = {row["warehouse_location_id"]: row for row in interim}
+        assert interim_by_location[source["id"]]["on_hand"] == "1.000000"
+        assert interim_by_location[transit_id]["on_hand"] == "3.000000"
+        assert run(request(app, "GET", f"{base}/inventory/balances", headers=headers)).json()["items"][0]["on_hand"] == "4.000000"
+
+        receive_url = f"{base}/warehouse-transfers/{transfer['id']}/receive"
+        received = run(request(app, "POST", receive_url, headers=headers))
+        assert received.status_code == 200, received.text
+        assert received.json()["status"] == "received"
+        replay = run(request(app, "POST", receive_url, headers=headers))
+        assert replay.status_code == 200
+        assert replay.json()["id"] == transfer["id"]
+
+        final = run(request(app, "GET", f"{base}/inventory/location-balances?product_id={product['id']}",
+                            headers=headers)).json()["items"]
+        final_by_location = {row["warehouse_location_id"]: row for row in final}
+        assert final_by_location[source["id"]]["on_hand"] == "1.000000"
+        assert final_by_location[transit_id]["on_hand"] == "0.000000"
+        assert final_by_location[destination["id"]]["on_hand"] == "3.000000"
+        assert run(request(app, "GET", f"{base}/inventory/balances", headers=headers)).json()["items"][0]["on_hand"] == "4.000000"
+        ledger = run(request(app, "GET", f"{base}/inventory/movements?product_id={product['id']}",
+                             headers=headers)).json()["items"]
+        assert len(ledger) == 5
+    finally:
+        engine.dispose()
+
+
 def test_product_barcodes_are_tenant_unique_searchable_and_managed_safely(tmp_path):
     app, engine, factory, org_id, headers, product = setup_inventory(tmp_path)
     base = f"/api/v1/organizations/{org_id}/inventory"
@@ -692,4 +755,3 @@ def test_traced_count_supports_multiple_lots_serials_and_full_stocktake_validati
         assert full.json()["count_type"] == "full_stocktake"
     finally:
         engine.dispose()
-
