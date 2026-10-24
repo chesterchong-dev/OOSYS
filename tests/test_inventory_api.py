@@ -126,6 +126,12 @@ def test_product_families_have_stockable_variants_and_tenant_safe_lifecycle(tmp_
         assert family["family_id"] is None
         assert family["variant_attributes"] == {}
 
+        incomplete_variant = run(request(app, "POST", f"{base}/products", headers=headers, json={
+            "sku": "METER-INCOMPLETE", "name": "Meter without variant values",
+            "family_id": family["id"], "unit_id": product["unit_id"],
+        }))
+        assert incomplete_variant.status_code == 422
+
         variant_response = run(request(app, "POST", f"{base}/products", headers=headers, json={
             "sku": "METER-RED-100", "name": "Red meter, 0–100", "family_id": family["id"],
             "variant_attributes": {"Colour": "Red", "Range": "0–100"},
