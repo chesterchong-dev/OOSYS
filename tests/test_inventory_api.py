@@ -3,7 +3,7 @@ from decimal import Decimal
 
 from sqlalchemy import select
 
-from app.inventory.models import InventoryMovement, InventoryProduct, InventoryStockBalance
+from app.inventory.models import InventoryMovement, InventoryProduct, InventoryProductBarcode, InventoryStockBalance
 from tests.test_identity_api import register_payload, request, run, setup_app
 
 
@@ -30,6 +30,93 @@ def setup_inventory(tmp_path):
 def movement(product_id, kind, quantity, key, **extra):
     return {"product_id": product_id, "movement_type": kind, "quantity": quantity,
             "idempotency_key": key, **extra}
+
+
+def test_product_barcodes_are_tenant_unique_searchable_and_managed_safely(tmp_path):
+    app, engine, factory, org_id, headers, product = setup_inventory(tmp_path)
+    base = f"/api/v1/organizations/{org_id}/inventory"
+    try:
+        assert len(product["barcodes"]) == 1
+        assert product["barcodes"][0]["barcode"] == "1234567890"
+        assert product["barcodes"][0]["is_primary"] is True
+        alternate = run(request(app, "POST", f"{base}/products/{product['id']}/barcodes",
+                                headers=headers, json={"barcode": "ALT-123"}))
+        assert alternate.status_code == 201, alternate.text
+        assert alternate.json()["is_primary"] is False
+
+        searched = run(request(app, "GET", f"{base}/products?search=ALT-123", headers=headers))
+        assert [row["id"] for row in searched.json()["items"]] == [product["id"]]
+        duplicate = run(request(app, "POST", f"{base}/products/{product['id']}/barcodes",
+                                headers=headers, json={"barcode": "ALT-123"}))
+        assert duplicate.status_code == 409
+        duplicate_primary = run(request(app, "POST", f"{base}/products/{product['id']}/barcodes",
+                                        headers=headers, json={"barcode": "1234567890"}))
+        assert duplicate_primary.status_code == 409
+        remove_primary = run(request(
+            app, "DELETE", f"{base}/products/{product['id']}/barcodes/{product['barcodes'][0]['id']}",
+            headers=headers,
+        ))
+        assert remove_primary.status_code == 409
+
+        second = run(request(app, "POST", "/api/v1/auth/register",
+                             json=register_payload("other-stock@example.com", "other-stock-org"))).json()
+        second_headers = {"Authorization": f"Bearer {second['access_token']}"}
+        second_org = second["organization"]["id"]
+        unit = run(request(app, "POST", f"/api/v1/organizations/{second_org}/inventory/units",
+                           headers=second_headers,
+                           json={"code": "EA", "name": "Each", "decimal_places": 0})).json()
+        same_code_other_tenant = run(request(
+            app, "POST", f"/api/v1/organizations/{second_org}/inventory/products",
+            headers=second_headers,
+            json={"sku": "OTHER-1", "name": "Other tenant item", "unit_id": unit["id"],
+                  "barcode": "ALT-123"},
+        ))
+        assert same_code_other_tenant.status_code == 201, same_code_other_tenant.text
+
+        removed = run(request(
+            app, "DELETE", f"{base}/products/{product['id']}/barcodes/{alternate.json()['id']}",
+            headers=headers,
+        ))
+        assert removed.status_code == 204
+        with factory() as session:
+            assert session.scalar(select(InventoryProductBarcode).where(
+                InventoryProductBarcode.organization_id == org_id,
+                InventoryProductBarcode.product_id == product["id"],
+                InventoryProductBarcode.barcode == "ALT-123",
+            )) is None
+
+        # Upgrading from the previous schema repopulates the normalized barcode table.
+        from tests.test_migrations import migration_config
+        from alembic import command
+        config = migration_config()
+        with engine.connect() as connection:
+            config.attributes["connection"] = connection
+            command.downgrade(config, "20261024_0010")
+            config.attributes.pop("connection", None)
+        with engine.connect() as connection:
+            config.attributes["connection"] = connection
+            command.upgrade(config, "head")
+            config.attributes.pop("connection", None)
+        listed = run(request(app, "GET", f"{base}/products", headers=headers))
+        migrated = next(item for item in listed.json()["items"] if item["id"] == product["id"])
+        assert [item["barcode"] for item in migrated["barcodes"]] == ["1234567890"]
+
+        changed_primary = run(request(
+            app, "PATCH", f"{base}/products/{product['id']}", headers=headers,
+            json={"barcode": "NEW-PRIMARY"},
+        ))
+        assert changed_primary.status_code == 200, changed_primary.text
+        assert changed_primary.json()["barcode"] == "NEW-PRIMARY"
+        assert [(item["barcode"], item["is_primary"])
+                for item in changed_primary.json()["barcodes"]] == [("NEW-PRIMARY", True)]
+        cleared_primary = run(request(
+            app, "PATCH", f"{base}/products/{product['id']}", headers=headers,
+            json={"barcode": None},
+        ))
+        assert cleared_primary.status_code == 200, cleared_primary.text
+        assert cleared_primary.json()["barcodes"] == []
+    finally:
+        engine.dispose()
 
 
 def test_inventory_master_data_stock_ledger_reservation_idempotency_and_cost(tmp_path):

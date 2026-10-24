@@ -56,14 +56,16 @@ def test_initial_migration_creates_expected_schema_and_is_repeatable(tmp_path) -
             for item in inspector.get_check_constraints("platform_settings")
         )
         with engine.connect() as connection:
-            assert connection.exec_driver_sql("SELECT version_num FROM alembic_version").scalar_one() == "20261024_0010"
-        assert {"inventory_products", "inventory_stock_balances", "inventory_movements",
+            assert connection.exec_driver_sql("SELECT version_num FROM alembic_version").scalar_one() == "20261024_0011"
+        assert {"inventory_products", "inventory_product_barcodes", "inventory_stock_balances", "inventory_movements",
                 "inventory_counts", "inventory_count_lines"}.issubset(inspector.get_table_names())
         assert {"lot_code", "serial_code", "expires_at"}.issubset(
             {column["name"] for column in inspector.get_columns("inventory_count_lines")}
         )
         product_columns = {column["name"] for column in inspector.get_columns("inventory_products")}
         assert {"kind", "family_id", "variant_attributes"}.issubset(product_columns)
+        barcode_columns = {column["name"] for column in inspector.get_columns("inventory_product_barcodes")}
+        assert {"id", "organization_id", "product_id", "barcode", "created_at"}.issubset(barcode_columns)
         assert "platform_settings" in Base.metadata.tables
         with engine.begin() as connection:
             connection.execute(

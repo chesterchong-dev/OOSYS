@@ -67,8 +67,8 @@ class ProductCreate(BaseModel):
 
     @model_validator(mode="after")
     def validate_family_shape(self):
-        if self.kind == "family" and (self.family_id is not None or self.variant_attributes):
-            raise ValueError("A product family cannot belong to another family or have variant attributes")
+        if self.kind == "family" and (self.family_id is not None or self.variant_attributes or self.barcode):
+            raise ValueError("A product family cannot have a parent, variant attributes, or a barcode")
         if self.family_id is None and self.variant_attributes:
             raise ValueError("Variant attributes require a product family")
         if self.family_id is not None and not self.variant_attributes:
@@ -81,6 +81,17 @@ class ProductPatch(BaseModel):
     description: str | None = Field(default=None, max_length=1000)
     category_id: str | None = Field(default=None, max_length=36)
     barcode: str | None = Field(default=None, min_length=1, max_length=120)
+
+
+class ProductBarcodeCreate(BaseModel):
+    barcode: str = Field(min_length=1, max_length=120)
+
+
+class ProductBarcodeOut(BaseModel):
+    id: str
+    barcode: str
+    is_primary: bool
+    created_at: datetime
 
 
 class ProductOut(BaseModel):
@@ -97,6 +108,7 @@ class ProductOut(BaseModel):
     unit_code: str
     unit_name: str
     barcode: str | None
+    barcodes: list[ProductBarcodeOut]
     tracking_mode: str
     cost_currency: str
     average_cost: str

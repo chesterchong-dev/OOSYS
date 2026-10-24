@@ -82,6 +82,7 @@ class InventoryProduct(Base):
         CheckConstraint("kind IN ('family','sku')", name="ck_inventory_product_kind"),
         CheckConstraint("family_id IS NULL OR kind = 'sku'", name="ck_inventory_product_family_shape"),
         CheckConstraint("family_id IS NULL OR family_id != id", name="ck_inventory_product_not_own_family"),
+        CheckConstraint("kind = 'sku' OR barcode IS NULL", name="ck_inventory_product_family_no_barcode"),
         CheckConstraint("tracking_mode IN ('none','lot','serial')", name="ck_inventory_product_tracking_mode"),
         CheckConstraint("cost_currency = upper(cost_currency)", name="ck_inventory_product_currency_upper"),
         CheckConstraint("length(cost_currency) = 3", name="ck_inventory_product_currency_length"),
@@ -89,6 +90,27 @@ class InventoryProduct(Base):
         Index("ix_inventory_product_org_name", "organization_id", "name"),
         Index("ix_inventory_product_org_family", "organization_id", "family_id"),
         Index("ix_inventory_product_org_category", "organization_id", "category_id"),
+    )
+
+
+class InventoryProductBarcode(Base):
+    """An organization-unique barcode attached to one stockable SKU."""
+    __tablename__ = "inventory_product_barcodes"
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=new_id)
+    organization_id: Mapped[str] = mapped_column(String(36), nullable=False)
+    product_id: Mapped[str] = mapped_column(String(36), nullable=False)
+    barcode: Mapped[str] = mapped_column(String(120), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    __table_args__ = (
+        UniqueConstraint("organization_id", "id", name="uq_inventory_product_barcode_org_id"),
+        UniqueConstraint("organization_id", "barcode", name="uq_inventory_product_barcode_org_code"),
+        ForeignKeyConstraint(
+            ["organization_id", "product_id"],
+            ["inventory_products.organization_id", "inventory_products.id"],
+            ondelete="RESTRICT", name="fk_inventory_product_barcode_product_same_org",
+        ),
+        CheckConstraint("length(trim(barcode)) > 0", name="ck_inventory_product_barcode_nonempty"),
+        Index("ix_inventory_product_barcode_org_product", "organization_id", "product_id"),
     )
 
 

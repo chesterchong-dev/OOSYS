@@ -8,7 +8,8 @@ export type AuditEvent={id:string;actor_user_id:string|null;action:string;target
 export type Page<T>={items:T[];limit:number;offset:number};
 export type InventoryCategory={id:string;organization_id:string;code:string;name:string;archived_at:string|null};
 export type InventoryUnit={id:string;organization_id:string;code:string;name:string;decimal_places:number;archived_at:string|null};
-export type InventoryProduct={id:string;organization_id:string;sku:string;name:string;description:string;kind:"family"|"sku";family_id:string|null;variant_attributes:Record<string,string>;category_id:string|null;unit_id:string;unit_code:string;unit_name:string;barcode:string|null;tracking_mode:"none"|"lot"|"serial";cost_currency:string;average_cost:string;archived_at:string|null;created_at:string;updated_at:string};
+export type InventoryProductBarcode={id:string;barcode:string;is_primary:boolean;created_at:string};
+export type InventoryProduct={id:string;organization_id:string;sku:string;name:string;description:string;kind:"family"|"sku";family_id:string|null;variant_attributes:Record<string,string>;category_id:string|null;unit_id:string;unit_code:string;unit_name:string;barcode:string|null;barcodes:InventoryProductBarcode[];tracking_mode:"none"|"lot"|"serial";cost_currency:string;average_cost:string;archived_at:string|null;created_at:string;updated_at:string};
 export type InventoryBalance={product_id:string;sku:string;product_name:string;unit_code:string;on_hand:string;reserved:string;available:string;average_cost:string;cost_currency:string;version:number};
 export type InventoryReconciliationItem={product_id:string;sku:string;product_name:string;balance_exists:boolean;ledger_on_hand:string;balance_on_hand:string;ledger_reserved:string;balance_reserved:string;reconciled:boolean};
 export type InventoryReconciliation={items:InventoryReconciliationItem[];limit:number;offset:number;product_count:number;mismatch_count:number;reconciled:boolean};
@@ -54,6 +55,8 @@ export const api={
  createInventoryUnit:(t:string,id:string,b:{code:string;name:string;decimal_places:number})=>request<InventoryUnit>(orgPath(id)+"/inventory/units",t,{method:"POST",body:JSON.stringify(b)}),
  createInventoryProduct:(t:string,id:string,b:{sku:string;name:string;description:string;kind?:"family"|"sku";family_id?:string|null;variant_attributes?:Record<string,string>;category_id:string|null;unit_id:string;barcode:string|null;tracking_mode:"none"|"lot"|"serial";cost_currency:string})=>request<InventoryProduct>(orgPath(id)+"/inventory/products",t,{method:"POST",body:JSON.stringify(b)}),
  updateInventoryProduct:(t:string,id:string,p:string,b:{name?:string;description?:string;category_id?:string|null;barcode?:string|null})=>request<InventoryProduct>(orgPath(id)+"/inventory/products/"+encodeURIComponent(p),t,{method:"PATCH",body:JSON.stringify(b)}),
+ addInventoryProductBarcode:(t:string,id:string,p:string,barcode:string)=>request<InventoryProductBarcode>(orgPath(id)+"/inventory/products/"+encodeURIComponent(p)+"/barcodes",t,{method:"POST",body:JSON.stringify({barcode})}),
+ deleteInventoryProductBarcode:(t:string,id:string,p:string,b:string)=>request<void>(orgPath(id)+"/inventory/products/"+encodeURIComponent(p)+"/barcodes/"+encodeURIComponent(b),t,{method:"DELETE"}),
  archiveInventoryProduct:(t:string,id:string,p:string)=>request<void>(orgPath(id)+"/inventory/products/"+encodeURIComponent(p)+"/archive",t,{method:"POST"}),
  inventoryBalances:(t:string,id:string)=>request<Page<InventoryBalance>>(orgPath(id)+"/inventory/balances?limit=100",t),
  inventoryReconciliation:(t:string,id:string,offset=0)=>request<InventoryReconciliation>(orgPath(id)+"/inventory/reconciliation?limit=100&offset="+offset,t),

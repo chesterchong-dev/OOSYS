@@ -4,7 +4,7 @@ from decimal import Decimal
 from uuid import uuid4
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
-from sqlalchemy import func, or_, select
+from sqlalchemy import exists, func, or_, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
@@ -12,12 +12,12 @@ from app.identity.audit import record_event
 from app.identity.dependencies import Principal, get_identity_session, require_permission
 from app.identity.security import utc_now
 from app.inventory.models import (InventoryCategory, InventoryCount, InventoryCountLine,
-                                  InventoryMovement, InventoryProduct, InventoryStockBalance,
-                                  InventoryUnit)
+                                  InventoryMovement, InventoryProduct, InventoryProductBarcode,
+                                  InventoryStockBalance, InventoryUnit)
 from app.inventory.schemas import (BalanceOut, CategoryCreate, CategoryOut, MovementCreate,
                                   InventoryCountCreate, InventoryCountLineOut, InventoryCountOut,
                                   InventoryReconciliationOut, MovementOut, ProductCreate, ProductOut, ProductPatch, UnitCreate,
-                                  UnitOut)
+                                  ProductBarcodeCreate, ProductBarcodeOut, UnitOut)
 from app.inventory.service import post_movement, tracked_on_hand
 
 router = APIRouter(tags=["Inventory"])
@@ -30,13 +30,20 @@ def _scope(principal: Principal, organization_id: str) -> None:
 
 def _product_out(db: Session, product: InventoryProduct) -> ProductOut:
     unit = db.get(InventoryUnit, product.unit_id)
+    barcodes = db.scalars(select(InventoryProductBarcode).where(
+        InventoryProductBarcode.organization_id == product.organization_id,
+        InventoryProductBarcode.product_id == product.id,
+    ).order_by(InventoryProductBarcode.barcode, InventoryProductBarcode.id)).all()
     return ProductOut(
         id=product.id, organization_id=product.organization_id, sku=product.sku,
         name=product.name, description=product.description, kind=product.kind,
         family_id=product.family_id, variant_attributes=product.variant_attributes or {},
         category_id=product.category_id,
         unit_id=product.unit_id, unit_code=unit.code if unit else "", unit_name=unit.name if unit else "",
-        barcode=product.barcode, tracking_mode=product.tracking_mode,
+        barcode=product.barcode, barcodes=[ProductBarcodeOut(
+            id=item.id, barcode=item.barcode, is_primary=item.barcode == product.barcode,
+            created_at=item.created_at,
+        ) for item in barcodes], tracking_mode=product.tracking_mode,
         cost_currency=product.cost_currency, average_cost=str(product.average_cost),
         archived_at=product.archived_at, created_at=product.created_at, updated_at=product.updated_at,
     )
@@ -119,7 +126,11 @@ def list_products(organization_id: str, limit: int = Query(50, ge=1, le=100), of
     if search and search.strip():
         term = f"%{search.strip()}%"
         query = query.where(or_(InventoryProduct.sku.ilike(term), InventoryProduct.name.ilike(term),
-                                InventoryProduct.barcode.ilike(term)))
+                                InventoryProduct.barcode.ilike(term), exists(select(1).where(
+                                    InventoryProductBarcode.organization_id == organization_id,
+                                    InventoryProductBarcode.product_id == InventoryProduct.id,
+                                    InventoryProductBarcode.barcode.ilike(term),
+                                ))))
     items = db.scalars(query.order_by(InventoryProduct.name, InventoryProduct.id).offset(offset).limit(limit)).all()
     return {"items": [_product_out(db, item).model_dump() for item in items], "limit": limit, "offset": offset}
 
@@ -160,6 +171,11 @@ def create_product(organization_id: str, payload: ProductCreate, request: Reques
     db.add(product)
     try:
         db.flush()
+        if product.barcode:
+            db.add(InventoryProductBarcode(
+                organization_id=organization_id, product_id=product.id, barcode=product.barcode,
+            ))
+            db.flush()
         if product.kind == "sku":
             db.add(InventoryStockBalance(organization_id=organization_id, product_id=product.id))
         record_event(db, action="inventory.product.create", target_type="inventory_product",
@@ -190,18 +206,114 @@ def update_product(organization_id: str, product_id: str, payload: ProductPatch,
             InventoryCategory.id == changes["category_id"], InventoryCategory.archived_at.is_(None)))
         if category is None:
             raise HTTPException(422, "Category is not available in this organisation")
+    if "barcode" in changes:
+        new_barcode = changes["barcode"].strip() if changes["barcode"] else None
+        if product.kind == "family" and new_barcode:
+            raise HTTPException(409, "Product families cannot have barcodes")
+        if new_barcode != product.barcode:
+            current = db.scalar(select(InventoryProductBarcode).where(
+                InventoryProductBarcode.organization_id == organization_id,
+                InventoryProductBarcode.barcode == new_barcode,
+            )) if new_barcode else None
+            if current is not None and current.product_id != product.id:
+                raise HTTPException(409, "Barcode already belongs to another product")
+            if current is not None:
+                db.delete(current)
+            if product.barcode:
+                previous_primary = db.scalar(select(InventoryProductBarcode).where(
+                    InventoryProductBarcode.organization_id == organization_id,
+                    InventoryProductBarcode.product_id == product.id,
+                    InventoryProductBarcode.barcode == product.barcode,
+                ))
+                if previous_primary is not None:
+                    db.delete(previous_primary)
+            db.flush()
+            product.barcode = new_barcode
+            if new_barcode:
+                db.add(InventoryProductBarcode(
+                    organization_id=organization_id, product_id=product.id, barcode=new_barcode,
+                ))
+        changes.pop("barcode")
     for key, value in changes.items():
         setattr(product, key, value.strip() if isinstance(value, str) else value)
     record_event(db, action="inventory.product.update", target_type="inventory_product",
                  organization_id=organization_id, actor_user_id=principal.user_id, target_id=product.id,
                  correlation_id=request.headers.get("X-Request-ID"))
-    result = _product_out(db, product)
     try:
+        result = _product_out(db, product)
         db.commit()
     except IntegrityError as exc:
         db.rollback()
         raise HTTPException(409, "Barcode already belongs to another product") from exc
     return result
+
+
+@router.post("/organizations/{organization_id}/inventory/products/{product_id}/barcodes",
+             response_model=ProductBarcodeOut, status_code=201)
+def add_product_barcode(organization_id: str, product_id: str, payload: ProductBarcodeCreate,
+                        request: Request,
+                        principal: Principal = Depends(require_permission("inventory.products.write")),
+                        db: Session = Depends(get_identity_session)):
+    _scope(principal, organization_id)
+    product = db.scalar(select(InventoryProduct).where(
+        InventoryProduct.organization_id == organization_id,
+        InventoryProduct.id == product_id,
+        InventoryProduct.archived_at.is_(None),
+    ))
+    if product is None:
+        raise HTTPException(404, "Product not found")
+    if product.kind != "sku":
+        raise HTTPException(409, "Barcodes can only be assigned to stockable SKU records")
+    barcode = payload.barcode.strip()
+    if not barcode:
+        raise HTTPException(422, "Barcode must not be blank")
+    item = InventoryProductBarcode(
+        organization_id=organization_id, product_id=product.id, barcode=barcode,
+    )
+    db.add(item)
+    record_event(db, action="inventory.product.barcode.add", target_type="inventory_product",
+                 organization_id=organization_id, actor_user_id=principal.user_id, target_id=product.id,
+                 correlation_id=request.headers.get("X-Request-ID"))
+    try:
+        db.flush()
+        result = ProductBarcodeOut(id=item.id, barcode=item.barcode,
+                                   is_primary=item.barcode == product.barcode,
+                                   created_at=item.created_at)
+        db.commit()
+    except IntegrityError as exc:
+        db.rollback()
+        raise HTTPException(409, "Barcode already belongs to a product in this organisation") from exc
+    return result
+
+
+@router.delete("/organizations/{organization_id}/inventory/products/{product_id}/barcodes/{barcode_id}",
+               status_code=204)
+def delete_product_barcode(organization_id: str, product_id: str, barcode_id: str, request: Request,
+                           principal: Principal = Depends(require_permission("inventory.products.write")),
+                           db: Session = Depends(get_identity_session)):
+    _scope(principal, organization_id)
+    product = db.scalar(select(InventoryProduct).where(
+        InventoryProduct.organization_id == organization_id,
+        InventoryProduct.id == product_id,
+        InventoryProduct.archived_at.is_(None),
+    ))
+    if product is None:
+        raise HTTPException(404, "Product not found")
+    item = db.scalar(select(InventoryProductBarcode).where(
+        InventoryProductBarcode.organization_id == organization_id,
+        InventoryProductBarcode.product_id == product.id,
+        InventoryProductBarcode.id == barcode_id,
+    ))
+    if item is None:
+        raise HTTPException(404, "Barcode not found")
+    if item.barcode == product.barcode:
+        raise HTTPException(409, "Change the product's primary barcode through product update")
+    db.delete(item)
+    record_event(db, action="inventory.product.barcode.remove", target_type="inventory_product",
+                 organization_id=organization_id, actor_user_id=principal.user_id, target_id=product.id,
+                 correlation_id=request.headers.get("X-Request-ID"))
+    db.commit()
+    return None
 
 
 @router.post("/organizations/{organization_id}/inventory/products/{product_id}/archive", status_code=204)

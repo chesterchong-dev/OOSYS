@@ -53,7 +53,8 @@ def _product(client: TestClient, account: dict, sku: str) -> dict:
     product = client.post(
         f"/api/v1/organizations/{organization_id}/inventory/products",
         headers=headers,
-        json={"sku": sku, "name": "Test item", "unit_id": unit.json()["id"]},
+        json={"sku": sku, "name": "Test item", "unit_id": unit.json()["id"],
+              "barcode": f"BC-{sku}"},
     )
     assert product.status_code == 201, product.text
     return product.json()
@@ -88,6 +89,11 @@ def test_inventory_rls_hides_other_organization_products():
                 "SELECT id FROM inventory_products WHERE id IN (:a, :b) ORDER BY id"
             ), {"a": product_a["id"], "b": product_b["id"]}).scalars().all()
             assert visible == [product_a["id"]]
+            visible_barcodes = connection.execute(text(
+                "SELECT product_id FROM inventory_product_barcodes "
+                "WHERE product_id IN (:a, :b) ORDER BY product_id"
+            ), {"a": product_a["id"], "b": product_b["id"]}).scalars().all()
+            assert visible_barcodes == [product_a["id"]]
 
 
 def test_concurrent_inventory_receipts_preserve_balance_and_replay_once():
@@ -126,3 +132,4 @@ def test_concurrent_inventory_receipts_preserve_balance_and_replay_once():
         balance = next(item for item in final.json()["items"]
                        if item["product_id"] == product["id"])
         assert balance["on_hand"] == "13.000000"
+
