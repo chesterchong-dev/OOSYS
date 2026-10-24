@@ -61,6 +61,24 @@ def _product(client: TestClient, account: dict, sku: str) -> dict:
     return product.json()
 
 
+def _warehouse(client: TestClient, account: dict, code: str) -> tuple[dict, dict]:
+    organization_id = account["organization"]["id"]
+    headers = {"Authorization": f"Bearer {account['access_token']}"}
+    warehouse = client.post(
+        f"/api/v1/organizations/{organization_id}/warehouses",
+        headers=headers,
+        json={"code": code, "name": f"Warehouse {code}"},
+    )
+    assert warehouse.status_code == 201, warehouse.text
+    location = client.post(
+        f"/api/v1/organizations/{organization_id}/warehouses/{warehouse.json()['id']}/locations",
+        headers=headers,
+        json={"code": "BIN-A", "name": "Bin A", "location_type": "bin"},
+    )
+    assert location.status_code == 201, location.text
+    return warehouse.json(), location.json()
+
+
 def _post_receipt(app, organization_id: str, token: str, product_id: str,
                   quantity: str, idempotency_key: str) -> tuple[int, dict]:
     with TestClient(app) as client:
@@ -80,6 +98,8 @@ def test_inventory_rls_hides_other_organization_products():
         second = _register(client, f"inv-b-{suffix}@example.com", f"inv-b-{suffix}")
         product_a = _product(client, first, f"A-{suffix}")
         product_b = _product(client, second, f"B-{suffix}")
+        warehouse_a, location_a = _warehouse(client, first, f"WA-{suffix}")
+        warehouse_b, location_b = _warehouse(client, second, f"WB-{suffix}")
 
         # Exercise the PostgreSQL policy directly using the restricted app role,
         # bypassing the route's explicit organization check.
@@ -95,6 +115,14 @@ def test_inventory_rls_hides_other_organization_products():
                 "WHERE product_id IN (:a, :b) ORDER BY product_id"
             ), {"a": product_a["id"], "b": product_b["id"]}).scalars().all()
             assert visible_barcodes == [product_a["id"]]
+            visible_warehouses = connection.execute(text(
+                "SELECT id FROM warehouses WHERE id IN (:a, :b) ORDER BY id"
+            ), {"a": warehouse_a["id"], "b": warehouse_b["id"]}).scalars().all()
+            assert visible_warehouses == [warehouse_a["id"]]
+            visible_locations = connection.execute(text(
+                "SELECT id FROM warehouse_locations WHERE id IN (:a, :b) ORDER BY id"
+            ), {"a": location_a["id"], "b": location_b["id"]}).scalars().all()
+            assert visible_locations == [location_a["id"]]
 
 
 def test_concurrent_inventory_receipts_preserve_balance_and_replay_once():

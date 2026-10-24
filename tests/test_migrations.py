@@ -11,6 +11,7 @@ from app.core.db_base import Base
 from app.platform_config import models  # noqa: F401 - register metadata
 from app.identity import models as identity_models  # noqa: F401 - register identity metadata
 from app.inventory import models as inventory_models  # noqa: F401 - register inventory metadata
+from app.warehouse import models as warehouse_models  # noqa: F401 - register warehouse metadata
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -43,7 +44,7 @@ def test_initial_migration_creates_expected_schema_and_is_repeatable(tmp_path) -
         assert "identity_users" in inspector.get_table_names()
         assert "identity_organizations" in inspector.get_table_names()
         with engine.connect() as connection:
-            assert connection.exec_driver_sql("SELECT COUNT(*) FROM identity_permissions").scalar_one() == 22
+            assert connection.exec_driver_sql("SELECT COUNT(*) FROM identity_permissions").scalar_one() == 24
         columns = {column["name"]: column for column in inspector.get_columns("platform_settings")}
         assert set(columns) == {
             "setting_key", "value_json", "description", "created_at", "updated_at"
@@ -58,7 +59,8 @@ def test_initial_migration_creates_expected_schema_and_is_repeatable(tmp_path) -
         with engine.connect() as connection:
             assert connection.exec_driver_sql("SELECT version_num FROM alembic_version").scalar_one() == "20261024_0013"
         assert {"inventory_products", "inventory_product_barcodes", "inventory_stock_balances", "inventory_movements",
-                "inventory_counts", "inventory_count_lines"}.issubset(inspector.get_table_names())
+                "inventory_counts", "inventory_count_lines", "warehouses", "warehouse_locations"}.issubset(
+                    inspector.get_table_names())
         assert {"lot_code", "serial_code", "expires_at"}.issubset(
             {column["name"] for column in inspector.get_columns("inventory_count_lines")}
         )
@@ -68,6 +70,9 @@ def test_initial_migration_creates_expected_schema_and_is_repeatable(tmp_path) -
         assert {"id", "organization_id", "product_id", "barcode", "created_at"}.issubset(barcode_columns)
         movement_columns = {column["name"] for column in inspector.get_columns("inventory_movements")}
         assert "reversal_of_movement_id" in movement_columns
+        location_columns = {column["name"] for column in inspector.get_columns("warehouse_locations")}
+        assert {"organization_id", "warehouse_id", "parent_location_id", "location_type",
+                "capacity_limit", "capacity_unit"}.issubset(location_columns)
         assert "platform_settings" in Base.metadata.tables
         with engine.begin() as connection:
             connection.execute(
