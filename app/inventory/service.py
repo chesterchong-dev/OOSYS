@@ -241,6 +241,17 @@ def reverse_movement(db: Session, organization_id: str, actor_user_id: str,
     ).with_for_update())
     if source is None:
         raise HTTPException(404, "Movement not found")
+    # A concurrent retry may have waited for the source row lock while the
+    # first request committed. Re-read its idempotency key before checking the
+    # one-reversal constraint so an exact retry returns the original row.
+    prior_request = db.scalar(select(InventoryMovement).where(
+        InventoryMovement.organization_id == organization_id,
+        InventoryMovement.idempotency_key == payload.idempotency_key,
+    ))
+    if prior_request is not None:
+        if prior_request.request_hash != request_hash:
+            raise HTTPException(409, "Idempotency key was already used for a different movement")
+        return prior_request, False
     if source.movement_type == "reversal" or source.reversal_of_movement_id is not None:
         raise HTTPException(409, "A reversal cannot itself be reversed")
     if source.quantity_delta == 0 and source.reserved_delta == 0:
