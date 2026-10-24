@@ -787,6 +787,7 @@ def create_replenishment_task(organization_id: str, warehouse_id: str,
         created_by_user_id=principal.user_id,
     )
     db.add(task)
+    db.flush()
     record_event(db, action="warehouse.replenishment.create", target_type="warehouse_replenishment_task",
                  organization_id=organization_id, actor_user_id=principal.user_id,
                  target_id=task.id, correlation_id=request.headers.get("X-Request-ID"),
