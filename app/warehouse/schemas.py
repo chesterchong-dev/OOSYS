@@ -354,3 +354,64 @@ class WarehouseTransferOut(BaseModel):
     @classmethod
     def fixed_transfer_quantity(cls, value: object) -> str:
         return format(Decimal(value).quantize(Decimal("0.000001")), "f")
+
+
+class WarehouseReplenishmentCreate(BaseModel):
+    product_id: str = Field(min_length=1, max_length=36)
+    source_location_id: str = Field(min_length=1, max_length=36)
+    destination_location_id: str = Field(min_length=1, max_length=36)
+    quantity: Decimal = Field(gt=0, max_digits=20, decimal_places=6)
+    lot_code: str | None = Field(default=None, min_length=1, max_length=100)
+    serial_code: str | None = Field(default=None, min_length=1, max_length=100)
+    expires_at: datetime | None = None
+    idempotency_key: str = Field(min_length=8, max_length=100, pattern=r"^[A-Za-z0-9._:-]+$")
+
+    @field_validator("quantity")
+    @classmethod
+    def finite_replenishment_quantity(cls, value: Decimal) -> Decimal:
+        if not value.is_finite():
+            raise ValueError("Quantity must be finite")
+        return value
+
+    @field_validator("lot_code", "serial_code")
+    @classmethod
+    def trim_replenishment_trace(cls, value: str | None) -> str | None:
+        trimmed = value.strip() if value is not None else None
+        if value is not None and not trimmed:
+            raise ValueError("Trace code must not be empty")
+        return trimmed
+
+    @model_validator(mode="after")
+    def replenishment_shape(self):
+        if self.source_location_id == self.destination_location_id:
+            raise ValueError("Source and destination locations must differ")
+        if self.lot_code and self.serial_code:
+            raise ValueError("A replenishment can track a lot or a serial, not both")
+        if self.expires_at and not self.lot_code:
+            raise ValueError("Expiry date requires a lot code")
+        return self
+
+
+class WarehouseReplenishmentOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True, coerce_numbers_to_str=True)
+    id: str
+    organization_id: str
+    warehouse_id: str
+    product_id: str
+    source_location_id: str
+    destination_location_id: str
+    quantity: str
+    lot_code: str | None
+    serial_code: str | None
+    expires_at: datetime | None
+    idempotency_key: str
+    status: str
+    created_by_user_id: str
+    completed_by_user_id: str | None
+    created_at: datetime
+    completed_at: datetime | None
+
+    @field_validator("quantity", mode="before")
+    @classmethod
+    def fixed_replenishment_quantity(cls, value: object) -> str:
+        return format(Decimal(value).quantize(Decimal("0.000001")), "f")

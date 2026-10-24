@@ -303,3 +303,57 @@ class WarehouseTransfer(Base):
         Index("ix_warehouse_transfer_org_status_created", "organization_id", "status", "created_at"),
         Index("ix_warehouse_transfer_org_product", "organization_id", "product_id", "created_at"),
     )
+
+
+class WarehouseReplenishmentTask(Base):
+    """Move stock from a reserve location to an operational pick location."""
+    __tablename__ = "warehouse_replenishment_tasks"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=new_id)
+    organization_id: Mapped[str] = mapped_column(String(36), nullable=False)
+    warehouse_id: Mapped[str] = mapped_column(String(36), nullable=False)
+    product_id: Mapped[str] = mapped_column(String(36), nullable=False)
+    source_location_id: Mapped[str] = mapped_column(String(36), nullable=False)
+    destination_location_id: Mapped[str] = mapped_column(String(36), nullable=False)
+    quantity: Mapped[Decimal] = mapped_column(Numeric(20, 6), nullable=False)
+    lot_code: Mapped[str | None] = mapped_column(String(100))
+    serial_code: Mapped[str | None] = mapped_column(String(100))
+    expires_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    idempotency_key: Mapped[str] = mapped_column(String(100), nullable=False)
+    request_hash: Mapped[str] = mapped_column(String(64), nullable=False)
+    status: Mapped[str] = mapped_column(String(12), nullable=False, default="pending")
+    created_by_user_id: Mapped[str] = mapped_column(String(36), nullable=False)
+    completed_by_user_id: Mapped[str | None] = mapped_column(String(36))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+    __table_args__ = (
+        UniqueConstraint("organization_id", "id", name="uq_warehouse_replenishment_org_id"),
+        UniqueConstraint("organization_id", "idempotency_key", name="uq_warehouse_replenishment_org_key"),
+        ForeignKeyConstraint(
+            ["organization_id", "warehouse_id"], ["warehouses.organization_id", "warehouses.id"],
+            ondelete="RESTRICT", name="fk_warehouse_replenishment_warehouse_same_org",
+        ),
+        ForeignKeyConstraint(
+            ["organization_id", "warehouse_id", "source_location_id"],
+            ["warehouse_locations.organization_id", "warehouse_locations.warehouse_id",
+             "warehouse_locations.id"],
+            ondelete="RESTRICT", name="fk_warehouse_replenishment_source_same_warehouse",
+        ),
+        ForeignKeyConstraint(
+            ["organization_id", "warehouse_id", "destination_location_id"],
+            ["warehouse_locations.organization_id", "warehouse_locations.warehouse_id",
+             "warehouse_locations.id"],
+            ondelete="RESTRICT", name="fk_warehouse_replenishment_destination_same_warehouse",
+        ),
+        CheckConstraint("quantity > 0", name="ck_warehouse_replenishment_quantity_positive"),
+        CheckConstraint("status IN ('pending','completed')", name="ck_warehouse_replenishment_status"),
+        CheckConstraint("source_location_id != destination_location_id",
+                        name="ck_warehouse_replenishment_distinct_locations"),
+        CheckConstraint("lot_code IS NULL OR serial_code IS NULL",
+                        name="ck_warehouse_replenishment_trace_unambiguous"),
+        CheckConstraint("expires_at IS NULL OR lot_code IS NOT NULL",
+                        name="ck_warehouse_replenishment_expiry_requires_lot"),
+        Index("ix_warehouse_replenishment_org_status_created", "organization_id", "status", "created_at"),
+        Index("ix_warehouse_replenishment_org_product", "organization_id", "product_id", "created_at"),
+    )

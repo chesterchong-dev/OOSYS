@@ -13,13 +13,14 @@ from app.inventory.contracts import (post_warehouse_putaway_transfer,
                                      post_warehouse_receipt_movement)
 from app.warehouse.models import (Warehouse, WarehouseLocation, WarehouseReceipt,
                                   WarehouseReceiptLine, WarehousePutawayTask,
-                                  WarehouseTransfer)
+                                  WarehouseTransfer, WarehouseReplenishmentTask)
 from app.warehouse.schemas import (WarehouseCreate, WarehouseLocationCreate,
                                    WarehouseLocationOut, WarehouseLocationPatch,
                                    WarehouseOut, WarehousePatch, WarehouseReceiptCreate,
                                    WarehouseReceiptOut, WarehousePutawayAssign,
                                    WarehousePutawayTaskOut, WarehouseTransferCreate,
-                                   WarehouseTransferOut)
+                                   WarehouseTransferOut, WarehouseReplenishmentCreate,
+                                   WarehouseReplenishmentOut)
 
 router = APIRouter(tags=["Warehouse"])
 
@@ -739,6 +740,142 @@ def receive_transfer(organization_id: str, transfer_id: str, request: Request,
     except IntegrityError as exc:
         db.rollback()
         raise HTTPException(409, "Transfer receipt conflicts with a previous stock update") from exc
+    except HTTPException:
+        db.rollback()
+        raise
+    return result
+
+
+@router.post("/organizations/{organization_id}/warehouses/{warehouse_id}/replenishment-tasks",
+             response_model=WarehouseReplenishmentOut, status_code=201)
+def create_replenishment_task(organization_id: str, warehouse_id: str,
+                              payload: WarehouseReplenishmentCreate, request: Request,
+                              principal: Principal = Depends(require_permission("warehouse.replenishment.write")),
+                              db: Session = Depends(get_identity_session)):
+    _scope(principal, organization_id)
+    warehouse = _warehouse(db, organization_id, warehouse_id)
+    if warehouse.status != "active":
+        raise HTTPException(409, "Replenishment cannot be created in an inactive warehouse")
+    source = _location(db, organization_id, warehouse_id, payload.source_location_id)
+    destination = _location(db, organization_id, warehouse_id, payload.destination_location_id)
+    if (source.status != "active" or source.location_type not in {"bin", "staging", "unassigned"}
+            or destination.status != "active" or destination.location_type != "bin"):
+        raise HTTPException(409, "Replenishment requires active reserve and bin locations")
+
+    request_hash = hashlib.sha256(payload.model_dump_json().encode("utf-8")).hexdigest()
+    existing = db.scalar(select(WarehouseReplenishmentTask).where(
+        WarehouseReplenishmentTask.organization_id == organization_id,
+        WarehouseReplenishmentTask.idempotency_key == payload.idempotency_key,
+    ))
+    if existing is not None:
+        if existing.request_hash != request_hash:
+            raise HTTPException(409, "Idempotency key was already used for a different replenishment")
+        return WarehouseReplenishmentOut.model_validate(existing)
+
+    task = WarehouseReplenishmentTask(
+        organization_id=organization_id,
+        warehouse_id=warehouse_id,
+        product_id=payload.product_id,
+        source_location_id=source.id,
+        destination_location_id=destination.id,
+        quantity=payload.quantity,
+        lot_code=payload.lot_code,
+        serial_code=payload.serial_code,
+        expires_at=payload.expires_at,
+        idempotency_key=payload.idempotency_key,
+        request_hash=request_hash,
+        created_by_user_id=principal.user_id,
+    )
+    db.add(task)
+    record_event(db, action="warehouse.replenishment.create", target_type="warehouse_replenishment_task",
+                 organization_id=organization_id, actor_user_id=principal.user_id,
+                 target_id=task.id, correlation_id=request.headers.get("X-Request-ID"),
+                 details={"warehouse_id": warehouse_id, "product_id": payload.product_id,
+                          "source_location_id": source.id, "destination_location_id": destination.id,
+                          "quantity": str(payload.quantity)})
+    result = WarehouseReplenishmentOut.model_validate(task)
+    try:
+        db.commit()
+    except IntegrityError as exc:
+        db.rollback()
+        raise HTTPException(409, "Replenishment conflicts with an existing idempotency key") from exc
+    return result
+
+
+@router.get("/organizations/{organization_id}/warehouses/{warehouse_id}/replenishment-tasks",
+            response_model=dict)
+def list_replenishment_tasks(organization_id: str, warehouse_id: str,
+                             status: str | None = Query(default=None, pattern=r"^(pending|completed)$"),
+                             limit: int = Query(50, ge=1, le=100), offset: int = Query(0, ge=0),
+                             principal: Principal = Depends(require_permission("warehouse.replenishment.read")),
+                             db: Session = Depends(get_identity_session)):
+    _scope(principal, organization_id)
+    _warehouse(db, organization_id, warehouse_id)
+    query = select(WarehouseReplenishmentTask).where(
+        WarehouseReplenishmentTask.organization_id == organization_id,
+        WarehouseReplenishmentTask.warehouse_id == warehouse_id,
+    )
+    if status:
+        query = query.where(WarehouseReplenishmentTask.status == status)
+    rows = db.scalars(query.order_by(WarehouseReplenishmentTask.created_at,
+                                     WarehouseReplenishmentTask.id)
+                      .offset(offset).limit(limit)).all()
+    return {"items": [WarehouseReplenishmentOut.model_validate(row).model_dump() for row in rows],
+            "limit": limit, "offset": offset}
+
+
+@router.post("/organizations/{organization_id}/warehouses/{warehouse_id}/replenishment-tasks/{task_id}/complete",
+             response_model=WarehouseReplenishmentOut)
+def complete_replenishment_task(organization_id: str, warehouse_id: str, task_id: str,
+                                request: Request,
+                                principal: Principal = Depends(require_permission("warehouse.replenishment.write")),
+                                db: Session = Depends(get_identity_session)):
+    _scope(principal, organization_id)
+    task = db.scalar(select(WarehouseReplenishmentTask).where(
+        WarehouseReplenishmentTask.organization_id == organization_id,
+        WarehouseReplenishmentTask.warehouse_id == warehouse_id,
+        WarehouseReplenishmentTask.id == task_id,
+    ).with_for_update())
+    if task is None:
+        raise HTTPException(404, "Replenishment task not found")
+    if task.status == "completed":
+        return WarehouseReplenishmentOut.model_validate(task)
+    warehouse = _warehouse(db, organization_id, warehouse_id)
+    source = _location(db, organization_id, warehouse_id, task.source_location_id)
+    destination = _location(db, organization_id, warehouse_id, task.destination_location_id)
+    if (warehouse.status != "active" or source.status != "active" or destination.status != "active"
+            or source.location_type not in {"bin", "staging", "unassigned"}
+            or destination.location_type != "bin"):
+        raise HTTPException(409, "Replenishment warehouse and locations must remain active")
+    try:
+        post_warehouse_putaway_transfer(
+            db, organization_id, principal.user_id,
+            product_id=task.product_id,
+            quantity=task.quantity,
+            source_location_id=source.id,
+            destination_location_id=destination.id,
+            operation_key=f"warehouse-replenishment:{task.id}",
+            lot_code=task.lot_code,
+            serial_code=task.serial_code,
+            expires_at=task.expires_at,
+            note=f"Replenishment task {task.id}",
+            correlation_id=request.headers.get("X-Request-ID"),
+        )
+        task.status = "completed"
+        task.completed_by_user_id = principal.user_id
+        task.completed_at = utc_now()
+        record_event(db, action="warehouse.replenishment.complete",
+                     target_type="warehouse_replenishment_task",
+                     organization_id=organization_id, actor_user_id=principal.user_id,
+                     target_id=task.id, correlation_id=request.headers.get("X-Request-ID"),
+                     details={"source_location_id": source.id,
+                              "destination_location_id": destination.id,
+                              "quantity": str(task.quantity)})
+        result = WarehouseReplenishmentOut.model_validate(task)
+        db.commit()
+    except IntegrityError as exc:
+        db.rollback()
+        raise HTTPException(409, "Replenishment conflicts with a previous stock update") from exc
     except HTTPException:
         db.rollback()
         raise
