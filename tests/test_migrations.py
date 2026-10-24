@@ -169,6 +169,11 @@ def test_inventory_ledger_rejects_direct_update_and_delete(tmp_path) -> None:
                 connection.execute(text(
                     "DELETE FROM inventory_movements WHERE id = 'movement-1'"
                 ))
+        with engine.connect() as connection:
+            row = connection.execute(text(
+                "SELECT note FROM inventory_movements WHERE id = 'movement-1'"
+            )).scalar_one()
+            assert row == ""
     finally:
         engine.dispose()
 
