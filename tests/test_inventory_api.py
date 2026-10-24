@@ -59,9 +59,13 @@ def test_stock_movement_reversal_is_linked_idempotent_and_stock_safe(tmp_path):
                                json={"idempotency_key": "undo-issue-002", "note": "Second attempt"}))
         assert duplicate.status_code == 409
 
+        reserved = run(request(app, "POST", f"{base}/movements", headers=headers,
+                               json=movement(product["id"], "reserve", "1", "reversal-reserve")))
+        assert reserved.status_code == 200
+
         blocked = run(request(app, "POST", f"{base}/movements/{receipt.json()['id']}/reverse",
                               headers=headers,
-                              json={"idempotency_key": "undo-receipt-001", "note": "Would make stock negative"}))
+                              json={"idempotency_key": "undo-receipt-001", "note": "Would remove reserved stock"}))
         assert blocked.status_code == 409
         balance = run(request(app, "GET", f"{base}/balances", headers=headers)).json()["items"][0]
         assert balance["on_hand"] == "5.000000"
