@@ -32,6 +32,50 @@ def movement(product_id, kind, quantity, key, **extra):
             "idempotency_key": key, **extra}
 
 
+def test_stock_movement_reversal_is_linked_idempotent_and_stock_safe(tmp_path):
+    app, engine, factory, org_id, headers, product = setup_inventory(tmp_path)
+    base = f"/api/v1/organizations/{org_id}/inventory"
+    try:
+        receipt = run(request(app, "POST", f"{base}/movements", headers=headers,
+                              json=movement(product["id"], "receipt", "5", "reversal-receipt")))
+        assert receipt.status_code == 200
+        issue = run(request(app, "POST", f"{base}/movements", headers=headers,
+                            json=movement(product["id"], "issue", "2", "reversal-issue")))
+        assert issue.status_code == 200
+
+        reverse_url = f"{base}/movements/{issue.json()['id']}/reverse"
+        payload = {"idempotency_key": "undo-issue-001", "note": "Posted against wrong order"}
+        reversed_response = run(request(app, "POST", reverse_url, headers=headers, json=payload))
+        assert reversed_response.status_code == 200, reversed_response.text
+        reversal = reversed_response.json()
+        assert reversal["movement_type"] == "reversal"
+        assert reversal["reversal_of_movement_id"] == issue.json()["id"]
+        assert reversal["quantity_delta"] == "2.000000"
+
+        replay = run(request(app, "POST", reverse_url, headers=headers, json=payload))
+        assert replay.status_code == 200
+        assert replay.json()["id"] == reversal["id"]
+        duplicate = run(request(app, "POST", reverse_url, headers=headers,
+                               json={"idempotency_key": "undo-issue-002", "note": "Second attempt"}))
+        assert duplicate.status_code == 409
+
+        blocked = run(request(app, "POST", f"{base}/movements/{receipt.json()['id']}/reverse",
+                              headers=headers,
+                              json={"idempotency_key": "undo-receipt-001", "note": "Would make stock negative"}))
+        assert blocked.status_code == 409
+        balance = run(request(app, "GET", f"{base}/balances", headers=headers)).json()["items"][0]
+        assert balance["on_hand"] == "5.000000"
+        with factory() as session:
+            stored = session.scalar(select(InventoryStockBalance).where(
+                InventoryStockBalance.product_id == product["id"]))
+            ledger = session.scalars(select(InventoryMovement).where(
+                InventoryMovement.product_id == product["id"])).all()
+            assert stored.on_hand == sum((row.quantity_delta for row in ledger), Decimal("0"))
+            assert sum(row.reversal_of_movement_id == issue.json()["id"] for row in ledger) == 1
+    finally:
+        engine.dispose()
+
+
 def test_product_barcodes_are_tenant_unique_searchable_and_managed_safely(tmp_path):
     app, engine, factory, org_id, headers, product = setup_inventory(tmp_path)
     base = f"/api/v1/organizations/{org_id}/inventory"
@@ -476,4 +520,3 @@ def test_traced_count_supports_multiple_lots_serials_and_full_stocktake_validati
         assert full.json()["count_type"] == "full_stocktake"
     finally:
         engine.dispose()
-

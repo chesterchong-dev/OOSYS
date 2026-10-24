@@ -173,12 +173,18 @@ class MovementOut(BaseModel):
     expires_at: datetime | None
     note: str
     actor_user_id: str
+    reversal_of_movement_id: str | None
     created_at: datetime
 
     @field_validator("quantity_delta", "reserved_delta", "unit_cost", mode="before")
     @classmethod
     def fixed_amount_text(cls, value: object) -> str | None:
         return None if value is None else _fixed_decimal_text(value)
+
+
+class MovementReverse(BaseModel):
+    idempotency_key: str = Field(min_length=8, max_length=100, pattern=r"^[A-Za-z0-9._:-]+$")
+    note: str = Field(min_length=1, max_length=500)
 
 
 class BalanceOut(BaseModel):
@@ -313,5 +319,4 @@ class Page(BaseModel):
     items: list
     limit: int
     offset: int
-
 

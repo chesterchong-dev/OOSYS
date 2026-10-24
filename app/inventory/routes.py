@@ -17,8 +17,8 @@ from app.inventory.models import (InventoryCategory, InventoryCount, InventoryCo
 from app.inventory.schemas import (BalanceOut, CategoryCreate, CategoryOut, MovementCreate,
                                   InventoryCountCreate, InventoryCountLineOut, InventoryCountOut,
                                   InventoryReconciliationOut, MovementOut, ProductCreate, ProductOut, ProductPatch, UnitCreate,
-                                  ProductBarcodeCreate, ProductBarcodeOut, UnitOut)
-from app.inventory.service import post_movement, tracked_on_hand
+                                  ProductBarcodeCreate, ProductBarcodeOut, UnitOut, MovementReverse)
+from app.inventory.service import post_movement, reverse_movement, tracked_on_hand
 
 router = APIRouter(tags=["Inventory"])
 
@@ -364,6 +364,26 @@ def create_movement(organization_id: str, payload: MovementCreate, request: Requ
     return result
 
 
+@router.post("/organizations/{organization_id}/inventory/movements/{movement_id}/reverse",
+             response_model=MovementOut)
+def reverse_inventory_movement(organization_id: str, movement_id: str, payload: MovementReverse,
+                              request: Request,
+                              principal: Principal = Depends(require_permission("inventory.stock.write")),
+                              db: Session = Depends(get_identity_session)):
+    _scope(principal, organization_id)
+    try:
+        movement, _created = reverse_movement(
+            db, organization_id, principal.user_id, movement_id, payload,
+            request.headers.get("X-Request-ID"),
+        )
+        result = MovementOut.model_validate(movement)
+        db.commit()
+    except IntegrityError as exc:
+        db.rollback()
+        raise HTTPException(409, "Movement was concurrently reversed or conflicts with a stock update") from exc
+    return result
+
+
 @router.get("/organizations/{organization_id}/inventory/movements", response_model=dict)
 def list_movements(organization_id: str, product_id: str | None = None,
                    limit: int = Query(50, ge=1, le=100), offset: int = Query(0, ge=0),
@@ -705,4 +725,3 @@ def reject_count(organization_id: str, count_id: str, request: Request,
     result = _count_out(db, count)
     db.commit()
     return result
-

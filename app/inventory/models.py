@@ -150,14 +150,18 @@ class InventoryMovement(Base):
     expires_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     note: Mapped[str] = mapped_column(String(500), nullable=False, default="")
     actor_user_id: Mapped[str] = mapped_column(String(36), nullable=False)
+    reversal_of_movement_id: Mapped[str | None] = mapped_column(String(36))
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     __table_args__ = (
         UniqueConstraint("organization_id", "id", name="uq_inventory_movement_org_id"),
         UniqueConstraint("organization_id", "idempotency_key", name="uq_inventory_movement_org_idempotency"),
+        UniqueConstraint("organization_id", "reversal_of_movement_id", name="uq_inventory_movement_org_reversal_target"),
         ForeignKeyConstraint(["organization_id", "product_id"], ["inventory_products.organization_id", "inventory_products.id"], ondelete="RESTRICT", name="fk_inventory_movement_product_same_org"),
-        CheckConstraint("movement_type IN ('receipt','issue','adjustment','count','reserve','release')", name="ck_inventory_movement_type"),
+        ForeignKeyConstraint(["organization_id", "reversal_of_movement_id"], ["inventory_movements.organization_id", "inventory_movements.id"], ondelete="RESTRICT", name="fk_inventory_movement_reversal_same_org"),
+        CheckConstraint("movement_type IN ('receipt','issue','adjustment','count','reserve','release','reversal')", name="ck_inventory_movement_type"),
+        CheckConstraint("(movement_type = 'reversal') = (reversal_of_movement_id IS NOT NULL)", name="ck_inventory_movement_reversal_link"),
         CheckConstraint("quantity_delta != 0 OR reserved_delta != 0 OR movement_type = 'count'", name="ck_inventory_movement_nonzero"),
-        CheckConstraint("reserved_delta >= 0 OR movement_type = 'release'", name="ck_inventory_movement_reserve_delta"),
+        CheckConstraint("reserved_delta >= 0 OR movement_type IN ('release','reversal')", name="ck_inventory_movement_reserve_delta"),
         CheckConstraint("unit_cost IS NULL OR unit_cost >= 0", name="ck_inventory_movement_cost_nonnegative"),
         CheckConstraint("length(currency_code) = 3 AND currency_code = upper(currency_code)", name="ck_inventory_movement_currency"),
         Index("ix_inventory_movement_org_product_created", "organization_id", "product_id", "created_at"),
@@ -216,4 +220,3 @@ class InventoryCountLine(Base):
         CheckConstraint("reason_code IN ('no_variance','damage','loss','found','data_correction','other')", name="ck_inventory_count_line_reason"),
         Index("ix_inventory_count_line_org_count", "organization_id", "count_id"),
     )
-

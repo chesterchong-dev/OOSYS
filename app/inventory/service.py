@@ -8,7 +8,7 @@ from sqlalchemy.orm import Session
 
 from app.identity.audit import record_event
 from app.inventory.models import InventoryMovement, InventoryProduct, InventoryStockBalance, InventoryUnit
-from app.inventory.schemas import MovementCreate
+from app.inventory.schemas import MovementCreate, MovementReverse
 
 ZERO = Decimal("0")
 
@@ -219,6 +219,115 @@ def post_movement(db: Session, organization_id: str, actor_user_id: str,
     return movement, True
 
 
+def reverse_movement(db: Session, organization_id: str, actor_user_id: str,
+                     movement_id: str, payload: MovementReverse,
+                     correlation_id: str | None) -> tuple[InventoryMovement, bool]:
+    """Append one compensating entry for a prior movement; never edits ledger history."""
+    request_hash = hashlib.sha256(
+        f"reverse:{movement_id}:{payload.idempotency_key}:{payload.note.strip()}".encode("utf-8")
+    ).hexdigest()
+    prior_request = db.scalar(select(InventoryMovement).where(
+        InventoryMovement.organization_id == organization_id,
+        InventoryMovement.idempotency_key == payload.idempotency_key,
+    ))
+    if prior_request is not None:
+        if prior_request.request_hash != request_hash:
+            raise HTTPException(409, "Idempotency key was already used for a different movement")
+        return prior_request, False
+
+    source = db.scalar(select(InventoryMovement).where(
+        InventoryMovement.organization_id == organization_id,
+        InventoryMovement.id == movement_id,
+    ).with_for_update())
+    if source is None:
+        raise HTTPException(404, "Movement not found")
+    if source.movement_type == "reversal" or source.reversal_of_movement_id is not None:
+        raise HTTPException(409, "A reversal cannot itself be reversed")
+    if source.quantity_delta == 0 and source.reserved_delta == 0:
+        raise HTTPException(409, "This movement has no stock effect to reverse")
+    already_reversed = db.scalar(select(InventoryMovement.id).where(
+        InventoryMovement.organization_id == organization_id,
+        InventoryMovement.reversal_of_movement_id == source.id,
+    ))
+    if already_reversed is not None:
+        raise HTTPException(409, "This movement has already been reversed")
+
+    balance = db.scalar(select(InventoryStockBalance).where(
+        InventoryStockBalance.organization_id == organization_id,
+        InventoryStockBalance.product_id == source.product_id,
+    ).with_for_update())
+    if balance is None:
+        raise HTTPException(409, "Stock balance is not initialized")
+    delta = -source.quantity_delta
+    reserved_delta = -source.reserved_delta
+    next_on_hand = balance.on_hand + delta
+    next_reserved = balance.reserved + reserved_delta
+    if next_on_hand < 0 or next_reserved < 0 or next_reserved > next_on_hand:
+        raise HTTPException(409, "Reversal would violate on-hand or reserved stock")
+
+    product = db.scalar(select(InventoryProduct).where(
+        InventoryProduct.organization_id == organization_id,
+        InventoryProduct.id == source.product_id,
+    ))
+    if product is None:
+        raise HTTPException(409, "Movement product is unavailable")
+    if product.tracking_mode in {"lot", "serial"} and (source.lot_code or source.serial_code):
+        field = InventoryMovement.lot_code if product.tracking_mode == "lot" else InventoryMovement.serial_code
+        tracking_code = source.lot_code if product.tracking_mode == "lot" else source.serial_code
+        tracked_on_hand_now = _tracked_quantity(db, organization_id, product.id, tracking_code or "",
+                                                product.tracking_mode)
+        tracked_reserved_now = _tracked_reserved(db, organization_id, product.id, tracking_code or "",
+                                                product.tracking_mode)
+        tracked_next = tracked_on_hand_now + delta
+        tracked_reserved_next = tracked_reserved_now + reserved_delta
+        if tracked_next < 0 or tracked_reserved_next < 0 or tracked_reserved_next > tracked_next:
+            raise HTTPException(409, "Reversal would violate tracked on-hand or reserved stock")
+        if product.tracking_mode == "serial" and tracked_next not in {ZERO, Decimal("1")}:
+            raise HTTPException(409, "Reversal would create an invalid serial quantity")
+
+    average_cost = Decimal(product.average_cost or 0)
+    if delta and source.unit_cost is not None and next_on_hand > 0:
+        average_cost = ((balance.on_hand * average_cost) + (delta * source.unit_cost)) / next_on_hand
+        if average_cost < 0:
+            raise HTTPException(409, "Reversal would produce a negative inventory valuation")
+        product.average_cost = average_cost
+    balance.on_hand = next_on_hand
+    balance.reserved = next_reserved
+    balance.version += 1
+    movement = InventoryMovement(
+        organization_id=organization_id,
+        product_id=source.product_id,
+        movement_type="reversal",
+        quantity_delta=delta,
+        reserved_delta=reserved_delta,
+        unit_cost=source.unit_cost,
+        currency_code=source.currency_code,
+        idempotency_key=payload.idempotency_key,
+        request_hash=request_hash,
+        lot_code=source.lot_code,
+        serial_code=source.serial_code,
+        expires_at=source.expires_at,
+        note=payload.note.strip(),
+        actor_user_id=actor_user_id,
+        reversal_of_movement_id=source.id,
+    )
+    db.add(movement)
+    db.flush()
+    record_event(
+        db,
+        action="inventory.stock.reversal",
+        target_type="inventory_product",
+        organization_id=organization_id,
+        actor_user_id=actor_user_id,
+        target_id=source.product_id,
+        correlation_id=correlation_id,
+        details={"movement_id": movement.id, "reversal_of_movement_id": source.id,
+                 "quantity_delta": str(delta), "reserved_delta": str(reserved_delta),
+                 "currency_code": source.currency_code},
+    )
+    db.flush()
+    return movement, True
+
+
 def kind_not_count(movement_type: str) -> bool:
     return movement_type != "count"
-
