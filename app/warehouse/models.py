@@ -59,6 +59,7 @@ class WarehouseLocation(Base):
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now(),
     )
 
+
     __table_args__ = (
         UniqueConstraint("organization_id", "id", name="uq_warehouse_location_org_id"),
         UniqueConstraint("organization_id", "warehouse_id", "id",
@@ -94,3 +95,73 @@ class WarehouseLocation(Base):
               "parent_location_id"),
         Index("ix_warehouse_location_org_status", "organization_id", "status"),
     )
+
+
+class WarehouseReceipt(Base):
+    """Inbound receipt workflow; Inventory owns all resulting stock movements."""
+    __tablename__ = "warehouse_receipts"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=new_id)
+    organization_id: Mapped[str] = mapped_column(String(36), nullable=False)
+    warehouse_id: Mapped[str] = mapped_column(String(36), nullable=False)
+    receiving_location_id: Mapped[str] = mapped_column(String(36), nullable=False)
+    receipt_number: Mapped[str] = mapped_column(String(40), nullable=False)
+    idempotency_key: Mapped[str] = mapped_column(String(100), nullable=False)
+    request_hash: Mapped[str] = mapped_column(String(64), nullable=False)
+    source_reference: Mapped[str | None] = mapped_column(String(160))
+    status: Mapped[str] = mapped_column(String(12), nullable=False, default="draft")
+    note: Mapped[str] = mapped_column(String(500), nullable=False, default="")
+    created_by_user_id: Mapped[str] = mapped_column(String(36), nullable=False)
+    posted_by_user_id: Mapped[str | None] = mapped_column(String(36))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    posted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+    __table_args__ = (
+        UniqueConstraint("organization_id", "id", name="uq_warehouse_receipt_org_id"),
+        UniqueConstraint("organization_id", "receipt_number", name="uq_warehouse_receipt_org_number"),
+        UniqueConstraint("organization_id", "idempotency_key", name="uq_warehouse_receipt_org_key"),
+        ForeignKeyConstraint(
+            ["organization_id", "warehouse_id"], ["warehouses.organization_id", "warehouses.id"],
+            ondelete="RESTRICT", name="fk_warehouse_receipt_warehouse_same_org",
+        ),
+        ForeignKeyConstraint(
+            ["organization_id", "warehouse_id", "receiving_location_id"],
+            ["warehouse_locations.organization_id", "warehouse_locations.warehouse_id",
+             "warehouse_locations.id"],
+            ondelete="RESTRICT", name="fk_warehouse_receipt_location_same_warehouse",
+        ),
+        CheckConstraint("status IN ('draft','posted')", name="ck_warehouse_receipt_status"),
+        CheckConstraint("length(trim(receipt_number)) > 0", name="ck_warehouse_receipt_number_nonempty"),
+        Index("ix_warehouse_receipt_org_status_created", "organization_id", "status", "created_at"),
+    )
+
+
+class WarehouseReceiptLine(Base):
+    """Expected and accepted inbound quantities for one stockable item/trace."""
+    __tablename__ = "warehouse_receipt_lines"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=new_id)
+    organization_id: Mapped[str] = mapped_column(String(36), nullable=False)
+    receipt_id: Mapped[str] = mapped_column(String(36), nullable=False)
+    product_id: Mapped[str] = mapped_column(String(36), nullable=False)
+    quantity: Mapped[Decimal] = mapped_column(Numeric(20, 6), nullable=False)
+    unit_cost: Mapped[Decimal | None] = mapped_column(Numeric(20, 6))
+    lot_code: Mapped[str | None] = mapped_column(String(100))
+    serial_code: Mapped[str | None] = mapped_column(String(100))
+    expires_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+    __table_args__ = (
+        UniqueConstraint("organization_id", "id", name="uq_warehouse_receipt_line_org_id"),
+        ForeignKeyConstraint(
+            ["organization_id", "receipt_id"], ["warehouse_receipts.organization_id", "warehouse_receipts.id"],
+            ondelete="RESTRICT", name="fk_warehouse_receipt_line_receipt_same_org",
+        ),
+        CheckConstraint("quantity > 0", name="ck_warehouse_receipt_line_quantity_positive"),
+        CheckConstraint("unit_cost IS NULL OR unit_cost >= 0", name="ck_warehouse_receipt_line_cost_nonnegative"),
+        CheckConstraint("lot_code IS NULL OR serial_code IS NULL", name="ck_warehouse_receipt_line_trace_unambiguous"),
+        CheckConstraint("expires_at IS NULL OR lot_code IS NOT NULL", name="ck_warehouse_receipt_line_expiry_requires_lot"),
+        Index("ix_warehouse_receipt_line_org_receipt", "organization_id", "receipt_id"),
+        Index("ix_warehouse_receipt_line_org_product", "organization_id", "product_id"),
+    )
+

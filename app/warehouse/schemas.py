@@ -170,3 +170,88 @@ class WarehouseLocationOut(BaseModel):
         if value is None:
             return None
         return format(Decimal(value).quantize(Decimal("0.000001")), "f")
+
+
+class WarehouseReceiptLineCreate(BaseModel):
+    product_id: str = Field(min_length=1, max_length=36)
+    quantity: Decimal = Field(gt=0, max_digits=20, decimal_places=6)
+    unit_cost: Decimal | None = Field(default=None, ge=0, max_digits=20, decimal_places=6)
+    lot_code: str | None = Field(default=None, min_length=1, max_length=100)
+    serial_code: str | None = Field(default=None, min_length=1, max_length=100)
+    expires_at: datetime | None = None
+
+    @field_validator("quantity", "unit_cost")
+    @classmethod
+    def finite_amount(cls, value: Decimal | None) -> Decimal | None:
+        if value is not None and not value.is_finite():
+            raise ValueError("Amount must be finite")
+        return value
+
+    @field_validator("lot_code", "serial_code")
+    @classmethod
+    def trim_trace_code(cls, value: str | None) -> str | None:
+        trimmed = value.strip() if value is not None else None
+        if value is not None and not trimmed:
+            raise ValueError("Trace code must not be empty")
+        return trimmed
+
+    @model_validator(mode="after")
+    def trace_shape(self):
+        if self.lot_code and self.serial_code:
+            raise ValueError("A receipt line can track a lot or a serial, not both")
+        if self.expires_at and not self.lot_code:
+            raise ValueError("Expiry date requires a lot code")
+        return self
+
+
+class WarehouseReceiptCreate(BaseModel):
+    receiving_location_id: str = Field(min_length=1, max_length=36)
+    idempotency_key: str = Field(min_length=8, max_length=100, pattern=r"^[A-Za-z0-9._:-]+$")
+    source_reference: str | None = Field(default=None, max_length=160)
+    note: str = Field(default="", max_length=500)
+    lines: list[WarehouseReceiptLineCreate] = Field(min_length=1, max_length=200)
+
+    @field_validator("source_reference", "note")
+    @classmethod
+    def trim_optional_text(cls, value: str | None) -> str | None:
+        return value.strip() if value is not None else None
+
+    @model_validator(mode="after")
+    def unique_receipt_targets(self):
+        targets = [(line.product_id, line.lot_code, line.serial_code) for line in self.lines]
+        if len(targets) != len(set(targets)):
+            raise ValueError("Each product or tracked item can appear only once per receipt")
+        return self
+
+
+class WarehouseReceiptLineOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True, coerce_numbers_to_str=True)
+    id: str
+    product_id: str
+    quantity: str
+    unit_cost: str | None
+    lot_code: str | None
+    serial_code: str | None
+    expires_at: datetime | None
+
+    @field_validator("quantity", "unit_cost", mode="before")
+    @classmethod
+    def fixed_amount(cls, value: object) -> str | None:
+        return None if value is None else format(Decimal(value).quantize(Decimal("0.000001")), "f")
+
+
+class WarehouseReceiptOut(BaseModel):
+    id: str
+    organization_id: str
+    warehouse_id: str
+    receiving_location_id: str
+    receipt_number: str
+    source_reference: str | None
+    status: str
+    note: str
+    created_by_user_id: str
+    posted_by_user_id: str | None
+    created_at: datetime
+    posted_at: datetime | None
+    lines: list[WarehouseReceiptLineOut]
+

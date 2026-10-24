@@ -73,7 +73,7 @@ def _warehouse(client: TestClient, account: dict, code: str) -> tuple[dict, dict
     location = client.post(
         f"/api/v1/organizations/{organization_id}/warehouses/{warehouse.json()['id']}/locations",
         headers=headers,
-        json={"code": "BIN-A", "name": "Bin A", "location_type": "bin"},
+        json={"code": "RECEIVE-A", "name": "Receiving A", "location_type": "receiving"},
     )
     assert location.status_code == 201, location.text
     return warehouse.json(), location.json()
@@ -100,6 +100,19 @@ def test_inventory_rls_hides_other_organization_products():
         product_b = _product(client, second, f"B-{suffix}")
         warehouse_a, location_a = _warehouse(client, first, f"WA-{suffix}")
         warehouse_b, location_b = _warehouse(client, second, f"WB-{suffix}")
+        receipt_a = client.post(
+            f"/api/v1/organizations/{first['organization']['id']}/warehouses/{warehouse_a['id']}/receipts",
+            headers={"Authorization": f"Bearer {first['access_token']}"},
+            json={"receiving_location_id": location_a["id"], "idempotency_key": f"rls-receipt-a-{suffix}",
+                  "lines": [{"product_id": product_a["id"], "quantity": "1"}]},
+        )
+        receipt_b = client.post(
+            f"/api/v1/organizations/{second['organization']['id']}/warehouses/{warehouse_b['id']}/receipts",
+            headers={"Authorization": f"Bearer {second['access_token']}"},
+            json={"receiving_location_id": location_b["id"], "idempotency_key": f"rls-receipt-b-{suffix}",
+                  "lines": [{"product_id": product_b["id"], "quantity": "1"}]},
+        )
+        assert receipt_a.status_code == receipt_b.status_code == 201
 
         # Exercise the PostgreSQL policy directly using the restricted app role,
         # bypassing the route's explicit organization check.
@@ -123,6 +136,10 @@ def test_inventory_rls_hides_other_organization_products():
                 "SELECT id FROM warehouse_locations WHERE id IN (:a, :b) ORDER BY id"
             ), {"a": location_a["id"], "b": location_b["id"]}).scalars().all()
             assert visible_locations == [location_a["id"]]
+            visible_receipts = connection.execute(text(
+                "SELECT id FROM warehouse_receipts WHERE id IN (:a, :b) ORDER BY id"
+            ), {"a": receipt_a.json()["id"], "b": receipt_b.json()["id"]}).scalars().all()
+            assert visible_receipts == [receipt_a.json()["id"]]
 
 
 def test_concurrent_inventory_receipts_preserve_balance_and_replay_once():
@@ -195,3 +212,4 @@ def test_inventory_ledger_rejects_direct_update_and_delete():
                     DELETE FROM inventory_movements
                     WHERE organization_id = :tenant AND id = :movement_id
                 """), {"tenant": organization_id, "movement_id": movement_id})
+

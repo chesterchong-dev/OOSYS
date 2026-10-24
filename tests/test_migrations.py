@@ -44,7 +44,7 @@ def test_initial_migration_creates_expected_schema_and_is_repeatable(tmp_path) -
         assert "identity_users" in inspector.get_table_names()
         assert "identity_organizations" in inspector.get_table_names()
         with engine.connect() as connection:
-            assert connection.exec_driver_sql("SELECT COUNT(*) FROM identity_permissions").scalar_one() == 24
+            assert connection.exec_driver_sql("SELECT COUNT(*) FROM identity_permissions").scalar_one() == 26
         columns = {column["name"]: column for column in inspector.get_columns("platform_settings")}
         assert set(columns) == {
             "setting_key", "value_json", "description", "created_at", "updated_at"
@@ -57,9 +57,10 @@ def test_initial_migration_creates_expected_schema_and_is_repeatable(tmp_path) -
             for item in inspector.get_check_constraints("platform_settings")
         )
         with engine.connect() as connection:
-            assert connection.exec_driver_sql("SELECT version_num FROM alembic_version").scalar_one() == "20261024_0015"
+            assert connection.exec_driver_sql("SELECT version_num FROM alembic_version").scalar_one() == "20261024_0016"
         assert {"inventory_products", "inventory_product_barcodes", "inventory_stock_balances", "inventory_movements",
-                "inventory_counts", "inventory_count_lines", "warehouses", "warehouse_locations"}.issubset(
+                "inventory_counts", "inventory_count_lines", "warehouses", "warehouse_locations",
+                "warehouse_receipts", "warehouse_receipt_lines"}.issubset(
                     inspector.get_table_names())
         assert {"lot_code", "serial_code", "expires_at"}.issubset(
             {column["name"] for column in inspector.get_columns("inventory_count_lines")}

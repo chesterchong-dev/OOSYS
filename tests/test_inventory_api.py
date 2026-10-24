@@ -153,6 +153,59 @@ def test_location_ledger_projection_keeps_legacy_stock_unlocated(tmp_path):
         engine.dispose()
 
 
+def test_warehouse_receipt_posts_once_to_inventory_location(tmp_path):
+    app, engine, _factory, org_id, headers, product = setup_inventory(tmp_path)
+    base = f"/api/v1/organizations/{org_id}"
+    try:
+        warehouse = run(request(app, "POST", f"{base}/warehouses", headers=headers,
+                                json={"code": "WH-RECEIVE", "name": "Receiving warehouse"})).json()
+        location = run(request(app, "POST", f"{base}/warehouses/{warehouse['id']}/locations",
+                               headers=headers, json={"code": "RECEIVE", "name": "Receiving bay",
+                                                     "location_type": "receiving"})).json()
+        receipt_payload = {
+            "receiving_location_id": location["id"],
+            "idempotency_key": "receipt-create-001",
+            "source_reference": "PO-EXTERNAL-17",
+            "note": "Initial receipt",
+            "lines": [{"product_id": product["id"], "quantity": "5", "unit_cost": "2.50"}],
+        }
+        created = run(request(app, "POST", f"{base}/warehouses/{warehouse['id']}/receipts",
+                              headers=headers, json=receipt_payload))
+        assert created.status_code == 201, created.text
+        receipt = created.json()
+        assert receipt["status"] == "draft"
+        assert receipt["lines"][0]["quantity"] == "5.000000"
+
+        replay = run(request(app, "POST", f"{base}/warehouses/{warehouse['id']}/receipts",
+                             headers=headers, json=receipt_payload))
+        assert replay.status_code == 201
+        assert replay.json()["id"] == receipt["id"]
+        conflict_payload = {**receipt_payload, "note": "Different request"}
+        conflict = run(request(app, "POST", f"{base}/warehouses/{warehouse['id']}/receipts",
+                               headers=headers, json=conflict_payload))
+        assert conflict.status_code == 409
+
+        post_url = f"{base}/warehouses/{warehouse['id']}/receipts/{receipt['id']}/post"
+        posted = run(request(app, "POST", post_url, headers=headers))
+        assert posted.status_code == 200, posted.text
+        assert posted.json()["status"] == "posted"
+        repeated_post = run(request(app, "POST", post_url, headers=headers))
+        assert repeated_post.status_code == 200
+        assert repeated_post.json()["id"] == receipt["id"]
+
+        balances = run(request(app, "GET", f"{base}/inventory/location-balances?product_id={product['id']}",
+                               headers=headers)).json()["items"]
+        assert len(balances) == 1
+        assert balances[0]["warehouse_location_id"] == location["id"]
+        assert balances[0]["on_hand"] == "5.000000"
+        movements = run(request(app, "GET", f"{base}/inventory/movements?product_id={product['id']}",
+                                headers=headers)).json()["items"]
+        assert len(movements) == 1
+        assert movements[0]["warehouse_location_id"] == location["id"]
+    finally:
+        engine.dispose()
+
+
 def test_product_barcodes_are_tenant_unique_searchable_and_managed_safely(tmp_path):
     app, engine, factory, org_id, headers, product = setup_inventory(tmp_path)
     base = f"/api/v1/organizations/{org_id}/inventory"
