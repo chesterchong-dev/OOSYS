@@ -4,7 +4,7 @@ from decimal import Decimal
 from uuid import uuid4
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
-from sqlalchemy import func, select, or_
+from sqlalchemy import func, or_, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
@@ -16,7 +16,7 @@ from app.inventory.models import (InventoryCategory, InventoryCount, InventoryCo
                                   InventoryUnit)
 from app.inventory.schemas import (BalanceOut, CategoryCreate, CategoryOut, MovementCreate,
                                   InventoryCountCreate, InventoryCountLineOut, InventoryCountOut,
-                                  MovementOut, ProductCreate, ProductOut, ProductPatch, UnitCreate,
+                                  InventoryReconciliationOut, MovementOut, ProductCreate, ProductOut, ProductPatch, UnitCreate,
                                   UnitOut)
 from app.inventory.service import post_movement, tracked_on_hand
 
@@ -264,6 +264,61 @@ def list_balances(organization_id: str, limit: int = Query(50, ge=1, le=100), of
         average_cost=str(p.average_cost), cost_currency=p.cost_currency, version=b.version,
     ).model_dump() for b, p, u in rows]
     return {"items": items, "limit": limit, "offset": offset}
+
+
+@router.get("/organizations/{organization_id}/inventory/reconciliation",
+            response_model=InventoryReconciliationOut)
+def reconcile_balances(organization_id: str, limit: int = Query(50, ge=1, le=100),
+                       offset: int = Query(0, ge=0),
+                       principal: Principal = Depends(require_permission("inventory.stock.read")),
+                       db: Session = Depends(get_identity_session)):
+    """Compare each stored balance with immutable movement totals without changing stock."""
+    _scope(principal, organization_id)
+    ledger_totals = select(
+        InventoryMovement.product_id.label("product_id"),
+        func.sum(InventoryMovement.quantity_delta).label("on_hand"),
+        func.sum(InventoryMovement.reserved_delta).label("reserved"),
+    ).where(InventoryMovement.organization_id == organization_id).group_by(
+        InventoryMovement.product_id,
+    ).subquery()
+    ledger_on_hand = func.coalesce(ledger_totals.c.on_hand, Decimal("0"))
+    ledger_reserved = func.coalesce(ledger_totals.c.reserved, Decimal("0"))
+    balance_on_hand = func.coalesce(InventoryStockBalance.on_hand, Decimal("0"))
+    balance_reserved = func.coalesce(InventoryStockBalance.reserved, Decimal("0"))
+    matches = (InventoryStockBalance.id.is_not(None)
+               & (balance_on_hand == ledger_on_hand)
+               & (balance_reserved == ledger_reserved))
+    base = InventoryProduct.__table__.outerjoin(
+        InventoryStockBalance.__table__,
+        (InventoryStockBalance.organization_id == InventoryProduct.organization_id)
+        & (InventoryStockBalance.product_id == InventoryProduct.id),
+    ).outerjoin(ledger_totals, ledger_totals.c.product_id == InventoryProduct.id)
+    tenant_filter = InventoryProduct.organization_id == organization_id
+    product_count = db.scalar(select(func.count()).select_from(InventoryProduct).where(tenant_filter)) or 0
+    mismatch_count = db.scalar(select(func.count()).select_from(base).where(
+        tenant_filter, ~matches,
+    )) or 0
+    rows = db.execute(select(
+        InventoryProduct.id, InventoryProduct.sku, InventoryProduct.name,
+        (InventoryStockBalance.id.is_not(None)).label("balance_exists"),
+        ledger_on_hand.label("ledger_on_hand"), balance_on_hand.label("balance_on_hand"),
+        ledger_reserved.label("ledger_reserved"), balance_reserved.label("balance_reserved"),
+        matches.label("reconciled"),
+    ).select_from(base).where(tenant_filter).order_by(
+        InventoryProduct.sku, InventoryProduct.id,
+    ).offset(offset).limit(limit)).all()
+    result = InventoryReconciliationOut(
+        items=[{
+            "product_id": row.id, "sku": row.sku, "product_name": row.name,
+            "balance_exists": row.balance_exists,
+            "ledger_on_hand": row.ledger_on_hand, "balance_on_hand": row.balance_on_hand,
+            "ledger_reserved": row.ledger_reserved, "balance_reserved": row.balance_reserved,
+            "reconciled": row.reconciled,
+        } for row in rows],
+        limit=limit, offset=offset, product_count=product_count,
+        mismatch_count=mismatch_count, reconciled=mismatch_count == 0,
+    )
+    return result
 
 
 def _count_out(db: Session, count: InventoryCount) -> InventoryCountOut:
