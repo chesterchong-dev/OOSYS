@@ -7,6 +7,7 @@ import pytest
 from fastapi.testclient import TestClient
 from pydantic import SecretStr
 from sqlalchemy import text
+from sqlalchemy.exc import DBAPIError
 
 from app.core.config import Settings
 from app.main import create_app
@@ -133,3 +134,36 @@ def test_concurrent_inventory_receipts_preserve_balance_and_replay_once():
                        if item["product_id"] == product["id"])
         assert balance["on_hand"] == "13.000000"
 
+
+def test_inventory_ledger_rejects_direct_update_and_delete():
+    app, suffix = _new_app()
+    with TestClient(app) as client:
+        owner = _register(client, f"inv-append-{suffix}@example.com", f"inv-append-{suffix}")
+        product = _product(client, owner, f"APPEND-{suffix}")
+        organization_id = owner["organization"]["id"]
+        headers = {"Authorization": f"Bearer {owner['access_token']}"}
+        posted = client.post(
+            f"/api/v1/organizations/{organization_id}/inventory/movements",
+            headers=headers,
+            json={"product_id": product["id"], "movement_type": "receipt",
+                  "quantity": "1", "idempotency_key": f"append-{suffix}"},
+        )
+        assert posted.status_code == 200, posted.text
+        movement_id = posted.json()["id"]
+
+        with pytest.raises(DBAPIError, match="append-only"):
+            with app.state.identity_engine.begin() as connection:
+                connection.execute(text("SELECT set_config('app.tenant_id', :tenant, true)"),
+                                   {"tenant": organization_id})
+                connection.execute(text("""
+                    UPDATE inventory_movements SET note = 'tampered'
+                    WHERE organization_id = :tenant AND id = :movement_id
+                """), {"tenant": organization_id, "movement_id": movement_id})
+        with pytest.raises(DBAPIError, match="append-only"):
+            with app.state.identity_engine.begin() as connection:
+                connection.execute(text("SELECT set_config('app.tenant_id', :tenant, true)"),
+                                   {"tenant": organization_id})
+                connection.execute(text("""
+                    DELETE FROM inventory_movements
+                    WHERE organization_id = :tenant AND id = :movement_id
+                """), {"tenant": organization_id, "movement_id": movement_id})

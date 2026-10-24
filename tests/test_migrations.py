@@ -5,7 +5,7 @@ import pytest
 from alembic import command
 from alembic.config import Config
 from sqlalchemy import create_engine, inspect, text
-from sqlalchemy.exc import IntegrityError
+from sqlalchemy.exc import DBAPIError, IntegrityError
 
 from app.core.db_base import Base
 from app.platform_config import models  # noqa: F401 - register metadata
@@ -56,7 +56,7 @@ def test_initial_migration_creates_expected_schema_and_is_repeatable(tmp_path) -
             for item in inspector.get_check_constraints("platform_settings")
         )
         with engine.connect() as connection:
-            assert connection.exec_driver_sql("SELECT version_num FROM alembic_version").scalar_one() == "20261024_0012"
+            assert connection.exec_driver_sql("SELECT version_num FROM alembic_version").scalar_one() == "20261024_0013"
         assert {"inventory_products", "inventory_product_barcodes", "inventory_stock_balances", "inventory_movements",
                 "inventory_counts", "inventory_count_lines"}.issubset(inspector.get_table_names())
         assert {"lot_code", "serial_code", "expires_at"}.issubset(
@@ -139,6 +139,36 @@ def test_product_barcode_migration_backfills_existing_primary_codes(tmp_path) ->
             """)).mappings().one()
             assert row == {"organization_id": "org-1", "product_id": "product-1",
                            "barcode": "LEGACY-001"}
+    finally:
+        engine.dispose()
+
+
+def test_inventory_ledger_rejects_direct_update_and_delete(tmp_path) -> None:
+    engine = create_engine(f"sqlite:///{tmp_path / 'ledger-append-only.db'}")
+    try:
+        upgrade(migration_config(), engine)
+        with engine.connect() as connection:
+            connection.exec_driver_sql("PRAGMA foreign_keys = OFF")
+            connection.commit()
+        with engine.begin() as connection:
+            connection.execute(text("""
+                INSERT INTO inventory_movements
+                    (id, organization_id, product_id, movement_type, quantity_delta,
+                     reserved_delta, currency_code, idempotency_key, request_hash, note, actor_user_id)
+                VALUES ('movement-1', 'org-1', 'product-1', 'receipt', 1, 0,
+                        'MYR', 'migration-key', :request_hash, '', 'actor-1')
+            """), {"request_hash": "0" * 64})
+
+        with pytest.raises(DBAPIError, match="append-only"):
+            with engine.begin() as connection:
+                connection.execute(text(
+                    "UPDATE inventory_movements SET note = 'tampered' WHERE id = 'movement-1'"
+                ))
+        with pytest.raises(DBAPIError, match="append-only"):
+            with engine.begin() as connection:
+                connection.execute(text(
+                    "DELETE FROM inventory_movements WHERE id = 'movement-1'"
+                ))
     finally:
         engine.dispose()
 
