@@ -85,3 +85,62 @@ def test_invitation_can_be_revoked_before_acceptance(tmp_path, monkeypatch):
         assert accepted.status_code == 400
     finally:
         engine.dispose()
+
+
+def test_password_reset_token_must_be_unexpired_and_unused(tmp_path, monkeypatch):
+    app, engine, factory = setup_app(tmp_path)
+    try:
+        run(request(app, "POST", "/api/v1/auth/register", json=register_payload("expired-reset@example.com", "expired-reset-org")))
+        app.state.settings = Settings(_env_file=None, smtp_host="localhost", email_from="noreply@example.test", password_reset_url="https://example.test/reset")
+        from app.identity import recovery_routes
+        sent = []
+        monkeypatch.setattr(recovery_routes, "send_password_reset", lambda settings, recipient, token: sent.append(token))
+        assert run(request(app, "POST", "/api/v1/auth/password-reset/request", json={"email":"expired-reset@example.com"})).status_code == 202
+        raw = sent[0]
+        with factory() as db:
+            token = db.scalar(select(PasswordResetToken).where(PasswordResetToken.token_hash == token_digest(raw)))
+            token.expires_at = utc_now() - timedelta(seconds=1)
+            db.commit()
+        response = run(request(app, "POST", "/api/v1/auth/password-reset/confirm",
+            json={"token":raw,"new_password":"a-new-strong-password-456"}))
+        assert response.status_code == 400
+    finally:
+        engine.dispose()
+
+
+def test_password_reset_invalid_token_does_not_change_any_password(tmp_path):
+    app, engine, factory = setup_app(tmp_path)
+    try:
+        run(request(app, "POST", "/api/v1/auth/register", json=register_payload("invalid-reset@example.com", "invalid-reset-org")))
+        response = run(request(app, "POST", "/api/v1/auth/password-reset/confirm",
+            json={"token":"x" * 32,"new_password":"a-new-strong-password-456"}))
+        assert response.status_code == 400
+        login = run(request(app, "POST", "/api/v1/auth/login", json={
+            "email":"invalid-reset@example.com","password":"a-strong-password-123"}))
+        assert login.status_code == 200
+    finally:
+        engine.dispose()
+
+
+def test_invitation_expiry_and_wrong_tenant_are_rejected(tmp_path):
+    app, engine, factory = setup_app(tmp_path)
+    try:
+        owner = run(request(app, "POST", "/api/v1/auth/register", json=register_payload("expiry-owner@example.com", "expiry-owner-org"))).json()
+        invitee = run(request(app, "POST", "/api/v1/auth/register", json=register_payload("expiry-invitee@example.com", "expiry-invitee-org"))).json()
+        org_id = owner["organization"]["id"]
+        role_id = next(r["id"] for r in run(request(app, "GET", f"/api/v1/organizations/{org_id}/roles",
+            headers={"Authorization": f"Bearer {owner['access_token']}"})).json() if r["name"] == "Owner")
+        raw, digest = issue_token()
+        with factory() as db:
+            db.add(OrganizationInvitation(organization_id=org_id, email="expiry-invitee@example.com",
+                role_id=role_id, invited_by_user_id=owner["user"]["id"], token_hash=digest,
+                expires_at=utc_now()-timedelta(seconds=1)))
+            db.commit()
+        expired = run(request(app, "POST", "/api/v1/auth/invitations/accept",
+            headers={"Authorization": f"Bearer {invitee['access_token']}"}, json={"token":raw}))
+        assert expired.status_code == 400
+        wrong_org = run(request(app, "POST", f"/api/v1/organizations/{invitee['organization']['id']}/invitations",
+            headers={"Authorization": f"Bearer {owner['access_token']}"}, json={"email":"expiry-invitee@example.com","role_id":role_id}))
+        assert wrong_org.status_code == 404
+    finally:
+        engine.dispose()
