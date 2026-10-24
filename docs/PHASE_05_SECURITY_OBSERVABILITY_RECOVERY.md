@@ -164,3 +164,15 @@ Acceptance gaps remain partial:
 
 No shared API/database/permission/event contract changed. No database migration was introduced. The CI restore uses synthetic data in a disposable database and does not close production recovery gaps.
 
+
+## Latest exact-head verification — `67bffae47fa8dfaa225a7411da90dfd0f8523165`
+
+This commit adds regression coverage for request-log path privacy: matched dynamic route values are logged as the route template, and unmatched request paths use a fixed marker. CI passed on this exact PR head:
+
+- [Phase 00 validation — run 40065070569](https://github.com/chesterchong-dev/OOSYS/actions/runs/40065070569): backend and frontend validation jobs succeeded, including the observability regression suite, PostgreSQL/migration/restore checks, frontend tests and production build.
+- [Dependency Audit — run 40065070652](https://github.com/chesterchong-dev/OOSYS/actions/runs/40065070652): success.
+- [Secret Scan — run 40065070570](https://github.com/chesterchong-dev/OOSYS/actions/runs/40065070570): success.
+
+The existing broader implementation checkpoint and its counts remain attributed to `555371277428a2ea6736c520b434f4d2c23e00a2`; this later change does not change database/API contracts or close production operational acceptance gates. CORE-012, CORE-014, CORE-015, OPS-085 and OPS-087 remain partial.
+
+
