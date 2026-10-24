@@ -240,6 +240,7 @@ def update_product(organization_id: str, product_id: str, payload: ProductPatch,
                  organization_id=organization_id, actor_user_id=principal.user_id, target_id=product.id,
                  correlation_id=request.headers.get("X-Request-ID"))
     try:
+        db.flush()
         result = _product_out(db, product)
         db.commit()
     except IntegrityError as exc:
