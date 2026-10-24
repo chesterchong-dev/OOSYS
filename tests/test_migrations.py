@@ -10,6 +10,7 @@ from sqlalchemy.exc import IntegrityError
 from app.core.db_base import Base
 from app.platform_config import models  # noqa: F401 - register metadata
 from app.identity import models as identity_models  # noqa: F401 - register identity metadata
+from app.inventory import models as inventory_models  # noqa: F401 - register inventory metadata
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -42,7 +43,7 @@ def test_initial_migration_creates_expected_schema_and_is_repeatable(tmp_path) -
         assert "identity_users" in inspector.get_table_names()
         assert "identity_organizations" in inspector.get_table_names()
         with engine.connect() as connection:
-            assert connection.exec_driver_sql("SELECT COUNT(*) FROM identity_permissions").scalar_one() == 15
+            assert connection.exec_driver_sql("SELECT COUNT(*) FROM identity_permissions").scalar_one() == 19
         columns = {column["name"]: column for column in inspector.get_columns("platform_settings")}
         assert set(columns) == {
             "setting_key", "value_json", "description", "created_at", "updated_at"
@@ -55,7 +56,8 @@ def test_initial_migration_creates_expected_schema_and_is_repeatable(tmp_path) -
             for item in inspector.get_check_constraints("platform_settings")
         )
         with engine.connect() as connection:
-            assert connection.exec_driver_sql("SELECT version_num FROM alembic_version").scalar_one() == "20261018_0006"
+            assert connection.exec_driver_sql("SELECT version_num FROM alembic_version").scalar_one() == "20261024_0007"
+        assert {"inventory_products", "inventory_stock_balances", "inventory_movements"}.issubset(inspector.get_table_names())
         assert "platform_settings" in Base.metadata.tables
         with engine.begin() as connection:
             connection.execute(
@@ -101,3 +103,4 @@ def test_migration_fails_closed_without_database_url(monkeypatch) -> None:
     config.set_main_option("sqlalchemy.url", "")
     with pytest.raises(RuntimeError, match="OOSYS_DATABASE_URL"):
         command.upgrade(config, "head")
+

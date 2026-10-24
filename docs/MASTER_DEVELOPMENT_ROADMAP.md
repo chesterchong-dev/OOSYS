@@ -22,7 +22,7 @@ This file is a compact repository index for the authoritative roadmap XMind. Rea
 - Phase 03 — Core Platform Foundation: accepted for bounded API/readiness scope only. See [Phase 03 record](PHASE_03_CORE_PLATFORM_FOUNDATION.md). The older Linear Phase 03 title “Shared Platform Services” does not override the accepted boundary.
 - Phase 04 — Frontend Shell & Administration: accepted for the frontend shell and existing-API administration milestone. See [Phase 04 record](PHASE_04_FRONTEND_SHELL_ADMINISTRATION.md). The older Linear title “Navigation, Dashboard & Administration UI” does not override the accepted title.
 
-Acceptance is scoped: it does not mean all requirements associated with a domain are complete. At Phase 05 PR head `2a91b11e72a6b13bc09ad287928b5512316ef386`, the reconciled requirement view reports 87 unique IDs: 74 missing and 13 partial. No full product requirement is marked verified. See the Phase 05 record and PR #1 for current evidence.
+Acceptance is scoped: it does not mean all requirements associated with a domain are complete. At Phase 05 PR head `b95ce221fd81538e27b926b2b151f5202df90fe0`, the reconciled requirement view reports 87 unique IDs, with no full product requirement marked verified. See the Phase 05 record and PR #1 for current evidence.
 
 ## Phase index
 
@@ -33,8 +33,8 @@ Acceptance is scoped: it does not mean all requirements associated with a domain
 | 02 | Identity, Authentication & Multi-Tenancy | Accepted — scoped identity/auth/tenant controls |
 | 03 | Core Platform Foundation | Accepted — bounded API/readiness only |
 | 04 | Frontend Shell & Administration | Accepted — shell and existing-API administration |
-| 05 | Security, Observability & Recovery | In progress — implementation and CI evidence recorded in [PR #1](https://github.com/chesterchong-dev/OOSYS/pull/1); production operational acceptance remains blocked — [CHE-11](https://linear.app/chester-chong/issue/CHE-11/oosys-phase-05-security-observability-and-recovery) |
-| 06 | Inventory Master Data & Stock Ledger | Blocked — Phase 05 operational acceptance remains open; no inventory implementation is verified. Linear's In Progress status is unverified — [CHE-12](https://linear.app/chester-chong/issue/CHE-12/oosys-phase-06-inventory-master-data-and-stock-ledger) |
+| 05 | Security, Observability & Recovery | In progress — implementation and CI evidence recorded in [PR #1](https://github.com/chesterchong-dev/OOSYS/pull/1); cloud operational acceptance is deferred until staging/release readiness — [CHE-11](https://linear.app/chester-chong/issue/CHE-11/oosys-phase-05-security-observability-and-recovery) |
+| 06 | Inventory Master Data & Stock Ledger | In progress — local implementation and synthetic-data verification may proceed; cloud deployment, live-data exposure, and pilot release remain gated on applicable Phase 05 operational acceptance — [CHE-12](https://linear.app/chester-chong/issue/CHE-12/oosys-phase-06-inventory-master-data-and-stock-ledger) |
 | 07 | Warehouse Operations (WMS) | Not started — [CHE-13](https://linear.app/chester-chong/issue/CHE-13/oosys-phase-07-warehouse-operations-wms) |
 | 08 | Suppliers & Purchasing | Not started — [CHE-14](https://linear.app/chester-chong/issue/CHE-14/oosys-phase-08-suppliers-and-purchasing) |
 | 09 | Customers, Quotations & Sales Fulfilment | Not started — [CHE-15](https://linear.app/chester-chong/issue/CHE-15/oosys-phase-09-customers-quotations-and-sales-fulfilment) |
@@ -60,7 +60,11 @@ Scope: structured logs and correlation IDs; readiness/liveness; metrics hooks; s
 
 Acceptance evidence required: an actually tested backup restore; security tests; operational runbooks; evidence that secrets are not exposed; relevant test/build/migration and integration results; commit SHA; remaining blockers. No Phase 05 implementation commit or acceptance evidence was verified during roadmap creation.
 
-Dependencies: preserve Phases 00–04; build on existing configuration, authentication, health/readiness, CI and migration foundations. Choose metrics, secrets and backup mechanisms deliberately; no vendor is presumed.
+Dependencies: preserve Phases 00–04; build on existing configuration, authentication, health/readiness, CI and migration foundations. Choose metrics, secrets and backup mechanisms deliberately; no vendor is presumed. Local business-module development using synthetic data can proceed while cloud operational acceptance is deferred. Do not expose business data to pilot users or production until Phase 05 security, monitoring, backup/restore, recovery and release controls are accepted in a real target environment.
+
+## Approved sequencing adjustment — 2026-10-24
+
+At the product owner's direction, continue Phase 06 and later business-module implementation locally with synthetic data while cloud charges are deferred. This changes the timing of validation, not the operational release gate: Phase 05 cloud deployment, monitoring, backup/restore, recovery and rollout evidence must be completed before live business data or pilot use. Each module still requires application-level authorization, tenant isolation, migrations, and local/CI verification before it is considered implemented.
 
 ## Global delivery gates
 
@@ -80,5 +84,6 @@ Dependencies: preserve Phases 00–04; build on existing configuration, authenti
 - Phase 03 did not implement all shared platform services. Shared master data, general notifications, file storage, global search, reusable workflow, subscription services and broad AI/integration capabilities remain future work unless separately verified.
 - The user's GitHub-web-only workflow means no local checkout cleanliness or local command execution is claimed.
 - A passing CI run verifies only the commit and checks actually run; documentation-only CI does not prove new application behaviour.
+
 
 

@@ -1,13 +1,13 @@
 import {useCallback,useEffect,useMemo,useState} from "react";
-import {Activity,Building2,LayoutDashboard,LogOut,Menu,Network,ShieldCheck,Users,UserRound,X} from "lucide-react";
+import {Activity,Building2,LayoutDashboard,LogOut,Menu,Network,ShieldCheck,Users,UserRound,X,Boxes} from "lucide-react";
 import {api,ApiError,type Organization,type Principal} from "./api";
 import {Login} from "./Login";
 import {Workspace} from "./Workspace";
 import {CommandSearch} from "./CommandSearch";
-export type View="overview"|"members"|"roles"|"organization"|"structure"|"audit"|"profile";
+export type View="overview"|"members"|"roles"|"organization"|"structure"|"audit"|"profile"|"inventory";
 const nav:{id:View;label:string;icon:typeof LayoutDashboard;permission?:string}[]=[
 {id:"overview",label:"Overview",icon:LayoutDashboard},{id:"members",label:"Members",icon:Users,permission:"members.read"},
-{id:"roles",label:"Roles & access",icon:ShieldCheck,permission:"roles.read"},{id:"organization",label:"Organization",icon:Building2,permission:"organization.read"},
+{id:"roles",label:"Roles & access",icon:ShieldCheck,permission:"roles.read"},{id:"organization",label:"Organization",icon:Building2,permission:"organization.read"},{id:"inventory",label:"Inventory",icon:Boxes,permission:"inventory.products.read"},
 {id:"structure",label:"Structure",icon:Network,permission:"organization.units.read"},{id:"audit",label:"Audit trail",icon:Activity,permission:"audit.read"},{id:"profile",label:"My account",icon:UserRound}];
 export default function App(){
 const [token,setToken]=useState<string|null>(()=>sessionStorage.getItem("oosys.session"));const [principal,setPrincipal]=useState<Principal|null>(null);const [org,setOrg]=useState<Organization|null>(null);
@@ -34,3 +34,4 @@ return <div className="app-frame">{mobile&&<button className="mobile-scrim" aria
 <Workspace view={view} token={token} principal={principal} organization={org} refreshKey={refreshKey} onMutation={onMutation} onError={onError}/>
 <footer className="page-footer"><span>OOSYS Platform Foundation</span><span>Tenant-scoped access · Secure by design</span></footer></main></div></div>;
 }
+

@@ -1,0 +1,149 @@
+"""Transport schemas for inventory master data and stock movements."""
+from datetime import datetime
+from decimal import Decimal
+from typing import Literal
+
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
+
+
+class CategoryCreate(BaseModel):
+    code: str = Field(min_length=1, max_length=60, pattern=r"^[A-Za-z0-9][A-Za-z0-9._-]*$")
+    name: str = Field(min_length=1, max_length=120)
+
+
+class CategoryOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: str
+    organization_id: str
+    code: str
+    name: str
+    archived_at: datetime | None
+
+
+class UnitCreate(BaseModel):
+    code: str = Field(min_length=1, max_length=24, pattern=r"^[A-Za-z0-9][A-Za-z0-9._-]*$")
+    name: str = Field(min_length=1, max_length=80)
+    decimal_places: int = Field(default=3, ge=0, le=6)
+
+
+class UnitOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: str
+    organization_id: str
+    code: str
+    name: str
+    decimal_places: int
+    archived_at: datetime | None
+
+
+class ProductCreate(BaseModel):
+    sku: str = Field(min_length=1, max_length=80, pattern=r"^[A-Za-z0-9][A-Za-z0-9._/-]*$")
+    name: str = Field(min_length=1, max_length=160)
+    description: str = Field(default="", max_length=1000)
+    category_id: str | None = Field(default=None, max_length=36)
+    unit_id: str = Field(min_length=1, max_length=36)
+    barcode: str | None = Field(default=None, min_length=1, max_length=120)
+    tracking_mode: Literal["none", "lot", "serial"] = "none"
+    cost_currency: str = Field(default="MYR", pattern=r"^[A-Za-z]{3}$")
+
+
+class ProductPatch(BaseModel):
+    name: str | None = Field(default=None, min_length=1, max_length=160)
+    description: str | None = Field(default=None, max_length=1000)
+    category_id: str | None = Field(default=None, max_length=36)
+    barcode: str | None = Field(default=None, min_length=1, max_length=120)
+
+
+class ProductOut(BaseModel):
+    id: str
+    organization_id: str
+    sku: str
+    name: str
+    description: str
+    category_id: str | None
+    unit_id: str
+    unit_code: str
+    unit_name: str
+    barcode: str | None
+    tracking_mode: str
+    cost_currency: str
+    average_cost: str
+    archived_at: datetime | None
+    created_at: datetime
+    updated_at: datetime
+
+
+class MovementCreate(BaseModel):
+    product_id: str = Field(min_length=1, max_length=36)
+    movement_type: Literal["receipt", "issue", "adjustment", "count", "reserve", "release"]
+    quantity: Decimal = Field(max_digits=20, decimal_places=6)
+    direction: Literal["increase", "decrease"] | None = None
+    unit_cost: Decimal | None = Field(default=None, max_digits=20, decimal_places=6)
+    idempotency_key: str = Field(min_length=8, max_length=100, pattern=r"^[A-Za-z0-9._:-]+$")
+    lot_code: str | None = Field(default=None, max_length=100)
+    serial_code: str | None = Field(default=None, max_length=100)
+    expires_at: datetime | None = None
+    note: str = Field(default="", max_length=500)
+
+    @field_validator("quantity", "unit_cost")
+    @classmethod
+    def finite_decimal(cls, value: Decimal | None) -> Decimal | None:
+        if value is not None and (not value.is_finite() or value < 0):
+            raise ValueError("Amount must be a finite, non-negative decimal")
+        return value
+
+    @model_validator(mode="after")
+    def movement_shape(self):
+        if self.movement_type == "count":
+            if self.direction is not None:
+                raise ValueError("A count supplies the observed on-hand quantity; direction is not used")
+        elif self.quantity <= 0:
+            raise ValueError("Movement quantity must be greater than zero")
+        if self.movement_type == "adjustment" and self.direction is None:
+            raise ValueError("Adjustment direction is required")
+        if self.movement_type != "adjustment" and self.direction is not None:
+            raise ValueError("Direction is only valid for an adjustment")
+        if self.movement_type != "receipt" and self.unit_cost is not None:
+            raise ValueError("Unit cost may only be supplied for a receipt")
+        return self
+
+
+class MovementOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True, coerce_numbers_to_str=True)
+    id: str
+    organization_id: str
+    product_id: str
+    movement_type: str
+    quantity_delta: str
+    reserved_delta: str
+    unit_cost: str | None
+    currency_code: str
+    idempotency_key: str
+    lot_code: str | None
+    serial_code: str | None
+    expires_at: datetime | None
+    note: str
+    actor_user_id: str
+    created_at: datetime
+
+
+class BalanceOut(BaseModel):
+    model_config = ConfigDict(coerce_numbers_to_str=True)
+    product_id: str
+    sku: str
+    product_name: str
+    unit_code: str
+    on_hand: str
+    reserved: str
+    available: str
+    average_cost: str
+    cost_currency: str
+    version: int
+
+
+class Page(BaseModel):
+    items: list
+    limit: int
+    offset: int
+
+

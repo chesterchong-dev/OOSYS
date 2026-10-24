@@ -16,6 +16,11 @@ PERMISSIONS: dict[str, str] = {
     "roles.update": "Update organization roles",
     "roles.archive": "Archive organization roles",
     "audit.read": "Read organization audit events",
+    "inventory.products.read": "View inventory products, categories and units",
+    "inventory.products.write": "Create and update inventory products, categories and units",
+    "inventory.stock.read": "View stock balances and movement history",
+    "inventory.stock.write": "Post stock movements, counts and reservations",
 }
 
 OWNER_PERMISSIONS = frozenset(PERMISSIONS)
+
