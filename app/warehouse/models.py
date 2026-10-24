@@ -165,3 +165,69 @@ class WarehouseReceiptLine(Base):
         Index("ix_warehouse_receipt_line_org_product", "organization_id", "product_id"),
     )
 
+
+class WarehousePutawayTask(Base):
+    """Move one fully received line from the receiving bay to an assigned location."""
+    __tablename__ = "warehouse_putaway_tasks"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=new_id)
+    organization_id: Mapped[str] = mapped_column(String(36), nullable=False)
+    warehouse_id: Mapped[str] = mapped_column(String(36), nullable=False)
+    receipt_id: Mapped[str] = mapped_column(String(36), nullable=False)
+    receipt_line_id: Mapped[str] = mapped_column(String(36), nullable=False)
+    product_id: Mapped[str] = mapped_column(String(36), nullable=False)
+    source_location_id: Mapped[str] = mapped_column(String(36), nullable=False)
+    destination_location_id: Mapped[str | None] = mapped_column(String(36))
+    quantity: Mapped[Decimal] = mapped_column(Numeric(20, 6), nullable=False)
+    lot_code: Mapped[str | None] = mapped_column(String(100))
+    serial_code: Mapped[str | None] = mapped_column(String(100))
+    expires_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    status: Mapped[str] = mapped_column(String(12), nullable=False, default="pending")
+    assigned_by_user_id: Mapped[str | None] = mapped_column(String(36))
+    completed_by_user_id: Mapped[str | None] = mapped_column(String(36))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    assigned_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+    __table_args__ = (
+        UniqueConstraint("organization_id", "id", name="uq_warehouse_putaway_task_org_id"),
+        UniqueConstraint("organization_id", "receipt_line_id", name="uq_warehouse_putaway_task_line"),
+        ForeignKeyConstraint(
+            ["organization_id", "warehouse_id"], ["warehouses.organization_id", "warehouses.id"],
+            ondelete="RESTRICT", name="fk_warehouse_putaway_task_warehouse_same_org",
+        ),
+        ForeignKeyConstraint(
+            ["organization_id", "receipt_id"], ["warehouse_receipts.organization_id", "warehouse_receipts.id"],
+            ondelete="RESTRICT", name="fk_warehouse_putaway_task_receipt_same_org",
+        ),
+        ForeignKeyConstraint(
+            ["organization_id", "receipt_line_id"],
+            ["warehouse_receipt_lines.organization_id", "warehouse_receipt_lines.id"],
+            ondelete="RESTRICT", name="fk_warehouse_putaway_task_line_same_org",
+        ),
+        ForeignKeyConstraint(
+            ["organization_id", "warehouse_id", "source_location_id"],
+            ["warehouse_locations.organization_id", "warehouse_locations.warehouse_id",
+             "warehouse_locations.id"],
+            ondelete="RESTRICT", name="fk_warehouse_putaway_source_same_warehouse",
+        ),
+        ForeignKeyConstraint(
+            ["organization_id", "warehouse_id", "destination_location_id"],
+            ["warehouse_locations.organization_id", "warehouse_locations.warehouse_id",
+             "warehouse_locations.id"],
+            ondelete="RESTRICT", name="fk_warehouse_putaway_destination_same_warehouse",
+        ),
+        CheckConstraint("quantity > 0", name="ck_warehouse_putaway_quantity_positive"),
+        CheckConstraint("status IN ('pending','assigned','completed')", name="ck_warehouse_putaway_status"),
+        CheckConstraint("lot_code IS NULL OR serial_code IS NULL", name="ck_warehouse_putaway_trace_unambiguous"),
+        CheckConstraint("expires_at IS NULL OR lot_code IS NOT NULL", name="ck_warehouse_putaway_expiry_requires_lot"),
+        CheckConstraint(
+            "(status = 'pending' AND destination_location_id IS NULL) OR "
+            "(status IN ('assigned','completed') AND destination_location_id IS NOT NULL)",
+            name="ck_warehouse_putaway_assignment_shape",
+        ),
+        CheckConstraint("destination_location_id IS NULL OR destination_location_id != source_location_id",
+                        name="ck_warehouse_putaway_distinct_locations"),
+        Index("ix_warehouse_putaway_org_status_created", "organization_id", "status", "created_at"),
+    )
+

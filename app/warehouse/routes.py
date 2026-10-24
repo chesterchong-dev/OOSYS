@@ -9,13 +9,15 @@ from sqlalchemy.orm import Session
 from app.identity.audit import record_event
 from app.identity.dependencies import Principal, get_identity_session, require_permission
 from app.identity.security import utc_now
-from app.inventory.contracts import post_warehouse_receipt_movement
+from app.inventory.contracts import (post_warehouse_putaway_transfer,
+                                     post_warehouse_receipt_movement)
 from app.warehouse.models import (Warehouse, WarehouseLocation, WarehouseReceipt,
-                                  WarehouseReceiptLine)
+                                  WarehouseReceiptLine, WarehousePutawayTask)
 from app.warehouse.schemas import (WarehouseCreate, WarehouseLocationCreate,
                                    WarehouseLocationOut, WarehouseLocationPatch,
                                    WarehouseOut, WarehousePatch, WarehouseReceiptCreate,
-                                   WarehouseReceiptOut)
+                                   WarehouseReceiptOut, WarehousePutawayAssign,
+                                   WarehousePutawayTaskOut)
 
 router = APIRouter(tags=["Warehouse"])
 
@@ -378,6 +380,19 @@ def post_receipt(organization_id: str, warehouse_id: str, receipt_id: str, reque
                 note=f"Receipt {receipt.receipt_number}: {receipt.note}"[:500],
                 correlation_id=request.headers.get("X-Request-ID"),
             )
+            db.add(WarehousePutawayTask(
+                organization_id=organization_id,
+                warehouse_id=warehouse_id,
+                receipt_id=receipt.id,
+                receipt_line_id=line.id,
+                product_id=line.product_id,
+                source_location_id=receipt.receiving_location_id,
+                quantity=line.quantity,
+                lot_code=line.lot_code,
+                serial_code=line.serial_code,
+                expires_at=line.expires_at,
+            ))
+        db.flush()
         receipt.status = "posted"
         receipt.posted_by_user_id = principal.user_id
         receipt.posted_at = utc_now()
@@ -390,6 +405,124 @@ def post_receipt(organization_id: str, warehouse_id: str, receipt_id: str, reque
     except IntegrityError as exc:
         db.rollback()
         raise HTTPException(409, "Receipt conflicts with a previous stock update") from exc
+    except HTTPException:
+        db.rollback()
+        raise
+    return result
+
+
+@router.get("/organizations/{organization_id}/warehouses/{warehouse_id}/putaway-tasks",
+            response_model=dict)
+def list_putaway_tasks(organization_id: str, warehouse_id: str,
+                       status: str | None = Query(default=None, pattern=r"^(pending|assigned|completed)$"),
+                       limit: int = Query(50, ge=1, le=100), offset: int = Query(0, ge=0),
+                       principal: Principal = Depends(require_permission("warehouse.putaway.read")),
+                       db: Session = Depends(get_identity_session)):
+    _scope(principal, organization_id)
+    _warehouse(db, organization_id, warehouse_id)
+    query = select(WarehousePutawayTask).where(
+        WarehousePutawayTask.organization_id == organization_id,
+        WarehousePutawayTask.warehouse_id == warehouse_id,
+    )
+    if status:
+        query = query.where(WarehousePutawayTask.status == status)
+    tasks = db.scalars(query.order_by(WarehousePutawayTask.created_at, WarehousePutawayTask.id)
+                       .offset(offset).limit(limit)).all()
+    return {"items": [WarehousePutawayTaskOut.model_validate(task).model_dump() for task in tasks],
+            "limit": limit, "offset": offset}
+
+
+@router.post("/organizations/{organization_id}/warehouses/{warehouse_id}/putaway-tasks/{task_id}/assign",
+             response_model=WarehousePutawayTaskOut)
+def assign_putaway_task(organization_id: str, warehouse_id: str, task_id: str,
+                        payload: WarehousePutawayAssign, request: Request,
+                        principal: Principal = Depends(require_permission("warehouse.putaway.write")),
+                        db: Session = Depends(get_identity_session)):
+    _scope(principal, organization_id)
+    task = db.scalar(select(WarehousePutawayTask).where(
+        WarehousePutawayTask.organization_id == organization_id,
+        WarehousePutawayTask.warehouse_id == warehouse_id,
+        WarehousePutawayTask.id == task_id,
+    ).with_for_update())
+    if task is None:
+        raise HTTPException(404, "Putaway task not found")
+    if task.status != "pending":
+        raise HTTPException(409, "Only pending putaway tasks can be assigned")
+    destination = _location(db, organization_id, warehouse_id, payload.destination_location_id)
+    if destination.id == task.source_location_id:
+        raise HTTPException(409, "Putaway source and destination must differ")
+    if destination.status != "active" or destination.location_type not in {"bin", "staging", "quarantine", "unassigned"}:
+        raise HTTPException(409, "Destination must be an active storage or handling location")
+    task.destination_location_id = destination.id
+    task.status = "assigned"
+    task.assigned_by_user_id = principal.user_id
+    task.assigned_at = utc_now()
+    record_event(db, action="warehouse.putaway.assign", target_type="warehouse_putaway_task",
+                 organization_id=organization_id, actor_user_id=principal.user_id,
+                 target_id=task.id, correlation_id=request.headers.get("X-Request-ID"),
+                 details={"destination_location_id": destination.id})
+    result = WarehousePutawayTaskOut.model_validate(task)
+    db.commit()
+    return result
+
+
+@router.post("/organizations/{organization_id}/warehouses/{warehouse_id}/putaway-tasks/{task_id}/complete",
+             response_model=WarehousePutawayTaskOut)
+def complete_putaway_task(organization_id: str, warehouse_id: str, task_id: str, request: Request,
+                          principal: Principal = Depends(require_permission("warehouse.putaway.write")),
+                          db: Session = Depends(get_identity_session)):
+    _scope(principal, organization_id)
+    task = db.scalar(select(WarehousePutawayTask).where(
+        WarehousePutawayTask.organization_id == organization_id,
+        WarehousePutawayTask.warehouse_id == warehouse_id,
+        WarehousePutawayTask.id == task_id,
+    ).with_for_update())
+    if task is None:
+        raise HTTPException(404, "Putaway task not found")
+    if task.status == "completed":
+        return WarehousePutawayTaskOut.model_validate(task)
+    if task.status != "assigned" or task.destination_location_id is None:
+        raise HTTPException(409, "Assign a destination before completing putaway")
+    source = _location(db, organization_id, warehouse_id, task.source_location_id)
+    destination = _location(db, organization_id, warehouse_id, task.destination_location_id)
+    if (source.status != "active" or destination.status != "active"
+            or destination.location_type not in {"bin", "staging", "quarantine", "unassigned"}):
+        raise HTTPException(409, "Putaway source and destination must remain active")
+    receipt_line = db.scalar(select(WarehouseReceiptLine).where(
+        WarehouseReceiptLine.organization_id == organization_id,
+        WarehouseReceiptLine.receipt_id == task.receipt_id,
+        WarehouseReceiptLine.id == task.receipt_line_id,
+    ))
+    if receipt_line is None:
+        raise HTTPException(409, "Putaway receipt line is unavailable")
+    try:
+        post_warehouse_putaway_transfer(
+            db, organization_id, principal.user_id,
+            product_id=task.product_id,
+            quantity=task.quantity,
+            source_location_id=task.source_location_id,
+            destination_location_id=task.destination_location_id,
+            operation_key=f"warehouse-putaway:{task.id}",
+            lot_code=task.lot_code,
+            serial_code=task.serial_code,
+            expires_at=task.expires_at,
+            note=f"Putaway for receipt line {receipt_line.id}",
+            correlation_id=request.headers.get("X-Request-ID"),
+        )
+        task.status = "completed"
+        task.completed_by_user_id = principal.user_id
+        task.completed_at = utc_now()
+        record_event(db, action="warehouse.putaway.complete", target_type="warehouse_putaway_task",
+                     organization_id=organization_id, actor_user_id=principal.user_id,
+                     target_id=task.id, correlation_id=request.headers.get("X-Request-ID"),
+                     details={"source_location_id": source.id,
+                              "destination_location_id": destination.id,
+                              "quantity": str(task.quantity)})
+        result = WarehousePutawayTaskOut.model_validate(task)
+        db.commit()
+    except IntegrityError as exc:
+        db.rollback()
+        raise HTTPException(409, "Putaway conflicts with a previous stock update") from exc
     except HTTPException:
         db.rollback()
         raise

@@ -40,3 +40,46 @@ def post_warehouse_receipt_movement(
     return post_movement(db, organization_id, actor_user_id, payload, correlation_id)
 
 
+def post_warehouse_putaway_transfer(
+    db: Session,
+    organization_id: str,
+    actor_user_id: str,
+    *,
+    product_id: str,
+    quantity: Decimal,
+    source_location_id: str,
+    destination_location_id: str,
+    operation_key: str,
+    lot_code: str | None = None,
+    serial_code: str | None = None,
+    expires_at: datetime | None = None,
+    note: str = "",
+    correlation_id: str | None = None,
+):
+    """Move stock between WMS locations with two ledger legs in one DB transaction."""
+    outgoing, _ = post_movement(db, organization_id, actor_user_id, MovementCreate(
+        product_id=product_id,
+        warehouse_location_id=source_location_id,
+        movement_type="issue",
+        quantity=quantity,
+        idempotency_key=f"{operation_key}:out",
+        lot_code=lot_code,
+        serial_code=serial_code,
+        expires_at=expires_at,
+        note=note,
+    ), correlation_id)
+    incoming, _ = post_movement(db, organization_id, actor_user_id, MovementCreate(
+        product_id=product_id,
+        warehouse_location_id=destination_location_id,
+        movement_type="receipt",
+        quantity=quantity,
+        unit_cost=outgoing.unit_cost,
+        idempotency_key=f"{operation_key}:in",
+        lot_code=lot_code,
+        serial_code=serial_code,
+        expires_at=expires_at,
+        note=note,
+    ), correlation_id)
+    return outgoing, incoming
+
+

@@ -255,3 +255,34 @@ class WarehouseReceiptOut(BaseModel):
     posted_at: datetime | None
     lines: list[WarehouseReceiptLineOut]
 
+
+class WarehousePutawayAssign(BaseModel):
+    destination_location_id: str = Field(min_length=1, max_length=36)
+
+
+class WarehousePutawayTaskOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True, coerce_numbers_to_str=True)
+    id: str
+    organization_id: str
+    warehouse_id: str
+    receipt_id: str
+    receipt_line_id: str
+    product_id: str
+    source_location_id: str
+    destination_location_id: str | None
+    quantity: str
+    lot_code: str | None
+    serial_code: str | None
+    expires_at: datetime | None
+    status: str
+    assigned_by_user_id: str | None
+    completed_by_user_id: str | None
+    created_at: datetime
+    assigned_at: datetime | None
+    completed_at: datetime | None
+
+    @field_validator("quantity", mode="before")
+    @classmethod
+    def fixed_task_quantity(cls, value: object) -> str:
+        return format(Decimal(value).quantize(Decimal("0.000001")), "f")
+

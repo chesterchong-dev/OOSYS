@@ -113,6 +113,12 @@ def test_inventory_rls_hides_other_organization_products():
                   "lines": [{"product_id": product_b["id"], "quantity": "1"}]},
         )
         assert receipt_a.status_code == receipt_b.status_code == 201
+        receipt_a_posted = client.post(
+            f"/api/v1/organizations/{first['organization']['id']}/warehouses/{warehouse_a['id']}"
+            f"/receipts/{receipt_a.json()['id']}/post",
+            headers={"Authorization": f"Bearer {first['access_token']}"},
+        )
+        assert receipt_a_posted.status_code == 200, receipt_a_posted.text
 
         # Exercise the PostgreSQL policy directly using the restricted app role,
         # bypassing the route's explicit organization check.
@@ -140,6 +146,10 @@ def test_inventory_rls_hides_other_organization_products():
                 "SELECT id FROM warehouse_receipts WHERE id IN (:a, :b) ORDER BY id"
             ), {"a": receipt_a.json()["id"], "b": receipt_b.json()["id"]}).scalars().all()
             assert visible_receipts == [receipt_a.json()["id"]]
+            visible_putaway = connection.execute(text(
+                "SELECT id FROM warehouse_putaway_tasks WHERE receipt_id = :receipt_id"
+            ), {"receipt_id": receipt_a.json()["id"]}).scalars().all()
+            assert len(visible_putaway) == 1
 
 
 def test_concurrent_inventory_receipts_preserve_balance_and_replay_once():

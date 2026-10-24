@@ -162,6 +162,9 @@ def test_warehouse_receipt_posts_once_to_inventory_location(tmp_path):
         location = run(request(app, "POST", f"{base}/warehouses/{warehouse['id']}/locations",
                                headers=headers, json={"code": "RECEIVE", "name": "Receiving bay",
                                                      "location_type": "receiving"})).json()
+        bin_location = run(request(app, "POST", f"{base}/warehouses/{warehouse['id']}/locations",
+                                   headers=headers, json={"code": "BIN-1", "name": "Storage bin",
+                                                         "location_type": "bin"})).json()
         receipt_payload = {
             "receiving_location_id": location["id"],
             "idempotency_key": "receipt-create-001",
@@ -193,15 +196,35 @@ def test_warehouse_receipt_posts_once_to_inventory_location(tmp_path):
         assert repeated_post.status_code == 200
         assert repeated_post.json()["id"] == receipt["id"]
 
+        task_page = run(request(app, "GET", f"{base}/warehouses/{warehouse['id']}/putaway-tasks?status=pending",
+                                headers=headers))
+        assert task_page.status_code == 200
+        task = task_page.json()["items"][0]
+        assert task["status"] == "pending"
+        assigned = run(request(app, "POST",
+                               f"{base}/warehouses/{warehouse['id']}/putaway-tasks/{task['id']}/assign",
+                               headers=headers, json={"destination_location_id": bin_location["id"]}))
+        assert assigned.status_code == 200
+        assert assigned.json()["status"] == "assigned"
+        putaway_url = f"{base}/warehouses/{warehouse['id']}/putaway-tasks/{task['id']}/complete"
+        completed = run(request(app, "POST", putaway_url, headers=headers))
+        assert completed.status_code == 200, completed.text
+        assert completed.json()["status"] == "completed"
+        replay_putaway = run(request(app, "POST", putaway_url, headers=headers))
+        assert replay_putaway.status_code == 200
+        assert replay_putaway.json()["id"] == task["id"]
+
         balances = run(request(app, "GET", f"{base}/inventory/location-balances?product_id={product['id']}",
                                headers=headers)).json()["items"]
-        assert len(balances) == 1
-        assert balances[0]["warehouse_location_id"] == location["id"]
-        assert balances[0]["on_hand"] == "5.000000"
+        by_location = {row["warehouse_location_id"]: row for row in balances}
+        assert by_location[location["id"]]["on_hand"] == "0.000000"
+        assert by_location[bin_location["id"]]["on_hand"] == "5.000000"
         movements = run(request(app, "GET", f"{base}/inventory/movements?product_id={product['id']}",
                                 headers=headers)).json()["items"]
-        assert len(movements) == 1
-        assert movements[0]["warehouse_location_id"] == location["id"]
+        assert len(movements) == 3
+        assert {movement["warehouse_location_id"] for movement in movements} == {
+            location["id"], bin_location["id"],
+        }
     finally:
         engine.dispose()
 
