@@ -61,6 +61,24 @@ def _product(client: TestClient, account: dict, sku: str) -> dict:
     return product.json()
 
 
+def _warehouse(client: TestClient, account: dict, code: str) -> tuple[dict, dict]:
+    organization_id = account["organization"]["id"]
+    headers = {"Authorization": f"Bearer {account['access_token']}"}
+    warehouse = client.post(
+        f"/api/v1/organizations/{organization_id}/warehouses",
+        headers=headers,
+        json={"code": code, "name": f"Warehouse {code}"},
+    )
+    assert warehouse.status_code == 201, warehouse.text
+    location = client.post(
+        f"/api/v1/organizations/{organization_id}/warehouses/{warehouse.json()['id']}/locations",
+        headers=headers,
+        json={"code": "RECEIVE-A", "name": "Receiving A", "location_type": "receiving"},
+    )
+    assert location.status_code == 201, location.text
+    return warehouse.json(), location.json()
+
+
 def _post_receipt(app, organization_id: str, token: str, product_id: str,
                   quantity: str, idempotency_key: str) -> tuple[int, dict]:
     with TestClient(app) as client:
@@ -80,6 +98,72 @@ def test_inventory_rls_hides_other_organization_products():
         second = _register(client, f"inv-b-{suffix}@example.com", f"inv-b-{suffix}")
         product_a = _product(client, first, f"A-{suffix}")
         product_b = _product(client, second, f"B-{suffix}")
+        warehouse_a, location_a = _warehouse(client, first, f"WA-{suffix}")
+        warehouse_b, location_b = _warehouse(client, second, f"WB-{suffix}")
+        receipt_a = client.post(
+            f"/api/v1/organizations/{first['organization']['id']}/warehouses/{warehouse_a['id']}/receipts",
+            headers={"Authorization": f"Bearer {first['access_token']}"},
+            json={"receiving_location_id": location_a["id"], "idempotency_key": f"rls-receipt-a-{suffix}",
+                  "lines": [{"product_id": product_a["id"], "quantity": "1"}]},
+        )
+        receipt_b = client.post(
+            f"/api/v1/organizations/{second['organization']['id']}/warehouses/{warehouse_b['id']}/receipts",
+            headers={"Authorization": f"Bearer {second['access_token']}"},
+            json={"receiving_location_id": location_b["id"], "idempotency_key": f"rls-receipt-b-{suffix}",
+                  "lines": [{"product_id": product_b["id"], "quantity": "1"}]},
+        )
+        assert receipt_a.status_code == receipt_b.status_code == 201
+        destination_a = client.post(
+            f"/api/v1/organizations/{first['organization']['id']}/warehouses/{warehouse_a['id']}/locations",
+            headers={"Authorization": f"Bearer {first['access_token']}"},
+            json={"code": "DEST-A", "name": "Destination A", "location_type": "bin"},
+        )
+        destination_b = client.post(
+            f"/api/v1/organizations/{second['organization']['id']}/warehouses/{warehouse_b['id']}/locations",
+            headers={"Authorization": f"Bearer {second['access_token']}"},
+            json={"code": "DEST-B", "name": "Destination B", "location_type": "bin"},
+        )
+        assert destination_a.status_code == destination_b.status_code == 201
+        transfer_a = client.post(
+            f"/api/v1/organizations/{first['organization']['id']}/warehouse-transfers",
+            headers={"Authorization": f"Bearer {first['access_token']}"},
+            json={"source_warehouse_id": warehouse_a["id"], "source_location_id": location_a["id"],
+                  "destination_warehouse_id": warehouse_a["id"],
+                  "destination_location_id": destination_a.json()["id"],
+                  "product_id": product_a["id"], "quantity": "1",
+                  "idempotency_key": f"rls-transfer-a-{suffix}"},
+        )
+        transfer_b = client.post(
+            f"/api/v1/organizations/{second['organization']['id']}/warehouse-transfers",
+            headers={"Authorization": f"Bearer {second['access_token']}"},
+            json={"source_warehouse_id": warehouse_b["id"], "source_location_id": location_b["id"],
+                  "destination_warehouse_id": warehouse_b["id"],
+                  "destination_location_id": destination_b.json()["id"],
+                  "product_id": product_b["id"], "quantity": "1",
+                  "idempotency_key": f"rls-transfer-b-{suffix}"},
+        )
+        assert transfer_a.status_code == transfer_b.status_code == 201
+        outbound_a = client.post(
+            f"/api/v1/organizations/{first['organization']['id']}/warehouses/{warehouse_a['id']}/outbound-orders",
+            headers={"Authorization": f"Bearer {first['access_token']}"},
+            json={"idempotency_key": f"rls-outbound-a-{suffix}",
+                  "lines": [{"product_id": product_a["id"],
+                             "source_location_id": destination_a.json()["id"], "quantity": "1"}]},
+        )
+        outbound_b = client.post(
+            f"/api/v1/organizations/{second['organization']['id']}/warehouses/{warehouse_b['id']}/outbound-orders",
+            headers={"Authorization": f"Bearer {second['access_token']}"},
+            json={"idempotency_key": f"rls-outbound-b-{suffix}",
+                  "lines": [{"product_id": product_b["id"],
+                             "source_location_id": destination_b.json()["id"], "quantity": "1"}]},
+        )
+        assert outbound_a.status_code == outbound_b.status_code == 201
+        receipt_a_posted = client.post(
+            f"/api/v1/organizations/{first['organization']['id']}/warehouses/{warehouse_a['id']}"
+            f"/receipts/{receipt_a.json()['id']}/post",
+            headers={"Authorization": f"Bearer {first['access_token']}"},
+        )
+        assert receipt_a_posted.status_code == 200, receipt_a_posted.text
 
         # Exercise the PostgreSQL policy directly using the restricted app role,
         # bypassing the route's explicit organization check.
@@ -95,6 +179,30 @@ def test_inventory_rls_hides_other_organization_products():
                 "WHERE product_id IN (:a, :b) ORDER BY product_id"
             ), {"a": product_a["id"], "b": product_b["id"]}).scalars().all()
             assert visible_barcodes == [product_a["id"]]
+            visible_warehouses = connection.execute(text(
+                "SELECT id FROM warehouses WHERE id IN (:a, :b) ORDER BY id"
+            ), {"a": warehouse_a["id"], "b": warehouse_b["id"]}).scalars().all()
+            assert visible_warehouses == [warehouse_a["id"]]
+            visible_locations = connection.execute(text(
+                "SELECT id FROM warehouse_locations WHERE id IN (:a, :b) ORDER BY id"
+            ), {"a": location_a["id"], "b": location_b["id"]}).scalars().all()
+            assert visible_locations == [location_a["id"]]
+            visible_receipts = connection.execute(text(
+                "SELECT id FROM warehouse_receipts WHERE id IN (:a, :b) ORDER BY id"
+            ), {"a": receipt_a.json()["id"], "b": receipt_b.json()["id"]}).scalars().all()
+            assert visible_receipts == [receipt_a.json()["id"]]
+            visible_putaway = connection.execute(text(
+                "SELECT id FROM warehouse_putaway_tasks WHERE receipt_id = :receipt_id"
+            ), {"receipt_id": receipt_a.json()["id"]}).scalars().all()
+            assert len(visible_putaway) == 1
+            visible_transfers = connection.execute(text(
+                "SELECT id FROM warehouse_transfers WHERE id IN (:a, :b) ORDER BY id"
+            ), {"a": transfer_a.json()["id"], "b": transfer_b.json()["id"]}).scalars().all()
+            assert visible_transfers == [transfer_a.json()["id"]]
+            visible_outbound = connection.execute(text(
+                "SELECT id FROM warehouse_outbound_orders WHERE id IN (:a, :b) ORDER BY id"
+            ), {"a": outbound_a.json()["id"], "b": outbound_b.json()["id"]}).scalars().all()
+            assert visible_outbound == [outbound_a.json()["id"]]
 
 
 def test_concurrent_inventory_receipts_preserve_balance_and_replay_once():

@@ -9,6 +9,7 @@ from sqlalchemy.orm import Session
 from app.identity.audit import record_event
 from app.inventory.models import InventoryMovement, InventoryProduct, InventoryStockBalance, InventoryUnit
 from app.inventory.schemas import MovementCreate, MovementReverse
+from app.warehouse.contracts import validate_inventory_location
 
 ZERO = Decimal("0")
 
@@ -37,6 +38,20 @@ def tracked_on_hand(db: Session, organization_id: str, product_id: str,
     if serial_code:
         return _tracked_quantity(db, organization_id, product_id, serial_code, "serial")
     return ZERO
+
+
+def _location_totals(db: Session, organization_id: str, product_id: str,
+                     location_id: str | None) -> tuple[Decimal, Decimal]:
+    row = db.execute(select(
+        func.coalesce(func.sum(InventoryMovement.quantity_delta), 0),
+        func.coalesce(func.sum(InventoryMovement.reserved_delta), 0),
+    ).where(
+        InventoryMovement.organization_id == organization_id,
+        InventoryMovement.product_id == product_id,
+        (InventoryMovement.warehouse_location_id.is_(None) if location_id is None
+         else InventoryMovement.warehouse_location_id == location_id),
+    )).one()
+    return Decimal(row[0] or 0), Decimal(row[1] or 0)
 
 
 def _tracked_reserved(db: Session, organization_id: str, product_id: str,
@@ -71,6 +86,14 @@ def post_movement(db: Session, organization_id: str, actor_user_id: str,
         raise HTTPException(404, "Product not found")
     if product.kind == "family":
         raise HTTPException(409, "Product family records cannot carry stock; use a stockable SKU variant")
+    if payload.movement_type == "count" and db.scalar(select(InventoryMovement.id).where(
+        InventoryMovement.organization_id == organization_id,
+        InventoryMovement.product_id == product.id,
+        InventoryMovement.warehouse_location_id.is_not(None),
+    ).limit(1)) is not None:
+        raise HTTPException(409, "Location-scoped stock counts are required for products with located stock")
+    if payload.warehouse_location_id is not None:
+        validate_inventory_location(db, organization_id, payload.warehouse_location_id)
     unit = db.get(InventoryUnit, product.unit_id)
     if unit is None:
         raise HTTPException(409, "Product unit of measure is unavailable")
@@ -142,6 +165,13 @@ def post_movement(db: Session, organization_id: str, actor_user_id: str,
             raise HTTPException(409, "Movement would make on-hand stock lower than reserved stock")
         if kind == "issue" and balance.on_hand - balance.reserved < payload.quantity:
             raise HTTPException(409, "Insufficient available stock")
+        location_on_hand, location_reserved = _location_totals(
+            db, organization_id, product.id, payload.warehouse_location_id,
+        )
+        if location_on_hand + on_hand_delta < location_reserved:
+            raise HTTPException(409, "Movement would reduce location stock below its reservation")
+        if kind == "issue" and location_on_hand - location_reserved < payload.quantity:
+            raise HTTPException(409, "Insufficient available stock at this location")
         if tracked_kind in {"lot", "serial"} and tracked_code:
             tracked_on_hand = _tracked_quantity(db, organization_id, product.id, tracked_code, tracked_kind)
             tracked_reserved = _tracked_reserved(db, organization_id, product.id, tracked_code, tracked_kind)
@@ -163,8 +193,19 @@ def post_movement(db: Session, organization_id: str, actor_user_id: str,
             tracked_reserved = _tracked_reserved(db, organization_id, product.id, tracked_code, tracked_kind)
             if tracked_on_hand - tracked_reserved < payload.quantity:
                 raise HTTPException(409, "Insufficient tracked stock to reserve")
+        location_on_hand, location_reserved = _location_totals(
+            db, organization_id, product.id, payload.warehouse_location_id,
+        )
+        if location_on_hand - location_reserved < payload.quantity:
+            raise HTTPException(409, "Insufficient available stock at this location to reserve")
     if kind == "release" and balance.reserved < payload.quantity:
         raise HTTPException(409, "Release quantity exceeds the reserved stock")
+    if kind == "release":
+        _location_on_hand, location_reserved = _location_totals(
+            db, organization_id, product.id, payload.warehouse_location_id,
+        )
+        if location_reserved < payload.quantity:
+            raise HTTPException(409, "Release quantity exceeds the reserved stock at this location")
     if kind == "release" and tracked_kind in {"lot", "serial"} and tracked_code:
         if _tracked_reserved(db, organization_id, product.id, tracked_code, tracked_kind) < payload.quantity:
             raise HTTPException(409, "Release quantity exceeds the tracked reservation")
@@ -199,6 +240,7 @@ def post_movement(db: Session, organization_id: str, actor_user_id: str,
         lot_code=payload.lot_code,
         serial_code=payload.serial_code,
         expires_at=payload.expires_at,
+        warehouse_location_id=payload.warehouse_location_id,
         note=payload.note.strip(),
         actor_user_id=actor_user_id,
     )
@@ -271,6 +313,14 @@ def reverse_movement(db: Session, organization_id: str, actor_user_id: str,
         raise HTTPException(409, "Stock balance is not initialized")
     delta = -source.quantity_delta
     reserved_delta = -source.reserved_delta
+    location_on_hand, location_reserved = _location_totals(
+        db, organization_id, source.product_id, source.warehouse_location_id,
+    )
+    location_next_on_hand = location_on_hand + delta
+    location_next_reserved = location_reserved + reserved_delta
+    if (location_next_on_hand < 0 or location_next_reserved < 0
+            or location_next_reserved > location_next_on_hand):
+        raise HTTPException(409, "Reversal would violate location on-hand or reserved stock")
     next_on_hand = balance.on_hand + delta
     next_reserved = balance.reserved + reserved_delta
     if next_on_hand < 0 or next_reserved < 0 or next_reserved > next_on_hand:
@@ -318,6 +368,7 @@ def reverse_movement(db: Session, organization_id: str, actor_user_id: str,
         lot_code=source.lot_code,
         serial_code=source.serial_code,
         expires_at=source.expires_at,
+        warehouse_location_id=source.warehouse_location_id,
         note=payload.note.strip(),
         actor_user_id=actor_user_id,
         reversal_of_movement_id=source.id,
@@ -342,3 +393,4 @@ def reverse_movement(db: Session, organization_id: str, actor_user_id: str,
 
 def kind_not_count(movement_type: str) -> bool:
     return movement_type != "count"
+

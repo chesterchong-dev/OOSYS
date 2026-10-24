@@ -124,6 +124,7 @@ class ProductOut(BaseModel):
 
 class MovementCreate(BaseModel):
     product_id: str = Field(min_length=1, max_length=36)
+    warehouse_location_id: str | None = Field(default=None, min_length=1, max_length=36)
     movement_type: Literal["receipt", "issue", "adjustment", "count", "reserve", "release"]
     quantity: Decimal = Field(max_digits=20, decimal_places=6)
     direction: Literal["increase", "decrease"] | None = None
@@ -171,6 +172,7 @@ class MovementOut(BaseModel):
     lot_code: str | None
     serial_code: str | None
     expires_at: datetime | None
+    warehouse_location_id: str | None
     note: str
     actor_user_id: str
     reversal_of_movement_id: str | None
@@ -319,4 +321,5 @@ class Page(BaseModel):
     items: list
     limit: int
     offset: int
+
 

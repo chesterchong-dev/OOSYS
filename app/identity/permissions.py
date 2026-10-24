@@ -23,6 +23,20 @@ PERMISSIONS: dict[str, str] = {
     "inventory.counts.read": "View inventory counts and variance history",
     "inventory.counts.write": "Create and submit inventory counts",
     "inventory.counts.approve": "Approve inventory count variances",
+    "warehouse.locations.read": "View warehouses and locations",
+    "warehouse.locations.write": "Create and update warehouses and locations",
+    "warehouse.receiving.read": "View warehouse receipts",
+    "warehouse.receiving.write": "Create and post warehouse receipts",
+    "warehouse.putaway.read": "View putaway tasks",
+    "warehouse.putaway.write": "Assign and complete putaway tasks",
+    "warehouse.transfers.read": "View warehouse transfers",
+    "warehouse.transfers.write": "Create, dispatch and receive warehouse transfers",
+    "warehouse.replenishment.read": "View warehouse replenishment tasks",
+    "warehouse.replenishment.write": "Create and complete warehouse replenishment tasks",
+    "warehouse.outbound.read": "View warehouse outbound orders",
+    "warehouse.outbound.write": "Create, reserve, pick, dispatch and cancel outbound orders",
+    "warehouse.packing.read": "View warehouse packages",
+    "warehouse.packing.write": "Pack and seal warehouse packages",
 }
 
 OWNER_PERMISSIONS = frozenset(PERMISSIONS)

@@ -108,6 +108,365 @@ def test_inventory_movement_pagination_is_stable_and_bounded(tmp_path):
         engine.dispose()
 
 
+def test_location_ledger_projection_keeps_legacy_stock_unlocated(tmp_path):
+    app, engine, _factory, org_id, headers, product = setup_inventory(tmp_path)
+    base = f"/api/v1/organizations/{org_id}"
+    try:
+        warehouse = run(request(app, "POST", f"{base}/warehouses", headers=headers,
+                                json={"code": "WH-LOC", "name": "Location test"})).json()
+        location = run(request(app, "POST", f"{base}/warehouses/{warehouse['id']}/locations",
+                               headers=headers, json={"code": "BIN-1", "name": "Bin 1",
+                                                     "location_type": "bin"})).json()
+        legacy = run(request(app, "POST", f"{base}/inventory/movements", headers=headers,
+                             json=movement(product["id"], "receipt", "3", "location-legacy")))
+        unavailable_at_location = run(request(
+            app, "POST", f"{base}/inventory/movements", headers=headers,
+            json=movement(product["id"], "issue", "1", "location-empty-issue",
+                          warehouse_location_id=location["id"]),
+        ))
+        assert unavailable_at_location.status_code == 409
+        located = run(request(app, "POST", f"{base}/inventory/movements", headers=headers,
+                              json=movement(product["id"], "receipt", "4", "location-known",
+                                            warehouse_location_id=location["id"])))
+        assert legacy.status_code == located.status_code == 200
+        assert located.json()["warehouse_location_id"] == location["id"]
+
+        projection = run(request(app, "GET", f"{base}/inventory/location-balances?product_id={product['id']}",
+                                 headers=headers))
+        assert projection.status_code == 200
+        rows = {row["warehouse_location_id"]: row for row in projection.json()["items"]}
+        assert rows[None]["unlocated"] is True
+        assert rows[None]["on_hand"] == "3.000000"
+        assert rows[location["id"]]["unlocated"] is False
+        assert rows[location["id"]]["on_hand"] == "4.000000"
+        aggregate = run(request(app, "GET", f"{base}/inventory/balances", headers=headers))
+        assert aggregate.json()["items"][0]["on_hand"] == "7.000000"
+
+        zone = run(request(app, "POST", f"{base}/warehouses/{warehouse['id']}/locations",
+                           headers=headers, json={"code": "ZONE-1", "name": "Zone 1",
+                                                 "location_type": "zone"})).json()
+        rejected = run(request(app, "POST", f"{base}/inventory/movements", headers=headers,
+                               json=movement(product["id"], "receipt", "1", "location-zone",
+                                             warehouse_location_id=zone["id"])))
+        assert rejected.status_code == 409
+    finally:
+        engine.dispose()
+
+
+def test_warehouse_receipt_posts_once_to_inventory_location(tmp_path):
+    app, engine, _factory, org_id, headers, product = setup_inventory(tmp_path)
+    base = f"/api/v1/organizations/{org_id}"
+    try:
+        warehouse = run(request(app, "POST", f"{base}/warehouses", headers=headers,
+                                json={"code": "WH-RECEIVE", "name": "Receiving warehouse"})).json()
+        location = run(request(app, "POST", f"{base}/warehouses/{warehouse['id']}/locations",
+                               headers=headers, json={"code": "RECEIVE", "name": "Receiving bay",
+                                                     "location_type": "receiving"})).json()
+        bin_location = run(request(app, "POST", f"{base}/warehouses/{warehouse['id']}/locations",
+                                   headers=headers, json={"code": "BIN-1", "name": "Storage bin",
+                                                         "location_type": "bin"})).json()
+        receipt_payload = {
+            "receiving_location_id": location["id"],
+            "idempotency_key": "receipt-create-001",
+            "source_reference": "PO-EXTERNAL-17",
+            "note": "Initial receipt",
+            "lines": [{"product_id": product["id"], "quantity": "5", "unit_cost": "2.50"}],
+        }
+        created = run(request(app, "POST", f"{base}/warehouses/{warehouse['id']}/receipts",
+                              headers=headers, json=receipt_payload))
+        assert created.status_code == 201, created.text
+        receipt = created.json()
+        assert receipt["status"] == "draft"
+        assert receipt["lines"][0]["quantity"] == "5.000000"
+
+        replay = run(request(app, "POST", f"{base}/warehouses/{warehouse['id']}/receipts",
+                             headers=headers, json=receipt_payload))
+        assert replay.status_code == 201
+        assert replay.json()["id"] == receipt["id"]
+        conflict_payload = {**receipt_payload, "note": "Different request"}
+        conflict = run(request(app, "POST", f"{base}/warehouses/{warehouse['id']}/receipts",
+                               headers=headers, json=conflict_payload))
+        assert conflict.status_code == 409
+
+        post_url = f"{base}/warehouses/{warehouse['id']}/receipts/{receipt['id']}/post"
+        posted = run(request(app, "POST", post_url, headers=headers))
+        assert posted.status_code == 200, posted.text
+        assert posted.json()["status"] == "posted"
+        repeated_post = run(request(app, "POST", post_url, headers=headers))
+        assert repeated_post.status_code == 200
+        assert repeated_post.json()["id"] == receipt["id"]
+
+        task_page = run(request(app, "GET", f"{base}/warehouses/{warehouse['id']}/putaway-tasks?status=pending",
+                                headers=headers))
+        assert task_page.status_code == 200
+        task = task_page.json()["items"][0]
+        assert task["status"] == "pending"
+        assigned = run(request(app, "POST",
+                               f"{base}/warehouses/{warehouse['id']}/putaway-tasks/{task['id']}/assign",
+                               headers=headers, json={"destination_location_id": bin_location["id"]}))
+        assert assigned.status_code == 200
+        assert assigned.json()["status"] == "assigned"
+        putaway_url = f"{base}/warehouses/{warehouse['id']}/putaway-tasks/{task['id']}/complete"
+        completed = run(request(app, "POST", putaway_url, headers=headers))
+        assert completed.status_code == 200, completed.text
+        assert completed.json()["status"] == "completed"
+        replay_putaway = run(request(app, "POST", putaway_url, headers=headers))
+        assert replay_putaway.status_code == 200
+        assert replay_putaway.json()["id"] == task["id"]
+
+        balances = run(request(app, "GET", f"{base}/inventory/location-balances?product_id={product['id']}",
+                               headers=headers)).json()["items"]
+        by_location = {row["warehouse_location_id"]: row for row in balances}
+        assert by_location[location["id"]]["on_hand"] == "0.000000"
+        assert by_location[bin_location["id"]]["on_hand"] == "5.000000"
+        movements = run(request(app, "GET", f"{base}/inventory/movements?product_id={product['id']}",
+                                headers=headers)).json()["items"]
+        assert len(movements) == 3
+        assert {movement["warehouse_location_id"] for movement in movements} == {
+            location["id"], bin_location["id"],
+        }
+    finally:
+        engine.dispose()
+
+
+def test_warehouse_transfer_tracks_in_transit_stock_and_receives_once(tmp_path):
+    app, engine, _factory, org_id, headers, product = setup_inventory(tmp_path)
+    base = f"/api/v1/organizations/{org_id}"
+    try:
+        locations = []
+        for code in ("SOURCE", "DEST"):
+            warehouse = run(request(app, "POST", f"{base}/warehouses", headers=headers,
+                                    json={"code": f"WH-{code}", "name": f"{code} warehouse"})).json()
+            location = run(request(app, "POST", f"{base}/warehouses/{warehouse['id']}/locations",
+                                   headers=headers, json={"code": f"{code}-BIN", "name": f"{code} bin",
+                                                         "location_type": "bin"})).json()
+            locations.append((warehouse, location))
+        (source_warehouse, source), (destination_warehouse, destination) = locations
+        receipt = run(request(app, "POST", f"{base}/inventory/movements", headers=headers,
+                              json=movement(product["id"], "receipt", "4", "transfer-source-stock",
+                                            warehouse_location_id=source["id"])))
+        assert receipt.status_code == 200
+        create_payload = {
+            "source_warehouse_id": source_warehouse["id"], "source_location_id": source["id"],
+            "destination_warehouse_id": destination_warehouse["id"],
+            "destination_location_id": destination["id"],
+            "product_id": product["id"], "quantity": "3",
+            "idempotency_key": "transfer-create-001", "external_reference": "MOVE-EXT-1",
+        }
+        created = run(request(app, "POST", f"{base}/warehouse-transfers", headers=headers,
+                              json=create_payload))
+        assert created.status_code == 201, created.text
+        transfer = created.json()
+        dispatch_url = f"{base}/warehouse-transfers/{transfer['id']}/dispatch"
+        dispatched = run(request(app, "POST", dispatch_url, headers=headers))
+        assert dispatched.status_code == 200, dispatched.text
+        transit_id = dispatched.json()["in_transit_location_id"]
+        assert dispatched.json()["status"] == "in_transit"
+
+        interim = run(request(app, "GET", f"{base}/inventory/location-balances?product_id={product['id']}",
+                              headers=headers)).json()["items"]
+        interim_by_location = {row["warehouse_location_id"]: row for row in interim}
+        assert interim_by_location[source["id"]]["on_hand"] == "1.000000"
+        assert interim_by_location[transit_id]["on_hand"] == "3.000000"
+        assert run(request(app, "GET", f"{base}/inventory/balances", headers=headers)).json()["items"][0]["on_hand"] == "4.000000"
+
+        receive_url = f"{base}/warehouse-transfers/{transfer['id']}/receive"
+        received = run(request(app, "POST", receive_url, headers=headers))
+        assert received.status_code == 200, received.text
+        assert received.json()["status"] == "received"
+        replay = run(request(app, "POST", receive_url, headers=headers))
+        assert replay.status_code == 200
+        assert replay.json()["id"] == transfer["id"]
+
+        final = run(request(app, "GET", f"{base}/inventory/location-balances?product_id={product['id']}",
+                            headers=headers)).json()["items"]
+        final_by_location = {row["warehouse_location_id"]: row for row in final}
+        assert final_by_location[source["id"]]["on_hand"] == "1.000000"
+        assert final_by_location[transit_id]["on_hand"] == "0.000000"
+        assert final_by_location[destination["id"]]["on_hand"] == "3.000000"
+        assert run(request(app, "GET", f"{base}/inventory/balances", headers=headers)).json()["items"][0]["on_hand"] == "4.000000"
+        ledger = run(request(app, "GET", f"{base}/inventory/movements?product_id={product['id']}",
+                             headers=headers)).json()["items"]
+        assert len(ledger) == 5
+    finally:
+        engine.dispose()
+
+
+def test_warehouse_replenishment_moves_reserve_stock_to_pick_bin_once(tmp_path):
+    app, engine, _factory, org_id, headers, product = setup_inventory(tmp_path)
+    base = f"/api/v1/organizations/{org_id}"
+    try:
+        warehouse = run(request(app, "POST", f"{base}/warehouses", headers=headers,
+                                json={"code": "REPLENISH", "name": "Replenishment warehouse"})).json()
+        def create_location(code, location_type):
+            response = run(request(app, "POST", f"{base}/warehouses/{warehouse['id']}/locations",
+                                   headers=headers,
+                                   json={"code": code, "name": code, "location_type": location_type}))
+            assert response.status_code == 201, response.text
+            return response.json()
+
+        receiving = create_location("RECEIVE", "receiving")
+        reserve = create_location("RESERVE", "bin")
+        pick_face = create_location("PICK-FACE", "bin")
+        receipt = run(request(app, "POST", f"{base}/warehouses/{warehouse['id']}/receipts",
+                              headers=headers, json={
+            "receiving_location_id": receiving["id"], "idempotency_key": "repl-rct-01",
+            "lines": [{"product_id": product["id"], "quantity": "5"}],
+        }))
+        assert receipt.status_code == 201, receipt.text
+        assert run(request(app, "POST", f"{base}/warehouses/{warehouse['id']}/receipts/"
+                                         f"{receipt.json()['id']}/post", headers=headers)).status_code == 200
+        putaway = run(request(app, "GET", f"{base}/warehouses/{warehouse['id']}/putaway-tasks",
+                              headers=headers)).json()["items"][0]
+        assert run(request(app, "POST", f"{base}/warehouses/{warehouse['id']}/putaway-tasks/"
+                                         f"{putaway['id']}/assign", headers=headers,
+                   json={"destination_location_id": reserve["id"]})).status_code == 200
+        moved_to_reserve = run(request(app, "POST", f"{base}/warehouses/{warehouse['id']}/putaway-tasks/"
+                                                   f"{putaway['id']}/complete", headers=headers))
+        assert moved_to_reserve.status_code == 200, moved_to_reserve.text
+
+        task_payload = {
+            "product_id": product["id"], "source_location_id": reserve["id"],
+            "destination_location_id": pick_face["id"], "quantity": "3",
+            "idempotency_key": "replenishment-task-01",
+        }
+        task_url = f"{base}/warehouses/{warehouse['id']}/replenishment-tasks"
+        task_response = run(request(app, "POST", task_url, headers=headers, json=task_payload))
+        assert task_response.status_code == 201, task_response.text
+        task = task_response.json()
+        assert task["status"] == "pending"
+        replay_create = run(request(app, "POST", task_url, headers=headers, json=task_payload))
+        assert replay_create.status_code == 201
+        assert replay_create.json()["id"] == task["id"]
+
+        complete_url = f"{task_url}/{task['id']}/complete"
+        completed = run(request(app, "POST", complete_url, headers=headers))
+        assert completed.status_code == 200, completed.text
+        assert completed.json()["status"] == "completed"
+        replay_complete = run(request(app, "POST", complete_url, headers=headers))
+        assert replay_complete.status_code == 200
+        assert replay_complete.json()["id"] == task["id"]
+
+        balances = run(request(app, "GET", f"{base}/inventory/location-balances?product_id={product['id']}",
+                               headers=headers)).json()["items"]
+        by_location = {row["warehouse_location_id"]: row["on_hand"] for row in balances}
+        assert by_location[reserve["id"]] == "2.000000"
+        assert by_location[pick_face["id"]] == "3.000000"
+        assert sum(Decimal(value) for value in by_location.values()) == Decimal("5")
+    finally:
+        engine.dispose()
+
+
+def test_warehouse_outbound_reserves_picks_packs_and_dispatches_once(tmp_path):
+    app, engine, _factory, org_id, headers, product = setup_inventory(tmp_path)
+    base = f"/api/v1/organizations/{org_id}"
+    try:
+        warehouse = run(request(app, "POST", f"{base}/warehouses", headers=headers,
+                                json={"code": "OUTBOUND", "name": "Outbound warehouse"})).json()
+        def create_location(code, location_type):
+            response = run(request(app, "POST", f"{base}/warehouses/{warehouse['id']}/locations",
+                                   headers=headers,
+                                   json={"code": code, "name": code, "location_type": location_type}))
+            assert response.status_code == 201, response.text
+            return response.json()
+
+        receiving = create_location("RECEIVE", "receiving")
+        pick_bin = create_location("PICK", "bin")
+        receipt = run(request(app, "POST", f"{base}/warehouses/{warehouse['id']}/receipts",
+                              headers=headers, json={
+            "receiving_location_id": receiving["id"], "idempotency_key": "out-rct-01",
+            "lines": [{"product_id": product["id"], "quantity": "5"}],
+        }))
+        assert receipt.status_code == 201, receipt.text
+        posted = run(request(app, "POST", f"{base}/warehouses/{warehouse['id']}/receipts/"
+                                           f"{receipt.json()['id']}/post", headers=headers))
+        assert posted.status_code == 200, posted.text
+        putaway = run(request(app, "GET", f"{base}/warehouses/{warehouse['id']}/putaway-tasks",
+                              headers=headers)).json()["items"][0]
+        assert run(request(app, "POST", f"{base}/warehouses/{warehouse['id']}/putaway-tasks/"
+                                         f"{putaway['id']}/assign", headers=headers,
+                   json={"destination_location_id": pick_bin["id"]})).status_code == 200
+        assert run(request(app, "POST", f"{base}/warehouses/{warehouse['id']}/putaway-tasks/"
+                                         f"{putaway['id']}/complete", headers=headers)).status_code == 200
+
+        order_url = f"{base}/warehouses/{warehouse['id']}/outbound-orders"
+        order_payload = {"idempotency_key": "out-key-01", "external_reference": "SO-900",
+                         "lines": [{"product_id": product["id"], "source_location_id": pick_bin["id"],
+                                    "quantity": "3"}]}
+        created = run(request(app, "POST", order_url, headers=headers, json=order_payload))
+        assert created.status_code == 201, created.text
+        order = created.json()
+        assert order["status"] == "draft"
+        line_id = order["lines"][0]["id"]
+        replay_create = run(request(app, "POST", order_url, headers=headers, json=order_payload))
+        assert replay_create.status_code == 201
+        assert replay_create.json()["id"] == order["id"]
+
+        order_path = f"{order_url}/{order['id']}"
+        reserved = run(request(app, "POST", f"{order_path}/reserve", headers=headers))
+        assert reserved.status_code == 200, reserved.text
+        assert reserved.json()["status"] == "reserved"
+        balances = run(request(app, "GET", f"{base}/inventory/location-balances?product_id={product['id']}",
+                               headers=headers)).json()["items"]
+        by_location = {row["warehouse_location_id"]: row for row in balances}
+        assert by_location[pick_bin["id"]]["on_hand"] == "5.000000"
+        assert by_location[pick_bin["id"]]["reserved"] == "3.000000"
+
+        picked = run(request(app, "POST", f"{order_path}/pick", headers=headers))
+        assert picked.status_code == 200, picked.text
+        assert picked.json()["status"] == "picked"
+        shipping_location_id = picked.json()["shipping_location_id"]
+        pick_replay = run(request(app, "POST", f"{order_path}/pick", headers=headers))
+        assert pick_replay.status_code == 200
+        assert pick_replay.json()["shipping_location_id"] == shipping_location_id
+
+        package_url = f"{order_path}/packages"
+        package_payload = {"idempotency_key": "outbound-package-01",
+                           "lines": [{"order_line_id": line_id, "quantity": "3"}]}
+        package = run(request(app, "POST", package_url, headers=headers, json=package_payload))
+        assert package.status_code == 201, package.text
+        package_body = package.json()
+        package_replay = run(request(app, "POST", package_url, headers=headers, json=package_payload))
+        assert package_replay.status_code == 201
+        assert package_replay.json()["id"] == package_body["id"]
+        overpack = run(request(app, "POST", package_url, headers=headers, json={
+            "idempotency_key": "outbound-package-02", "lines": [{"order_line_id": line_id, "quantity": "1"}],
+        }))
+        assert overpack.status_code == 409
+
+        sealed = run(request(app, "POST", f"{package_url}/{package_body['id']}/seal", headers=headers))
+        assert sealed.status_code == 200, sealed.text
+        assert run(request(app, "GET", order_path, headers=headers)).json()["status"] == "packed"
+        dispatch_url = f"{order_path}/dispatch"
+        dispatched = run(request(app, "POST", dispatch_url, headers=headers))
+        assert dispatched.status_code == 200, dispatched.text
+        assert dispatched.json()["status"] == "dispatched"
+        dispatch_replay = run(request(app, "POST", dispatch_url, headers=headers))
+        assert dispatch_replay.status_code == 200
+        assert dispatch_replay.json()["status"] == "dispatched"
+
+        cancel_payload = {"idempotency_key": "out-cxl-01", "lines": [
+            {"product_id": product["id"], "source_location_id": pick_bin["id"], "quantity": "2"},
+        ]}
+        cancelled_order = run(request(app, "POST", order_url, headers=headers, json=cancel_payload))
+        assert cancelled_order.status_code == 201, cancelled_order.text
+        cancelled_path = f"{order_url}/{cancelled_order.json()['id']}"
+        assert run(request(app, "POST", f"{cancelled_path}/reserve", headers=headers)).status_code == 200
+        cancelled = run(request(app, "POST", f"{cancelled_path}/cancel", headers=headers))
+        assert cancelled.status_code == 200, cancelled.text
+        assert cancelled.json()["status"] == "cancelled"
+        assert run(request(app, "POST", f"{cancelled_path}/cancel", headers=headers)).status_code == 200
+
+        balances = run(request(app, "GET", f"{base}/inventory/location-balances?product_id={product['id']}",
+                               headers=headers)).json()["items"]
+        by_location = {row["warehouse_location_id"]: row for row in balances}
+        assert by_location[pick_bin["id"]]["on_hand"] == "2.000000"
+        assert by_location[pick_bin["id"]]["reserved"] == "0.000000"
+        assert by_location[shipping_location_id]["on_hand"] == "0.000000"
+    finally:
+        engine.dispose()
+
+
 def test_product_barcodes_are_tenant_unique_searchable_and_managed_safely(tmp_path):
     app, engine, factory, org_id, headers, product = setup_inventory(tmp_path)
     base = f"/api/v1/organizations/{org_id}/inventory"
