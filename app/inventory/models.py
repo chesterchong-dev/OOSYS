@@ -159,12 +159,15 @@ class InventoryCount(Base):
 
 
 class InventoryCountLine(Base):
-    """Observed quantity and version snapshot for one product in a count."""
+    """Observed quantity and version snapshot for one product or tracked item."""
     __tablename__ = "inventory_count_lines"
     id: Mapped[str] = mapped_column(String(36), primary_key=True, default=new_id)
     organization_id: Mapped[str] = mapped_column(String(36), nullable=False)
     count_id: Mapped[str] = mapped_column(String(36), nullable=False)
     product_id: Mapped[str] = mapped_column(String(36), nullable=False)
+    lot_code: Mapped[str | None] = mapped_column(String(100))
+    serial_code: Mapped[str | None] = mapped_column(String(100))
+    expires_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     expected_on_hand: Mapped[Decimal] = mapped_column(Numeric(20, 6), nullable=False)
     counted_quantity: Mapped[Decimal] = mapped_column(Numeric(20, 6), nullable=False)
     balance_version: Mapped[int] = mapped_column(nullable=False)
@@ -172,10 +175,13 @@ class InventoryCountLine(Base):
     reason_note: Mapped[str] = mapped_column(String(300), nullable=False, default="")
     __table_args__ = (
         UniqueConstraint("organization_id", "id", name="uq_inventory_count_line_org_id"),
-        UniqueConstraint("organization_id", "count_id", "product_id", name="uq_inventory_count_line_product"),
+        UniqueConstraint("organization_id", "count_id", "product_id", "lot_code", name="uq_inventory_count_line_lot"),
+        UniqueConstraint("organization_id", "count_id", "product_id", "serial_code", name="uq_inventory_count_line_serial"),
         ForeignKeyConstraint(["organization_id", "count_id"], ["inventory_counts.organization_id", "inventory_counts.id"], ondelete="RESTRICT", name="fk_inventory_count_line_count_same_org"),
         ForeignKeyConstraint(["organization_id", "product_id"], ["inventory_products.organization_id", "inventory_products.id"], ondelete="RESTRICT", name="fk_inventory_count_line_product_same_org"),
         CheckConstraint("expected_on_hand >= 0 AND counted_quantity >= 0", name="ck_inventory_count_line_quantities_nonnegative"),
+        CheckConstraint("lot_code IS NULL OR serial_code IS NULL", name="ck_inventory_count_line_one_trace_code"),
         CheckConstraint("reason_code IN ('no_variance','damage','loss','found','data_correction','other')", name="ck_inventory_count_line_reason"),
         Index("ix_inventory_count_line_org_count", "organization_id", "count_id"),
     )
+
