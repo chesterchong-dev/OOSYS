@@ -247,3 +247,86 @@ def test_inventory_count_rejects_stale_stock_snapshot(tmp_path):
         assert balance["on_hand"] == "1.000000"
     finally:
         engine.dispose()
+
+
+def test_traced_count_supports_multiple_lots_serials_and_full_stocktake_validation(tmp_path):
+    app, engine, _factory, org_id, headers, product = setup_inventory(tmp_path)
+    base = f"/api/v1/organizations/{org_id}/inventory"
+    try:
+        lot_product = run(request(app, "POST", f"{base}/products", headers=headers, json={
+            "sku": "LOT-100", "name": "Lot tracked item", "unit_id": product["unit_id"],
+            "tracking_mode": "lot",
+        })).json()
+        serial_product = run(request(app, "POST", f"{base}/products", headers=headers, json={
+            "sku": "SER-100", "name": "Serialized item", "unit_id": product["unit_id"],
+            "tracking_mode": "serial",
+        })).json()
+        for lot_code, quantity in (("LOT-A", "4"), ("LOT-B", "3")):
+            received = run(request(app, "POST", f"{base}/movements", headers=headers, json=movement(
+                lot_product["id"], "receipt", quantity, f"receive-{lot_code}", lot_code=lot_code,
+            )))
+            assert received.status_code == 200
+        serial_receipt = run(request(app, "POST", f"{base}/movements", headers=headers, json=movement(
+            serial_product["id"], "receipt", "1", "receive-SN-100", serial_code="SN-100",
+        )))
+        assert serial_receipt.status_code == 200
+
+        count = run(request(app, "POST", f"{base}/counts", headers=headers, json={
+            "count_type": "cycle", "note": "Trace-code recount", "lines": [
+                {"product_id": lot_product["id"], "lot_code": "LOT-A", "counted_quantity": "3",
+                 "reason_code": "damage"},
+                {"product_id": lot_product["id"], "lot_code": "LOT-B", "counted_quantity": "3",
+                 "reason_code": "no_variance"},
+                {"product_id": serial_product["id"], "serial_code": "SN-100", "counted_quantity": "0",
+                 "reason_code": "loss"},
+            ],
+        }))
+        assert count.status_code == 201, count.text
+        count_body = count.json()
+        assert len(count_body["lines"]) == 3
+        expected_by_trace = {line["lot_code"] or line["serial_code"]: line["expected_on_hand"]
+                             for line in count_body["lines"]}
+        assert expected_by_trace == {"LOT-A": "4.000000", "LOT-B": "3.000000", "SN-100": "1.000000"}
+        assert run(request(app, "POST", f"{base}/counts/{count_body['id']}/submit", headers=headers)).status_code == 200
+
+        other = run(request(app, "POST", "/api/v1/auth/register",
+                            json=register_payload("trace-approver@example.com", "trace-approver"))).json()
+        role = run(request(app, "POST", f"/api/v1/organizations/{org_id}/roles", headers=headers,
+                           json={"name": "Trace count approver", "permissions": [
+                               "inventory.counts.read", "inventory.counts.approve"]})).json()
+        run(request(app, "POST", f"/api/v1/organizations/{org_id}/members", headers=headers,
+                    json={"user_id": other["user"]["id"], "role_id": role["id"]}))
+        login = run(request(app, "POST", "/api/v1/auth/login", json={
+            "email": "trace-approver@example.com", "password": "a-strong-password-123",
+            "organization_id": org_id,
+        })).json()
+        approver_headers = {"Authorization": f"Bearer {login['access_token']}"}
+        approved = run(request(app, "POST", f"{base}/counts/{count_body['id']}/approve",
+                               headers=approver_headers))
+        assert approved.status_code == 200, approved.text
+        assert approved.json()["status"] == "approved"
+        balances = run(request(app, "GET", f"{base}/balances", headers=headers)).json()["items"]
+        by_product = {row["product_id"]: row["on_hand"] for row in balances}
+        assert by_product[lot_product["id"]] == "6.000000"
+        assert by_product[serial_product["id"]] == "0.000000"
+
+        incomplete = run(request(app, "POST", f"{base}/counts", headers=headers, json={
+            "count_type": "full_stocktake", "lines": [
+                {"product_id": product["id"], "counted_quantity": "0", "reason_code": "no_variance"},
+                {"product_id": lot_product["id"], "lot_code": "LOT-A", "counted_quantity": "3", "reason_code": "no_variance"},
+            ],
+        }))
+        assert incomplete.status_code == 422
+
+        full = run(request(app, "POST", f"{base}/counts", headers=headers, json={
+            "count_type": "full_stocktake", "lines": [
+                {"product_id": product["id"], "counted_quantity": "0", "reason_code": "no_variance"},
+                {"product_id": lot_product["id"], "lot_code": "LOT-A", "counted_quantity": "3", "reason_code": "no_variance"},
+                {"product_id": lot_product["id"], "lot_code": "LOT-B", "counted_quantity": "3", "reason_code": "no_variance"},
+            ],
+        }))
+        assert full.status_code == 201, full.text
+        assert full.json()["count_type"] == "full_stocktake"
+    finally:
+        engine.dispose()
+
