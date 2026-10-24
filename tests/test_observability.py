@@ -59,6 +59,32 @@ def test_structured_logs_do_not_include_query_or_auth_headers(monkeypatch) -> No
     assert parsed["path"] == "/health"
 
 
+def test_structured_logs_use_route_templates_and_hide_unmatched_paths(monkeypatch) -> None:
+    from app.core import observability
+
+    captured: list[str] = []
+    monkeypatch.setattr(observability._logger, "log", lambda _level, message: captured.append(message))
+    application = create_app(Settings(_env_file=None))
+
+    @application.get("/organizations/{organization_id}/users/{user_id}")
+    def read_user(organization_id: str, user_id: str) -> dict[str, str]:
+        return {"organization_id": organization_id, "user_id": user_id}
+
+    asgi_get(application, "/organizations/org-private-123/users/user-private-456")
+    asgi_get(application, "/unmatched/private-token-789")
+
+    entries = [json.loads(message) for message in captured]
+    matched = next(entry for entry in entries if entry["status_code"] == 200)
+    unmatched = next(entry for entry in entries if entry["status_code"] == 404)
+    assert matched["path"] == "/organizations/{organization_id}/users/{user_id}"
+    assert unmatched["path"] == "<unmatched>"
+    assert all(
+        secret not in message
+        for message in captured
+        for secret in ("org-private-123", "user-private-456", "private-token-789")
+    )
+
+
 def test_cors_wildcard_and_path_origins_are_rejected() -> None:
     import pytest
     from pydantic import ValidationError
@@ -112,3 +138,4 @@ def test_metrics_cannot_be_enabled_without_a_long_token() -> None:
 
     with pytest.raises(ValidationError):
         Settings(metrics_enabled=True, metrics_token="short", _env_file=None)
+
