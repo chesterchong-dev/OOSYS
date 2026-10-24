@@ -5,8 +5,6 @@ on:
     branches:
       - phase-00-02-starter
   pull_request:
-    branches:
-      - phase-00-02-starter
   workflow_dispatch:
 
 permissions:
