@@ -19,7 +19,7 @@ The phase deliberately keeps liveness and readiness response bodies unchanged, d
 
 | Requirement | Change / verification evidence | Status |
 |---|---|---|
-| Structured logs and request correlation | `app/core/observability.py` emits JSON method/path/status/request-id/duration logs. Query strings, headers and bodies are excluded. Unsafe IDs are replaced; the normalized ID is returned and passed downstream. `tests/test_observability.py` verifies propagation and redaction. | Implemented; backend CI passed |
+| Structured logs and request correlation | `app/core/observability.py` emits JSON method/route-template/status/request-id/duration logs. Dynamic path values, query strings, headers and bodies are excluded. Unmatched paths use a fixed marker. Unsafe IDs are replaced; the normalized ID is returned and passed downstream. `tests/test_observability.py` verifies propagation and redaction. | Implemented; backend CI passed |
 | Safe unexpected errors | Existing generic HTTP 500 contract retained. No exception strings or sensitive header/body data are put in the request log. Earlier logger-capture test failure was fixed by spying on the logger deterministically. | Implemented; backend CI passed |
 | Health and readiness | Existing `/health` and `/health/ready` contract preserved; readiness continues to return 503 on unavailable/unconfigured database. | Existing, regression CI passed |
 | Metrics hooks | Bounded process-local counters/duration aggregates; no path, tenant, query or user labels. `/metrics` hidden and disabled by default; token-gated with constant-time compare and minimum token length when enabled. Tests verify disabled-by-default, token denial, and aggregate labels. | Implemented; backend CI passed; production metrics topology not verified |
@@ -163,3 +163,4 @@ Acceptance gaps remain partial:
 - RPO ≤15 minutes and RTO ≤4 hours are proposed targets only until approved and measured.
 
 No shared API/database/permission/event contract changed. No database migration was introduced. The CI restore uses synthetic data in a disposable database and does not close production recovery gaps.
+
