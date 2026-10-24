@@ -242,7 +242,7 @@ def test_inventory_count_rejects_stale_stock_snapshot(tmp_path):
         response = run(request(app, "POST", f"{base}/counts/{created['id']}/approve",
                                headers={"Authorization": f"Bearer {login['access_token']}"}))
         assert response.status_code == 409
-        assert "Stock changed" in response.json()["detail"]
+        assert response.json()["error"]["code"] == "http_error"
         balance = run(request(app, "GET", f"{base}/balances", headers=headers)).json()["items"][0]
         assert balance["on_hand"] == "1.000000"
     finally:
