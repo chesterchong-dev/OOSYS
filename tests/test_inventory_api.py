@@ -341,6 +341,11 @@ def test_serial_tracking_requires_unique_in_stock_serial_and_one_unit(tmp_path):
 def test_inventory_is_tenant_scoped_and_permission_checked(tmp_path):
     app, engine, factory, org_id, headers, product = setup_inventory(tmp_path)
     try:
+        original_receipt = run(request(
+            app, "POST", f"/api/v1/organizations/{org_id}/inventory/movements", headers=headers,
+            json=movement(product["id"], "receipt", "2", "tenant-reversal-source"),
+        ))
+        assert original_receipt.status_code == 200
         other = run(request(app, "POST", "/api/v1/auth/register",
                             json=register_payload("other-stock@example.com", "other-stock-org"))).json()
         other_headers = {"Authorization": f"Bearer {other['access_token']}"}
@@ -351,6 +356,13 @@ def test_inventory_is_tenant_scoped_and_permission_checked(tmp_path):
         cross_tenant_reconciliation = run(request(
             app, "GET", f"/api/v1/organizations/{other_org}/inventory/reconciliation", headers=headers))
         assert cross_tenant_reconciliation.status_code == 404
+        cross_tenant_reversal = run(request(
+            app, "POST",
+            f"/api/v1/organizations/{other_org}/inventory/movements/{original_receipt.json()['id']}/reverse",
+            headers=other_headers,
+            json={"idempotency_key": "tenant-reversal", "note": "Cross-tenant attempt"},
+        ))
+        assert cross_tenant_reversal.status_code == 404
 
         limited = run(request(app, "POST", f"/api/v1/organizations/{org_id}/roles", headers=headers,
                               json={"name": "Inventory reader", "permissions": ["inventory.products.read"]}))
@@ -372,6 +384,13 @@ def test_inventory_is_tenant_scoped_and_permission_checked(tmp_path):
             app, "GET", f"/api/v1/organizations/{org_id}/inventory/reconciliation",
             headers=reader_headers))
         assert reconciliation_denied.status_code == 403
+        reversal_denied = run(request(
+            app, "POST",
+            f"/api/v1/organizations/{org_id}/inventory/movements/{original_receipt.json()['id']}/reverse",
+            headers=reader_headers,
+            json={"idempotency_key": "reader-reversal", "note": "Permission check"},
+        ))
+        assert reversal_denied.status_code == 403
     finally:
         engine.dispose()
 
