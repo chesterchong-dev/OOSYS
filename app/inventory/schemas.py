@@ -164,6 +164,9 @@ class BalanceOut(BaseModel):
 
 class InventoryCountLineCreate(BaseModel):
     product_id: str = Field(min_length=1, max_length=36)
+    lot_code: str | None = Field(default=None, min_length=1, max_length=100)
+    serial_code: str | None = Field(default=None, min_length=1, max_length=100)
+    expires_at: datetime | None = None
     counted_quantity: Decimal = Field(max_digits=20, decimal_places=6)
     reason_code: Literal["no_variance", "damage", "loss", "found", "data_correction", "other"] = "no_variance"
     reason_note: str = Field(default="", max_length=300)
@@ -182,6 +185,14 @@ class InventoryCountLineCreate(BaseModel):
             raise ValueError("A note is required when the reason is 'other'")
         return value.strip()
 
+    @model_validator(mode="after")
+    def trace_code_is_unambiguous(self):
+        if self.lot_code and self.serial_code:
+            raise ValueError("A count line can identify a lot or serial, not both")
+        if self.expires_at and not self.lot_code:
+            raise ValueError("Expiry date requires a lot code")
+        return self
+
 
 class InventoryCountCreate(BaseModel):
     count_type: Literal["cycle", "full_stocktake"] = "cycle"
@@ -189,16 +200,22 @@ class InventoryCountCreate(BaseModel):
     lines: list[InventoryCountLineCreate] = Field(min_length=1, max_length=500)
 
     @model_validator(mode="after")
-    def unique_products(self):
-        product_ids = [line.product_id for line in self.lines]
-        if len(product_ids) != len(set(product_ids)):
-            raise ValueError("Each product can appear only once in a count")
+    def unique_count_targets(self):
+        targets = [(line.product_id, line.lot_code, line.serial_code) for line in self.lines]
+        if len(targets) != len(set(targets)):
+            raise ValueError("Each product or tracked item can appear only once in a count")
+        untracked_products = [target[0] for target in targets if target[1] is None and target[2] is None]
+        if len(untracked_products) != len(set(untracked_products)):
+            raise ValueError("An untracked product can appear only once in a count")
         return self
 
 
 class InventoryCountLineOut(BaseModel):
     id: str
     product_id: str
+    lot_code: str | None
+    serial_code: str | None
+    expires_at: datetime | None
     expected_on_hand: str
     counted_quantity: str
     variance: str
@@ -232,4 +249,5 @@ class Page(BaseModel):
     items: list
     limit: int
     offset: int
+
 
