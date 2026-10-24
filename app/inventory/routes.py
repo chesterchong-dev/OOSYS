@@ -270,7 +270,8 @@ def _count_out(db: Session, count: InventoryCount) -> InventoryCountOut:
     lines = db.scalars(select(InventoryCountLine).where(
         InventoryCountLine.organization_id == count.organization_id,
         InventoryCountLine.count_id == count.id,
-    ).order_by(InventoryCountLine.product_id)).all()
+    ).order_by(InventoryCountLine.product_id, InventoryCountLine.lot_code,
+               InventoryCountLine.serial_code)).all()
     return InventoryCountOut(
         id=count.id, organization_id=count.organization_id, count_number=count.count_number,
         count_type=count.count_type, status=count.status, note=count.note,
