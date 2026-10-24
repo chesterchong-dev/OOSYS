@@ -208,4 +208,3 @@ def post_movement(db: Session, organization_id: str, actor_user_id: str,
 
 def kind_not_count(movement_type: str) -> bool:
     return movement_type != "count"
-

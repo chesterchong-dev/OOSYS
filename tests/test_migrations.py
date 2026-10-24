@@ -103,4 +103,3 @@ def test_migration_fails_closed_without_database_url(monkeypatch) -> None:
     config.set_main_option("sqlalchemy.url", "")
     with pytest.raises(RuntimeError, match="OOSYS_DATABASE_URL"):
         command.upgrade(config, "head")
-

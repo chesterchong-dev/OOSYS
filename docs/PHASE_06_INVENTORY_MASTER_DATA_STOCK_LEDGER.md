@@ -30,4 +30,3 @@ The frontend provides unit/category setup, product creation, stock posting, bala
 - Cloud deployment, real monitoring/alert delivery, production backups/restores, independent security testing, staged rollback, and pilot data remain Phase 05 operational gates. No cloud resource is required for current development.
 - Cost accounting integration, conversion between units, multi-currency valuation, warehouse locations, transfers, serial/lot lifecycle screens, and vendor/customer workflows are outside this phase's bounded slice unless a mapped acceptance criterion requires them.
 - Do not accept the phase until its full mapped scope and tests are complete and the crosswalk/register are reconciled with evidence.
-

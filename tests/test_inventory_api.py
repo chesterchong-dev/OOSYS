@@ -151,4 +151,3 @@ def test_inventory_is_tenant_scoped_and_permission_checked(tmp_path):
         assert denied.status_code == 403
     finally:
         engine.dispose()
-

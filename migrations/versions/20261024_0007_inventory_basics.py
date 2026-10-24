@@ -157,4 +157,3 @@ def downgrade() -> None:
     op.drop_table("inventory_units")
     op.drop_index("ix_inventory_category_org_name", table_name="inventory_categories")
     op.drop_table("inventory_categories")
-

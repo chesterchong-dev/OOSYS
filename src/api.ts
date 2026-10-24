@@ -55,4 +55,3 @@ export const api={
  inventoryMovements:(t:string,id:string,p?:string)=>request<Page<InventoryMovement>>(orgPath(id)+"/inventory/movements?limit=100"+(p?"&product_id="+encodeURIComponent(p):""),t),
  createInventoryMovement:(t:string,id:string,b:{product_id:string;movement_type:"receipt"|"issue"|"adjustment"|"count"|"reserve"|"release";quantity:string;direction?:"increase"|"decrease";unit_cost?:string;idempotency_key:string;lot_code?:string;serial_code?:string;expires_at?:string;note?:string})=>request<InventoryMovement>(orgPath(id)+"/inventory/movements",t,{method:"POST",body:JSON.stringify(b)})
 };
-

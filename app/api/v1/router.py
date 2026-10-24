@@ -8,4 +8,3 @@ from app.inventory.routes import router as inventory_router
 
 router.include_router(identity_router)
 router.include_router(inventory_router)
-

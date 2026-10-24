@@ -146,4 +146,3 @@ class Page(BaseModel):
     limit: int
     offset: int
 
-

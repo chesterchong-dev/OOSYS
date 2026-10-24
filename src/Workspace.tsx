@@ -12,4 +12,3 @@ export function Workspace({view,token,principal,organization,refreshKey,onMutati
 const shared={token,principal,organization,refreshKey,onMutation,onError};
 switch(view){case "overview":return <Overview token={token} principal={principal} organization={organization} refreshKey={refreshKey} onNavigate={v=>window.dispatchEvent(new CustomEvent("oosys:navigate",{detail:v}))}/>;case "members":return <Members {...shared}/>;case "roles":return <Roles {...shared}/>;case "organization":return <OrganizationSettings {...shared}/>;case "structure":return <Structure {...shared}/>;case "audit":return <Audit token={token} organization={organization} refreshKey={refreshKey}/>;case "profile":return <Profile token={token} principal={principal} onError={onError}/>;case "inventory":return <Inventory {...shared}/>;}
 }
-

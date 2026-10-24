@@ -132,4 +132,3 @@ class InventoryMovement(Base):
         Index("ix_inventory_movement_org_lot", "organization_id", "product_id", "lot_code"),
         Index("ix_inventory_movement_org_serial", "organization_id", "product_id", "serial_code"),
     )
-

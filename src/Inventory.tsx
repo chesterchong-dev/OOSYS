@@ -43,4 +43,3 @@ export function Inventory({token,principal,organization,refreshKey,onMutation,on
  </>}
  </>;
 }
-

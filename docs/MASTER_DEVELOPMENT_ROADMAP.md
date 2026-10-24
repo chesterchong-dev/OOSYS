@@ -86,4 +86,3 @@ At the product owner's direction, continue Phase 06 and later business-module im
 - A passing CI run verifies only the commit and checks actually run; documentation-only CI does not prove new application behaviour.
 
 
-

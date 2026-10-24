@@ -23,4 +23,3 @@ PERMISSIONS: dict[str, str] = {
 }
 
 OWNER_PERMISSIONS = frozenset(PERMISSIONS)
-

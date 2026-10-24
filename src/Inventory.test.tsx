@@ -37,4 +37,3 @@ describe("Inventory screen",()=>{
   expect(api.inventoryBalances).not.toHaveBeenCalled();
  });
 });
-

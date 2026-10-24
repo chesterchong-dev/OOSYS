@@ -34,4 +34,3 @@ return <div className="app-frame">{mobile&&<button className="mobile-scrim" aria
 <Workspace view={view} token={token} principal={principal} organization={org} refreshKey={refreshKey} onMutation={onMutation} onError={onError}/>
 <footer className="page-footer"><span>OOSYS Platform Foundation</span><span>Tenant-scoped access · Secure by design</span></footer></main></div></div>;
 }
-

@@ -259,4 +259,3 @@ def list_balances(organization_id: str, limit: int = Query(50, ge=1, le=100), of
         average_cost=str(p.average_cost), cost_currency=p.cost_currency, version=b.version,
     ).model_dump() for b, p, u in rows]
     return {"items": items, "limit": limit, "offset": offset}
-
