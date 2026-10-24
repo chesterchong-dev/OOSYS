@@ -29,6 +29,16 @@ def _tracked_quantity(db: Session, organization_id: str, product_id: str,
     return Decimal(value or 0)
 
 
+def tracked_on_hand(db: Session, organization_id: str, product_id: str,
+                    lot_code: str | None, serial_code: str | None) -> Decimal:
+    """Return on-hand for one trace code, or the product total when untracked."""
+    if lot_code:
+        return _tracked_quantity(db, organization_id, product_id, lot_code, "lot")
+    if serial_code:
+        return _tracked_quantity(db, organization_id, product_id, serial_code, "serial")
+    return ZERO
+
+
 def _tracked_reserved(db: Session, organization_id: str, product_id: str,
                       tracking_code: str, column: str) -> Decimal:
     field = InventoryMovement.lot_code if column == "lot" else InventoryMovement.serial_code
@@ -209,3 +219,4 @@ def post_movement(db: Session, organization_id: str, actor_user_id: str,
 
 def kind_not_count(movement_type: str) -> bool:
     return movement_type != "count"
+
