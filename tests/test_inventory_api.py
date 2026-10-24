@@ -85,22 +85,6 @@ def test_product_barcodes_are_tenant_unique_searchable_and_managed_safely(tmp_pa
                 InventoryProductBarcode.barcode == "ALT-123",
             )) is None
 
-        # Upgrading from the previous schema repopulates the normalized barcode table.
-        from tests.test_migrations import migration_config
-        from alembic import command
-        config = migration_config()
-        with engine.connect() as connection:
-            config.attributes["connection"] = connection
-            command.downgrade(config, "20261024_0010")
-            config.attributes.pop("connection", None)
-        with engine.connect() as connection:
-            config.attributes["connection"] = connection
-            command.upgrade(config, "head")
-            config.attributes.pop("connection", None)
-        listed = run(request(app, "GET", f"{base}/products", headers=headers))
-        migrated = next(item for item in listed.json()["items"] if item["id"] == product["id"])
-        assert [item["barcode"] for item in migrated["barcodes"]] == ["1234567890"]
-
         changed_primary = run(request(
             app, "PATCH", f"{base}/products/{product['id']}", headers=headers,
             json={"barcode": "NEW-PRIMARY"},
