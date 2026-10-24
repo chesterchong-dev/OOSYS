@@ -20,6 +20,9 @@ PERMISSIONS: dict[str, str] = {
     "inventory.products.write": "Create and update inventory products, categories and units",
     "inventory.stock.read": "View stock balances and movement history",
     "inventory.stock.write": "Post stock movements, counts and reservations",
+    "inventory.counts.read": "View inventory counts and variance history",
+    "inventory.counts.write": "Create and submit inventory counts",
+    "inventory.counts.approve": "Approve inventory count variances",
 }
 
 OWNER_PERMISSIONS = frozenset(PERMISSIONS)

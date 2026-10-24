@@ -132,3 +132,50 @@ class InventoryMovement(Base):
         Index("ix_inventory_movement_org_lot", "organization_id", "product_id", "lot_code"),
         Index("ix_inventory_movement_org_serial", "organization_id", "product_id", "serial_code"),
     )
+
+
+class InventoryCount(Base):
+    """A submitted count awaiting a separate authorized approval."""
+    __tablename__ = "inventory_counts"
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=new_id)
+    organization_id: Mapped[str] = mapped_column(String(36), nullable=False)
+    count_number: Mapped[str] = mapped_column(String(40), nullable=False)
+    count_type: Mapped[str] = mapped_column(String(20), nullable=False)
+    status: Mapped[str] = mapped_column(String(16), nullable=False, default="draft")
+    note: Mapped[str] = mapped_column(String(500), nullable=False, default="")
+    created_by_user_id: Mapped[str] = mapped_column(String(36), nullable=False)
+    submitted_by_user_id: Mapped[str | None] = mapped_column(String(36))
+    approved_by_user_id: Mapped[str | None] = mapped_column(String(36))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    submitted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    approved_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    __table_args__ = (
+        UniqueConstraint("organization_id", "id", name="uq_inventory_count_org_id"),
+        UniqueConstraint("organization_id", "count_number", name="uq_inventory_count_org_number"),
+        CheckConstraint("count_type IN ('cycle','full_stocktake')", name="ck_inventory_count_type"),
+        CheckConstraint("status IN ('draft','submitted','approved','rejected')", name="ck_inventory_count_status"),
+        Index("ix_inventory_count_org_status_created", "organization_id", "status", "created_at"),
+    )
+
+
+class InventoryCountLine(Base):
+    """Observed quantity and version snapshot for one product in a count."""
+    __tablename__ = "inventory_count_lines"
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=new_id)
+    organization_id: Mapped[str] = mapped_column(String(36), nullable=False)
+    count_id: Mapped[str] = mapped_column(String(36), nullable=False)
+    product_id: Mapped[str] = mapped_column(String(36), nullable=False)
+    expected_on_hand: Mapped[Decimal] = mapped_column(Numeric(20, 6), nullable=False)
+    counted_quantity: Mapped[Decimal] = mapped_column(Numeric(20, 6), nullable=False)
+    balance_version: Mapped[int] = mapped_column(nullable=False)
+    reason_code: Mapped[str] = mapped_column(String(24), nullable=False)
+    reason_note: Mapped[str] = mapped_column(String(300), nullable=False, default="")
+    __table_args__ = (
+        UniqueConstraint("organization_id", "id", name="uq_inventory_count_line_org_id"),
+        UniqueConstraint("organization_id", "count_id", "product_id", name="uq_inventory_count_line_product"),
+        ForeignKeyConstraint(["organization_id", "count_id"], ["inventory_counts.organization_id", "inventory_counts.id"], ondelete="RESTRICT", name="fk_inventory_count_line_count_same_org"),
+        ForeignKeyConstraint(["organization_id", "product_id"], ["inventory_products.organization_id", "inventory_products.id"], ondelete="RESTRICT", name="fk_inventory_count_line_product_same_org"),
+        CheckConstraint("expected_on_hand >= 0 AND counted_quantity >= 0", name="ck_inventory_count_line_quantities_nonnegative"),
+        CheckConstraint("reason_code IN ('no_variance','damage','loss','found','data_correction','other')", name="ck_inventory_count_line_reason"),
+        Index("ix_inventory_count_line_org_count", "organization_id", "count_id"),
+    )

@@ -1,6 +1,7 @@
 """Versioned inventory master-data and stock-ledger HTTP endpoints."""
 from datetime import datetime, timezone
 from decimal import Decimal
+from uuid import uuid4
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from sqlalchemy import select, or_
@@ -10,11 +11,13 @@ from sqlalchemy.orm import Session
 from app.identity.audit import record_event
 from app.identity.dependencies import Principal, get_identity_session, require_permission
 from app.identity.security import utc_now
-from app.inventory.models import (InventoryCategory, InventoryMovement, InventoryProduct,
-                                  InventoryStockBalance, InventoryUnit)
+from app.inventory.models import (InventoryCategory, InventoryCount, InventoryCountLine,
+                                  InventoryMovement, InventoryProduct, InventoryStockBalance,
+                                  InventoryUnit)
 from app.inventory.schemas import (BalanceOut, CategoryCreate, CategoryOut, MovementCreate,
-                                  MovementOut, ProductCreate, ProductOut, ProductPatch,
-                                  UnitCreate, UnitOut)
+                                  InventoryCountCreate, InventoryCountLineOut, InventoryCountOut,
+                                  MovementOut, ProductCreate, ProductOut, ProductPatch, UnitCreate,
+                                  UnitOut)
 from app.inventory.service import post_movement
 
 router = APIRouter(tags=["Inventory"])
@@ -215,6 +218,8 @@ def create_movement(organization_id: str, payload: MovementCreate, request: Requ
                     principal: Principal = Depends(require_permission("inventory.stock.write")),
                     db: Session = Depends(get_identity_session)):
     _scope(principal, organization_id)
+    if payload.movement_type == "count":
+        raise HTTPException(409, "Stock counts must be submitted and approved through the inventory count workflow")
     try:
         movement, _created = post_movement(db, organization_id, principal.user_id, payload,
                                            request.headers.get("X-Request-ID"))
@@ -259,3 +264,211 @@ def list_balances(organization_id: str, limit: int = Query(50, ge=1, le=100), of
         average_cost=str(p.average_cost), cost_currency=p.cost_currency, version=b.version,
     ).model_dump() for b, p, u in rows]
     return {"items": items, "limit": limit, "offset": offset}
+
+
+def _count_out(db: Session, count: InventoryCount) -> InventoryCountOut:
+    lines = db.scalars(select(InventoryCountLine).where(
+        InventoryCountLine.organization_id == count.organization_id,
+        InventoryCountLine.count_id == count.id,
+    ).order_by(InventoryCountLine.product_id)).all()
+    return InventoryCountOut(
+        id=count.id, organization_id=count.organization_id, count_number=count.count_number,
+        count_type=count.count_type, status=count.status, note=count.note,
+        created_by_user_id=count.created_by_user_id,
+        submitted_by_user_id=count.submitted_by_user_id,
+        approved_by_user_id=count.approved_by_user_id,
+        created_at=count.created_at, submitted_at=count.submitted_at,
+        approved_at=count.approved_at,
+        lines=[InventoryCountLineOut(
+            id=line.id, product_id=line.product_id, expected_on_hand=line.expected_on_hand,
+            counted_quantity=line.counted_quantity,
+            variance=line.counted_quantity - line.expected_on_hand,
+            balance_version=line.balance_version, reason_code=line.reason_code,
+            reason_note=line.reason_note,
+        ) for line in lines],
+    )
+
+
+@router.get("/organizations/{organization_id}/inventory/counts", response_model=dict)
+def list_counts(organization_id: str, limit: int = Query(50, ge=1, le=100), offset: int = Query(0, ge=0),
+                principal: Principal = Depends(require_permission("inventory.counts.read")),
+                db: Session = Depends(get_identity_session)):
+    _scope(principal, organization_id)
+    counts = db.scalars(select(InventoryCount).where(
+        InventoryCount.organization_id == organization_id,
+    ).order_by(InventoryCount.created_at.desc(), InventoryCount.id.desc())
+        .offset(offset).limit(limit)).all()
+    return {"items": [_count_out(db, count).model_dump() for count in counts],
+            "limit": limit, "offset": offset}
+
+
+@router.post("/organizations/{organization_id}/inventory/counts", response_model=InventoryCountOut, status_code=201)
+def create_count(organization_id: str, payload: InventoryCountCreate, request: Request,
+                 principal: Principal = Depends(require_permission("inventory.counts.write")),
+                 db: Session = Depends(get_identity_session)):
+    _scope(principal, organization_id)
+    products = db.scalars(select(InventoryProduct).where(
+        InventoryProduct.organization_id == organization_id,
+        InventoryProduct.id.in_([line.product_id for line in payload.lines]),
+        InventoryProduct.archived_at.is_(None),
+    )).all()
+    product_by_id = {product.id: product for product in products}
+    if len(product_by_id) != len(payload.lines):
+        raise HTTPException(422, "Every counted product must be active in this organisation")
+    if any(product.tracking_mode != "none" for product in products):
+        raise HTTPException(422, "Lot- and serial-tracked products need a trace-specific count")
+
+    if payload.count_type == "full_stocktake":
+        all_products = db.scalars(select(InventoryProduct).where(
+            InventoryProduct.organization_id == organization_id,
+            InventoryProduct.archived_at.is_(None),
+        )).all()
+        if any(product.tracking_mode != "none" for product in all_products):
+            raise HTTPException(422, "A full stocktake must include trace-specific counts for tracked products")
+        if {product.id for product in all_products} != set(product_by_id):
+            raise HTTPException(422, "A full stocktake must include every active product")
+
+    product_ids = sorted(product_by_id)
+    balances = db.scalars(select(InventoryStockBalance).where(
+        InventoryStockBalance.organization_id == organization_id,
+        InventoryStockBalance.product_id.in_(product_ids),
+    ).order_by(InventoryStockBalance.product_id)).all()
+    balance_by_product = {balance.product_id: balance for balance in balances}
+    if len(balance_by_product) != len(product_by_id):
+        raise HTTPException(409, "A product stock balance is not initialized")
+    units = {unit.id: unit for unit in db.scalars(select(InventoryUnit).where(
+        InventoryUnit.organization_id == organization_id,
+        InventoryUnit.id.in_([product.unit_id for product in products]),
+    )).all()}
+
+    count_id = str(uuid4())
+    count = InventoryCount(
+        id=count_id, organization_id=organization_id,
+        count_number=f"IC-{uuid4().hex[:12].upper()}", count_type=payload.count_type,
+        status="draft", note=payload.note.strip(), created_by_user_id=principal.user_id,
+    )
+    db.add(count)
+    for submitted_line in payload.lines:
+        product = product_by_id[submitted_line.product_id]
+        unit = units.get(product.unit_id)
+        if unit is None:
+            raise HTTPException(409, "A product unit of measure is unavailable")
+        quantum = Decimal("1").scaleb(-unit.decimal_places)
+        if submitted_line.counted_quantity.quantize(quantum) != submitted_line.counted_quantity:
+            raise HTTPException(422, f"This unit allows up to {unit.decimal_places} decimal places")
+        balance = balance_by_product[product.id]
+        has_variance = submitted_line.counted_quantity != balance.on_hand
+        if has_variance == (submitted_line.reason_code == "no_variance"):
+            raise HTTPException(422, "Provide a variance reason only when the counted quantity differs")
+        db.add(InventoryCountLine(
+            organization_id=organization_id, count_id=count.id, product_id=product.id,
+            expected_on_hand=balance.on_hand, counted_quantity=submitted_line.counted_quantity,
+            balance_version=balance.version, reason_code=submitted_line.reason_code,
+            reason_note=submitted_line.reason_note,
+        ))
+    db.flush()
+    record_event(db, action="inventory.count.create", target_type="inventory_count",
+                 organization_id=organization_id, actor_user_id=principal.user_id,
+                 target_id=count.id, correlation_id=request.headers.get("X-Request-ID"),
+                 details={"count_number": count.count_number, "count_type": count.count_type,
+                          "line_count": len(payload.lines)})
+    db.commit()
+    return _count_out(db, count)
+
+
+@router.post("/organizations/{organization_id}/inventory/counts/{count_id}/submit", response_model=InventoryCountOut)
+def submit_count(organization_id: str, count_id: str, request: Request,
+                 principal: Principal = Depends(require_permission("inventory.counts.write")),
+                 db: Session = Depends(get_identity_session)):
+    _scope(principal, organization_id)
+    count = db.scalar(select(InventoryCount).where(
+        InventoryCount.organization_id == organization_id, InventoryCount.id == count_id,
+    ).with_for_update())
+    if count is None:
+        raise HTTPException(404, "Count not found")
+    if count.status != "draft":
+        raise HTTPException(409, "Only a draft count can be submitted")
+    count.status = "submitted"
+    count.submitted_by_user_id = principal.user_id
+    count.submitted_at = utc_now()
+    record_event(db, action="inventory.count.submit", target_type="inventory_count",
+                 organization_id=organization_id, actor_user_id=principal.user_id,
+                 target_id=count.id, correlation_id=request.headers.get("X-Request-ID"))
+    db.flush()
+    result = _count_out(db, count)
+    db.commit()
+    return result
+
+
+@router.post("/organizations/{organization_id}/inventory/counts/{count_id}/approve", response_model=InventoryCountOut)
+def approve_count(organization_id: str, count_id: str, request: Request,
+                  principal: Principal = Depends(require_permission("inventory.counts.approve")),
+                  db: Session = Depends(get_identity_session)):
+    _scope(principal, organization_id)
+    count = db.scalar(select(InventoryCount).where(
+        InventoryCount.organization_id == organization_id, InventoryCount.id == count_id,
+    ).with_for_update())
+    if count is None:
+        raise HTTPException(404, "Count not found")
+    if count.status != "submitted":
+        raise HTTPException(409, "Only a submitted count can be approved")
+    if count.created_by_user_id == principal.user_id:
+        raise HTTPException(403, "The count creator cannot approve their own count")
+    lines = db.scalars(select(InventoryCountLine).where(
+        InventoryCountLine.organization_id == organization_id,
+        InventoryCountLine.count_id == count.id,
+    ).order_by(InventoryCountLine.product_id)).all()
+    balances = db.scalars(select(InventoryStockBalance).where(
+        InventoryStockBalance.organization_id == organization_id,
+        InventoryStockBalance.product_id.in_([line.product_id for line in lines]),
+    ).order_by(InventoryStockBalance.product_id).with_for_update()).all()
+    balance_by_product = {balance.product_id: balance for balance in balances}
+    for line in lines:
+        balance = balance_by_product.get(line.product_id)
+        if balance is None or balance.version != line.balance_version:
+            raise HTTPException(409, "Stock changed after this count was recorded; create a new count")
+    for line in lines:
+        reason = line.reason_code if line.reason_code != "no_variance" else "no variance"
+        note = f"Count {count.count_number}: {reason} {line.reason_note}".strip()
+        movement = MovementCreate(
+            product_id=line.product_id, movement_type="count",
+            quantity=line.counted_quantity,
+            idempotency_key=f"count:{count.id}:{line.id}", note=note[:500],
+        )
+        post_movement(db, organization_id, principal.user_id, movement,
+                      request.headers.get("X-Request-ID"))
+    count.status = "approved"
+    count.approved_by_user_id = principal.user_id
+    count.approved_at = utc_now()
+    record_event(db, action="inventory.count.approve", target_type="inventory_count",
+                 organization_id=organization_id, actor_user_id=principal.user_id,
+                 target_id=count.id, correlation_id=request.headers.get("X-Request-ID"),
+                 details={"count_number": count.count_number, "line_count": len(lines)})
+    db.flush()
+    result = _count_out(db, count)
+    db.commit()
+    return result
+
+
+@router.post("/organizations/{organization_id}/inventory/counts/{count_id}/reject", response_model=InventoryCountOut)
+def reject_count(organization_id: str, count_id: str, request: Request,
+                 principal: Principal = Depends(require_permission("inventory.counts.approve")),
+                 db: Session = Depends(get_identity_session)):
+    _scope(principal, organization_id)
+    count = db.scalar(select(InventoryCount).where(
+        InventoryCount.organization_id == organization_id, InventoryCount.id == count_id,
+    ).with_for_update())
+    if count is None:
+        raise HTTPException(404, "Count not found")
+    if count.status != "submitted":
+        raise HTTPException(409, "Only a submitted count can be rejected")
+    if count.created_by_user_id == principal.user_id:
+        raise HTTPException(403, "The count creator cannot reject their own count")
+    count.status = "rejected"
+    record_event(db, action="inventory.count.reject", target_type="inventory_count",
+                 organization_id=organization_id, actor_user_id=principal.user_id,
+                 target_id=count.id, correlation_id=request.headers.get("X-Request-ID"))
+    db.flush()
+    result = _count_out(db, count)
+    db.commit()
+    return result

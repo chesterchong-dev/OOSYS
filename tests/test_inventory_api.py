@@ -151,3 +151,99 @@ def test_inventory_is_tenant_scoped_and_permission_checked(tmp_path):
         assert denied.status_code == 403
     finally:
         engine.dispose()
+
+
+def test_inventory_count_requires_separate_approval_and_posts_immutable_variance(tmp_path):
+    app, engine, factory, org_id, headers, product = setup_inventory(tmp_path)
+    base = f"/api/v1/organizations/{org_id}/inventory"
+    try:
+        receipt = run(request(app, "POST", f"{base}/movements", headers=headers,
+                              json=movement(product["id"], "receipt", "10", "count-seed")))
+        assert receipt.status_code == 200
+
+        # A direct count movement would bypass the variance approval workflow.
+        direct = run(request(app, "POST", f"{base}/movements", headers=headers,
+                             json=movement(product["id"], "count", "8", "direct-count")))
+        assert direct.status_code == 409
+
+        created = run(request(app, "POST", f"{base}/counts", headers=headers, json={
+            "count_type": "cycle", "note": "Aisle A", "lines": [{
+                "product_id": product["id"], "counted_quantity": "8", "reason_code": "damage",
+            }],
+        }))
+        assert created.status_code == 201
+        count = created.json()
+        assert count["status"] == "draft"
+        assert count["lines"][0]["expected_on_hand"] == "10.000000"
+        assert count["lines"][0]["variance"] == "-2.000000"
+
+        submitted = run(request(app, "POST", f"{base}/counts/{count['id']}/submit", headers=headers))
+        assert submitted.status_code == 200
+        assert submitted.json()["status"] == "submitted"
+        self_approve = run(request(app, "POST", f"{base}/counts/{count['id']}/approve", headers=headers))
+        assert self_approve.status_code == 403
+
+        other = run(request(app, "POST", "/api/v1/auth/register",
+                            json=register_payload("counter-approver@example.com", "counter-approver"))).json()
+        role = run(request(app, "POST", f"/api/v1/organizations/{org_id}/roles", headers=headers,
+                           json={"name": "Count approver", "permissions": [
+                               "inventory.counts.read", "inventory.counts.approve"]}))
+        assert role.status_code == 201
+        member = run(request(app, "POST", f"/api/v1/organizations/{org_id}/members", headers=headers,
+                             json={"user_id": other["user"]["id"], "role_id": role.json()["id"]}))
+        assert member.status_code == 201
+        login = run(request(app, "POST", "/api/v1/auth/login", json={
+            "email": "counter-approver@example.com", "password": "a-strong-password-123",
+            "organization_id": org_id,
+        })).json()
+        approver_headers = {"Authorization": f"Bearer {login['access_token']}"}
+        approved = run(request(app, "POST", f"{base}/counts/{count['id']}/approve",
+                               headers=approver_headers))
+        assert approved.status_code == 200
+        assert approved.json()["status"] == "approved"
+        assert approved.json()["approved_by_user_id"] == other["user"]["id"]
+
+        balances = run(request(app, "GET", f"{base}/balances", headers=headers)).json()
+        assert balances["items"][0]["on_hand"] == "8.000000"
+        with factory() as session:
+            movements = session.scalars(select(InventoryMovement).where(
+                InventoryMovement.product_id == product["id"],
+                InventoryMovement.movement_type == "count",
+            )).all()
+            assert len(movements) == 1
+            assert movements[0].quantity_delta == Decimal("-2")
+            assert movements[0].note.startswith(f"Count {count['count_number']}: damage")
+    finally:
+        engine.dispose()
+
+
+def test_inventory_count_rejects_stale_stock_snapshot(tmp_path):
+    app, engine, factory, org_id, headers, product = setup_inventory(tmp_path)
+    base = f"/api/v1/organizations/{org_id}/inventory"
+    try:
+        created = run(request(app, "POST", f"{base}/counts", headers=headers, json={
+            "lines": [{"product_id": product["id"], "counted_quantity": "3",
+                       "reason_code": "found"}],
+        })).json()
+        assert run(request(app, "POST", f"{base}/counts/{created['id']}/submit", headers=headers)).status_code == 200
+        run(request(app, "POST", f"{base}/movements", headers=headers,
+                    json=movement(product["id"], "receipt", "1", "after-count")))
+        # Owner cannot approve their own count; the stale snapshot is also checked by an independent approver.
+        other = run(request(app, "POST", "/api/v1/auth/register",
+                            json=register_payload("stale-approver@example.com", "stale-approver"))).json()
+        role = run(request(app, "POST", f"/api/v1/organizations/{org_id}/roles", headers=headers,
+                           json={"name": "Stale count approver", "permissions": ["inventory.counts.approve"]})).json()
+        run(request(app, "POST", f"/api/v1/organizations/{org_id}/members", headers=headers,
+                    json={"user_id": other["user"]["id"], "role_id": role["id"]}))
+        login = run(request(app, "POST", "/api/v1/auth/login", json={
+            "email": "stale-approver@example.com", "password": "a-strong-password-123",
+            "organization_id": org_id,
+        })).json()
+        response = run(request(app, "POST", f"{base}/counts/{created['id']}/approve",
+                               headers={"Authorization": f"Bearer {login['access_token']}"}))
+        assert response.status_code == 409
+        assert "Stock changed" in response.json()["detail"]
+        balance = run(request(app, "GET", f"{base}/balances", headers=headers)).json()["items"][0]
+        assert balance["on_hand"] == "1.000000"
+    finally:
+        engine.dispose()

@@ -162,6 +162,72 @@ class BalanceOut(BaseModel):
         return _fixed_decimal_text(value)
 
 
+class InventoryCountLineCreate(BaseModel):
+    product_id: str = Field(min_length=1, max_length=36)
+    counted_quantity: Decimal = Field(max_digits=20, decimal_places=6)
+    reason_code: Literal["no_variance", "damage", "loss", "found", "data_correction", "other"] = "no_variance"
+    reason_note: str = Field(default="", max_length=300)
+
+    @field_validator("counted_quantity")
+    @classmethod
+    def count_quantity_finite(cls, value: Decimal) -> Decimal:
+        if not value.is_finite() or value < 0:
+            raise ValueError("Counted quantity must be a finite, non-negative decimal")
+        return value
+
+    @field_validator("reason_note")
+    @classmethod
+    def other_reason_has_note(cls, value: str, info):
+        if info.data.get("reason_code") == "other" and not value.strip():
+            raise ValueError("A note is required when the reason is 'other'")
+        return value.strip()
+
+
+class InventoryCountCreate(BaseModel):
+    count_type: Literal["cycle", "full_stocktake"] = "cycle"
+    note: str = Field(default="", max_length=500)
+    lines: list[InventoryCountLineCreate] = Field(min_length=1, max_length=500)
+
+    @model_validator(mode="after")
+    def unique_products(self):
+        product_ids = [line.product_id for line in self.lines]
+        if len(product_ids) != len(set(product_ids)):
+            raise ValueError("Each product can appear only once in a count")
+        return self
+
+
+class InventoryCountLineOut(BaseModel):
+    id: str
+    product_id: str
+    expected_on_hand: str
+    counted_quantity: str
+    variance: str
+    balance_version: int
+    reason_code: str
+    reason_note: str
+
+    @field_validator("expected_on_hand", "counted_quantity", "variance", mode="before")
+    @classmethod
+    def fixed_amount_text(cls, value: object) -> str:
+        return _fixed_decimal_text(value)
+
+
+class InventoryCountOut(BaseModel):
+    id: str
+    organization_id: str
+    count_number: str
+    count_type: str
+    status: str
+    note: str
+    created_by_user_id: str
+    submitted_by_user_id: str | None
+    approved_by_user_id: str | None
+    created_at: datetime
+    submitted_at: datetime | None
+    approved_at: datetime | None
+    lines: list[InventoryCountLineOut]
+
+
 class Page(BaseModel):
     items: list
     limit: int

@@ -11,6 +11,7 @@ vi.mock("./api",async importOriginal=>{
   inventoryProducts:vi.fn().mockResolvedValue({items:[],limit:100,offset:0}),
   inventoryBalances:vi.fn().mockResolvedValue({items:[],limit:100,offset:0}),
   inventoryMovements:vi.fn().mockResolvedValue({items:[],limit:100,offset:0}),
+  inventoryCounts:vi.fn().mockResolvedValue({items:[],limit:100,offset:0}),
  },
  };
 });
@@ -36,5 +37,13 @@ describe("Inventory screen",()=>{
   expect(await screen.findByRole("heading",{name:"Products and stock"})).toBeInTheDocument();
   expect(screen.queryByRole("heading",{name:"Add a stockable product"})).not.toBeInTheDocument();
   expect(api.inventoryBalances).not.toHaveBeenCalled();
+ });
+
+ it("shows the separate count review workflow only to users with count permissions",async()=>{
+  const countOwner={...principal,permissions:[...principal.permissions,"inventory.counts.read","inventory.counts.write"]};
+  render(<Inventory token="session" principal={countOwner} organization={organization} refreshKey={0} onMutation={vi.fn()} onError={vi.fn()}/>);
+  expect(await screen.findByRole("heading",{name:"Submit a stock count"})).toBeInTheDocument();
+  expect(screen.getByText("No counts yet")).toBeInTheDocument();
+  expect(api.inventoryCounts).toHaveBeenCalledWith("session",organization.id);
  });
 });

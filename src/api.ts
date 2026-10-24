@@ -11,6 +11,8 @@ export type InventoryUnit={id:string;organization_id:string;code:string;name:str
 export type InventoryProduct={id:string;organization_id:string;sku:string;name:string;description:string;category_id:string|null;unit_id:string;unit_code:string;unit_name:string;barcode:string|null;tracking_mode:"none"|"lot"|"serial";cost_currency:string;average_cost:string;archived_at:string|null;created_at:string;updated_at:string};
 export type InventoryBalance={product_id:string;sku:string;product_name:string;unit_code:string;on_hand:string;reserved:string;available:string;average_cost:string;cost_currency:string;version:number};
 export type InventoryMovement={id:string;organization_id:string;product_id:string;movement_type:string;quantity_delta:string;reserved_delta:string;unit_cost:string|null;currency_code:string;idempotency_key:string;lot_code:string|null;serial_code:string|null;expires_at:string|null;note:string;actor_user_id:string;created_at:string};
+export type InventoryCountLine={id:string;product_id:string;expected_on_hand:string;counted_quantity:string;variance:string;balance_version:number;reason_code:string;reason_note:string};
+export type InventoryCount={id:string;organization_id:string;count_number:string;count_type:string;status:string;note:string;created_by_user_id:string;submitted_by_user_id:string|null;approved_by_user_id:string|null;created_at:string;submitted_at:string|null;approved_at:string|null;lines:InventoryCountLine[]};
 export type LoginResult={access_token?:string;requires_organization_selection?:boolean;organizations?:{id:string}[]};
 const base=(import.meta.env.VITE_API_BASE_URL??"/api/v1").replace(/\/$/,"");
 export class ApiError extends Error{constructor(public status:number,message:string){super(message);this.name="ApiError";}}
@@ -53,5 +55,10 @@ export const api={
  archiveInventoryProduct:(t:string,id:string,p:string)=>request<void>(orgPath(id)+"/inventory/products/"+encodeURIComponent(p)+"/archive",t,{method:"POST"}),
  inventoryBalances:(t:string,id:string)=>request<Page<InventoryBalance>>(orgPath(id)+"/inventory/balances?limit=100",t),
  inventoryMovements:(t:string,id:string,p?:string)=>request<Page<InventoryMovement>>(orgPath(id)+"/inventory/movements?limit=100"+(p?"&product_id="+encodeURIComponent(p):""),t),
+ inventoryCounts:(t:string,id:string)=>request<Page<InventoryCount>>(orgPath(id)+"/inventory/counts?limit=100",t),
+ createInventoryCount:(t:string,id:string,b:{count_type:"cycle"|"full_stocktake";note:string;lines:{product_id:string;counted_quantity:string;reason_code:"no_variance"|"damage"|"loss"|"found"|"data_correction"|"other";reason_note:string}[]})=>request<InventoryCount>(orgPath(id)+"/inventory/counts",t,{method:"POST",body:JSON.stringify(b)}),
+ submitInventoryCount:(t:string,id:string,c:string)=>request<InventoryCount>(orgPath(id)+"/inventory/counts/"+encodeURIComponent(c)+"/submit",t,{method:"POST"}),
+ approveInventoryCount:(t:string,id:string,c:string)=>request<InventoryCount>(orgPath(id)+"/inventory/counts/"+encodeURIComponent(c)+"/approve",t,{method:"POST"}),
+ rejectInventoryCount:(t:string,id:string,c:string)=>request<InventoryCount>(orgPath(id)+"/inventory/counts/"+encodeURIComponent(c)+"/reject",t,{method:"POST"}),
  createInventoryMovement:(t:string,id:string,b:{product_id:string;movement_type:"receipt"|"issue"|"adjustment"|"count"|"reserve"|"release";quantity:string;direction?:"increase"|"decrease";unit_cost?:string;idempotency_key:string;lot_code?:string;serial_code?:string;expires_at?:string;note?:string})=>request<InventoryMovement>(orgPath(id)+"/inventory/movements",t,{method:"POST",body:JSON.stringify(b)})
 };
