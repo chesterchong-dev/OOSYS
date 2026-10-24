@@ -4,7 +4,7 @@ from decimal import Decimal
 from uuid import uuid4
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
-from sqlalchemy import select, or_
+from sqlalchemy import func, select, or_
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
@@ -18,7 +18,7 @@ from app.inventory.schemas import (BalanceOut, CategoryCreate, CategoryOut, Move
                                   InventoryCountCreate, InventoryCountLineOut, InventoryCountOut,
                                   MovementOut, ProductCreate, ProductOut, ProductPatch, UnitCreate,
                                   UnitOut)
-from app.inventory.service import post_movement
+from app.inventory.service import post_movement, tracked_on_hand
 
 router = APIRouter(tags=["Inventory"])
 
@@ -281,6 +281,7 @@ def _count_out(db: Session, count: InventoryCount) -> InventoryCountOut:
         approved_at=count.approved_at,
         lines=[InventoryCountLineOut(
             id=line.id, product_id=line.product_id, expected_on_hand=line.expected_on_hand,
+            lot_code=line.lot_code, serial_code=line.serial_code, expires_at=line.expires_at,
             counted_quantity=line.counted_quantity,
             variance=line.counted_quantity - line.expected_on_hand,
             balance_version=line.balance_version, reason_code=line.reason_code,
@@ -313,20 +314,52 @@ def create_count(organization_id: str, payload: InventoryCountCreate, request: R
         InventoryProduct.archived_at.is_(None),
     )).all()
     product_by_id = {product.id: product for product in products}
-    if len(product_by_id) != len(payload.lines):
+    if len(product_by_id) != len({line.product_id for line in payload.lines}):
         raise HTTPException(422, "Every counted product must be active in this organisation")
-    if any(product.tracking_mode != "none" for product in products):
-        raise HTTPException(422, "Lot- and serial-tracked products need a trace-specific count")
+
+    for line in payload.lines:
+        product = product_by_id[line.product_id]
+        if product.tracking_mode == "none" and (line.lot_code or line.serial_code or line.expires_at):
+            raise HTTPException(422, "An untracked product cannot use lot, serial or expiry values")
+        if product.tracking_mode == "lot" and (not line.lot_code or line.serial_code):
+            raise HTTPException(422, "Lot-tracked products require a lot code and cannot use a serial code")
+        if product.tracking_mode == "serial" and (not line.serial_code or line.lot_code or line.expires_at):
+            raise HTTPException(422, "Serial-tracked products require one serial code and cannot use lot or expiry values")
+        if product.tracking_mode == "serial" and line.counted_quantity not in {Decimal("0"), Decimal("1")}:
+            raise HTTPException(422, "A serial count must be zero or one")
 
     if payload.count_type == "full_stocktake":
         all_products = db.scalars(select(InventoryProduct).where(
             InventoryProduct.organization_id == organization_id,
             InventoryProduct.archived_at.is_(None),
         )).all()
-        if any(product.tracking_mode != "none" for product in all_products):
-            raise HTTPException(422, "A full stocktake must include trace-specific counts for tracked products")
-        if {product.id for product in all_products} != set(product_by_id):
-            raise HTTPException(422, "A full stocktake must include every active product")
+        all_by_id = {product.id: product for product in all_products}
+        untracked_ids = {product.id for product in all_products if product.tracking_mode == "none"}
+        counted_untracked_ids = {line.product_id for line in payload.lines
+                                 if all_by_id[line.product_id].tracking_mode == "none"}
+        if not untracked_ids.issubset(counted_untracked_ids):
+            raise HTTPException(422, "A full stocktake must include every active untracked product")
+        requested_traces = {(line.product_id, line.lot_code or line.serial_code)
+                            for line in payload.lines if line.lot_code or line.serial_code}
+        for tracked_product in all_products:
+            if tracked_product.tracking_mode == "lot":
+                field = InventoryMovement.lot_code
+            elif tracked_product.tracking_mode == "serial":
+                field = InventoryMovement.serial_code
+            else:
+                continue
+            current_traces = db.execute(select(
+                InventoryMovement.product_id, field, func.sum(InventoryMovement.quantity_delta),
+            ).where(
+                InventoryMovement.organization_id == organization_id,
+                InventoryMovement.product_id == tracked_product.id,
+                field.is_not(None),
+            ).group_by(InventoryMovement.product_id, field).having(
+                func.sum(InventoryMovement.quantity_delta) > 0,
+            )).all()
+            missing = {(product_id, trace_code) for product_id, trace_code, _quantity in current_traces} - requested_traces
+            if missing:
+                raise HTTPException(422, "A full stocktake must include every lot or serial currently in stock")
 
     product_ids = sorted(product_by_id)
     balances = db.scalars(select(InventoryStockBalance).where(
@@ -357,14 +390,20 @@ def create_count(organization_id: str, payload: InventoryCountCreate, request: R
         if submitted_line.counted_quantity.quantize(quantum) != submitted_line.counted_quantity:
             raise HTTPException(422, f"This unit allows up to {unit.decimal_places} decimal places")
         balance = balance_by_product[product.id]
-        has_variance = submitted_line.counted_quantity != balance.on_hand
-        if has_variance == (submitted_line.reason_code == "no_variance"):
-            raise HTTPException(422, "Provide a variance reason only when the counted quantity differs")
+        expected = (tracked_on_hand(db, organization_id, product.id,
+                                    submitted_line.lot_code, submitted_line.serial_code)
+                    if product.tracking_mode != "none" else balance.on_hand)
+        has_variance = submitted_line.counted_quantity != expected
+        if has_variance and submitted_line.reason_code == "no_variance":
+            raise HTTPException(422, "Choose a reason when the counted quantity differs")
+        reason_code = submitted_line.reason_code if has_variance else "no_variance"
         db.add(InventoryCountLine(
             organization_id=organization_id, count_id=count.id, product_id=product.id,
-            expected_on_hand=balance.on_hand, counted_quantity=submitted_line.counted_quantity,
-            balance_version=balance.version, reason_code=submitted_line.reason_code,
-            reason_note=submitted_line.reason_note,
+            lot_code=submitted_line.lot_code, serial_code=submitted_line.serial_code,
+            expires_at=submitted_line.expires_at,
+            expected_on_hand=expected, counted_quantity=submitted_line.counted_quantity,
+            balance_version=balance.version, reason_code=reason_code,
+            reason_note=submitted_line.reason_note if has_variance else "",
         ))
     db.flush()
     record_event(db, action="inventory.count.create", target_type="inventory_count",
@@ -417,7 +456,8 @@ def approve_count(organization_id: str, count_id: str, request: Request,
     lines = db.scalars(select(InventoryCountLine).where(
         InventoryCountLine.organization_id == organization_id,
         InventoryCountLine.count_id == count.id,
-    ).order_by(InventoryCountLine.product_id)).all()
+    ).order_by(InventoryCountLine.product_id, InventoryCountLine.lot_code,
+               InventoryCountLine.serial_code)).all()
     balances = db.scalars(select(InventoryStockBalance).where(
         InventoryStockBalance.organization_id == organization_id,
         InventoryStockBalance.product_id.in_([line.product_id for line in lines]),
@@ -434,6 +474,8 @@ def approve_count(organization_id: str, count_id: str, request: Request,
             product_id=line.product_id, movement_type="count",
             quantity=line.counted_quantity,
             idempotency_key=f"count:{count.id}:{line.id}", note=note[:500],
+            lot_code=line.lot_code, serial_code=line.serial_code,
+            expires_at=line.expires_at,
         )
         post_movement(db, organization_id, principal.user_id, movement,
                       request.headers.get("X-Request-ID"))
@@ -472,3 +514,4 @@ def reject_count(organization_id: str, count_id: str, request: Request,
     result = _count_out(db, count)
     db.commit()
     return result
+
