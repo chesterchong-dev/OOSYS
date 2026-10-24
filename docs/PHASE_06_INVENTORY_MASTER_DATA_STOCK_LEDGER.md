@@ -26,7 +26,8 @@ The frontend provides unit/category setup, product creation, stock posting, bala
 
 ## Deferred validation and limitations
 
-- Local SQLite/API tests can verify request validation, tenant and permission denial, ledger math, idempotency, and migrations. PostgreSQL CI must verify RLS and movement concurrency.
+- Exact-head GitHub validation passed on `cdf947ac4f391fe36a70dd64396dfbf28ceb7c27`: backend tests, SQLite and PostgreSQL migration/persistence checks, frontend unit tests and production build, dependency audit, and secret scan. The suite includes synthetic-data checks for tenant/permission denial, ledger math, reservations, idempotency, serial traceability, and migration rollback.
+- Add explicit PostgreSQL inventory RLS-denial and concurrent stock-posting tests before accepting the Phase 06 inventory security/concurrency criteria; current PostgreSQL checks do not prove those inventory-specific cases.
 - Cloud deployment, real monitoring/alert delivery, production backups/restores, independent security testing, staged rollback, and pilot data remain Phase 05 operational gates. No cloud resource is required for current development.
 - Cost accounting integration, conversion between units, multi-currency valuation, warehouse locations, transfers, serial/lot lifecycle screens, and vendor/customer workflows are outside this phase's bounded slice unless a mapped acceptance criterion requires them.
 - Do not accept the phase until its full mapped scope and tests are complete and the crosswalk/register are reconciled with evidence.
