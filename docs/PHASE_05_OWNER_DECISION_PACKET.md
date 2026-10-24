@@ -29,6 +29,25 @@ GitHub Actions OIDC avoids keeping long-lived AWS access keys in GitHub secrets,
 
 ## Cost and deployment guardrails
 
+### Planning estimate — AWS staging only (24 October 2026)
+
+This estimate applies to a small, continuously available staging environment in `ap-southeast-5` (Malaysia), using synthetic data and on-demand pricing. It assumes one Linux/ARM Fargate API task (0.5 vCPU / 1 GiB) running 730 hours/month; one single-AZ PostgreSQL `db.t4g.micro` with 20 GiB storage and 7-day automated backups; one public Application Load Balancer across two Availability Zones; one NAT Gateway; low traffic (up to roughly 20 GB/month of general outbound/processed traffic); and basic CloudWatch logging/alarms. The 730-hour convention matches AWS's cost calculator model. Fargate and RDS rates below are indicative regional prices surfaced from public price-list mirrors, and must be confirmed in the AWS Pricing Calculator before approval.
+
+| Monthly service | Planning range (USD) | What it covers |
+|---|---:|---|
+| ECS on Fargate | $16–20 | One small API task running all month; ARM-compatible application image required. |
+| RDS PostgreSQL | $20–27 | Small single-AZ database, 20 GiB storage, and modest backup storage. |
+| Application Load Balancer | $24–32 | Public HTTPS entry point, low usage, and estimated public IPv4 charges. |
+| NAT Gateway and network | $39–50 | One gateway running all month, light processing, and one public IPv4 address; transfer and cross-AZ traffic can add cost. |
+| Logs, alerts, image storage, and small data transfers | $5–15 | Basic retention and a few alarms; higher log volume or retention costs more. |
+| **Estimated AWS total** | **$104–144/month** | Rounded planning range; tax and account-specific credits are excluded. |
+
+**Recommended planning allowance:** use **US$150/month** for this staging footprint and set AWS Budget notifications at US$50, US$100, and US$150. Budget notices are alerts, not a spending hard stop. Check actual account prices, the selected architecture, and tax in AWS Pricing Calculator before provisioning. AWS bills NAT Gateway by the hour and by processed data; an Application Load Balancer has hourly and usage-based charges; Fargate varies by CPU, memory, architecture, and runtime. [AWS Pricing Calculator](https://calculator.aws/), [Fargate pricing](https://aws.amazon.com/fargate/pricing/), [VPC/NAT pricing](https://aws.amazon.com/vpc/pricing/), [Load Balancer pricing](https://aws.amazon.com/elasticloadbalancing/pricing/), [AWS Budgets](https://docs.aws.amazon.com/cost-management/latest/userguide/budgets-managing-costs.html)
+
+This is a **staging** design with one application task, one database availability zone, and one NAT Gateway. It is not a production resilience commitment. A production setup with redundant application tasks, a Multi-AZ database, and NAT capacity in multiple Availability Zones could add roughly **$75–150/month or more**, depending on traffic and the final network design; it needs its own calculator estimate and recovery requirements.
+
+The repository currently has no Dockerfile, container build definition, or infrastructure-as-code files. Therefore this cloud estimate excludes the one-time engineering work to containerize the app, define infrastructure, establish a deployment pipeline, and rehearse deploy/rollback. A preliminary planning allowance is **3–5 engineering days**, to be refined after the application has a deployable container. It also excludes independent penetration testing, domain registration, paid email delivery, optional AWS Support, and any implementation labor. Those need separate quotes or decisions. No estimate is approval to create resources or spend money.
+
 - Do not create cloud resources until the account owner approves a monthly budget and the AWS Pricing Calculator estimate. The estimate must include database compute/storage, backup storage, task runtime, ingress/load balancing, logs/metrics/alarms, network transfer, and security services. [AWS Pricing Calculator](https://docs.aws.amazon.com/pricing-calculator/latest/userguide/getting-started.html)
 - Start with staging and synthetic data. Do not copy production/customer data into staging without a documented data-handling approval.
 - Keep production separate from staging and require a later explicit production-release approval.
@@ -46,4 +65,4 @@ Reply with either **approve the AWS proposal for a costed staging design** or th
 4. The security owner who can commission and disposition an independent penetration test.
 5. The release owner for staging approval and rollback rehearsal.
 
-Until these are recorded, Phase 05 remains in progress and Phase 06 business-data implementation remains gated by the roadmap dependency.
+Until these are recorded, Phase 05 remains in progress and cloud deployment, live-data exposure, and pilot use remain gated. Per the approved sequencing adjustment in `MASTER_DEVELOPMENT_ROADMAP.md`, Phase 06 implementation may proceed locally with synthetic data while those operating decisions remain open.

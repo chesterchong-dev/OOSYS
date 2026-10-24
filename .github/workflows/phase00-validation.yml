@@ -5,8 +5,6 @@ on:
     branches:
       - phase-00-02-starter
   pull_request:
-    branches:
-      - phase-00-02-starter
   workflow_dispatch:
 
 permissions:
@@ -174,6 +172,12 @@ jobs:
           OOSYS_DATABASE_URL: postgresql+psycopg://oosys_app_test:ci-only-secret@localhost:5432/oosys_ci
           OOSYS_RUN_POSTGRES_CONCURRENCY: "1"
         run: python -m pytest -q tests/test_identity_postgres_concurrency.py
+
+      - name: Verify inventory row security and concurrent stock posting under PostgreSQL
+        env:
+          OOSYS_DATABASE_URL: postgresql+psycopg://oosys_app_test:ci-only-secret@localhost:5432/oosys_ci
+          OOSYS_RUN_INVENTORY_POSTGRES: "1"
+        run: python -m pytest -q tests/test_inventory_postgres.py
 
       - name: Verify PostgreSQL backup and restore on disposable database
         env:

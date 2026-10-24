@@ -10,6 +10,7 @@ from app.core.db_base import Base
 from app.core.config import Settings
 from app.platform_config import models  # noqa: F401 - registers mapped tables
 from app.identity import models as identity_models  # noqa: F401 - register identity tables
+from app.inventory import models as inventory_models  # noqa: F401 - register inventory tables
 
 config = context.config
 if config.config_file_name is not None:
