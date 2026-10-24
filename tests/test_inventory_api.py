@@ -80,6 +80,34 @@ def test_stock_movement_reversal_is_linked_idempotent_and_stock_safe(tmp_path):
         engine.dispose()
 
 
+def test_inventory_movement_pagination_is_stable_and_bounded(tmp_path):
+    app, engine, _factory, org_id, headers, product = setup_inventory(tmp_path)
+    base = f"/api/v1/organizations/{org_id}/inventory"
+    try:
+        for index in range(3):
+            posted = run(request(app, "POST", f"{base}/movements", headers=headers,
+                                 json=movement(product["id"], "receipt", "1", f"page-{index}-key")))
+            assert posted.status_code == 200, posted.text
+
+        first = run(request(app, "GET", f"{base}/movements?product_id={product['id']}&limit=1&offset=0",
+                            headers=headers))
+        second = run(request(app, "GET", f"{base}/movements?product_id={product['id']}&limit=1&offset=1",
+                             headers=headers))
+        assert first.status_code == second.status_code == 200
+        assert len(first.json()["items"]) == len(second.json()["items"]) == 1
+        assert first.json()["items"][0]["id"] != second.json()["items"][0]["id"]
+        assert first.json()["limit"] == second.json()["limit"] == 1
+        assert first.json()["offset"] == 0
+        assert second.json()["offset"] == 1
+
+        too_many = run(request(app, "GET", f"{base}/movements?limit=101", headers=headers))
+        negative_offset = run(request(app, "GET", f"{base}/movements?offset=-1", headers=headers))
+        assert too_many.status_code == 422
+        assert negative_offset.status_code == 422
+    finally:
+        engine.dispose()
+
+
 def test_product_barcodes_are_tenant_unique_searchable_and_managed_safely(tmp_path):
     app, engine, factory, org_id, headers, product = setup_inventory(tmp_path)
     base = f"/api/v1/organizations/{org_id}/inventory"
