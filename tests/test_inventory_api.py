@@ -79,6 +79,21 @@ def test_inventory_master_data_stock_ledger_reservation_idempotency_and_cost(tmp
                 InventoryMovement.product_id == product["id"])).all()
             assert stored.on_hand == sum((row.quantity_delta for row in ledger), Decimal("0"))
             assert stored.reserved == sum((row.reserved_delta for row in ledger), Decimal("0"))
+        reconciliation = run(request(app, "GET", f"{base}/reconciliation", headers=headers))
+        assert reconciliation.status_code == 200
+        assert reconciliation.json()["reconciled"] is True
+        assert reconciliation.json()["mismatch_count"] == 0
+        assert reconciliation.json()["items"][0]["ledger_on_hand"] == "4.000000"
+        with factory.begin() as session:
+            stored = session.scalar(select(InventoryStockBalance).where(
+                InventoryStockBalance.product_id == product["id"]))
+            stored.on_hand = Decimal("5")
+        mismatch = run(request(app, "GET", f"{base}/reconciliation", headers=headers))
+        assert mismatch.status_code == 200
+        assert mismatch.json()["reconciled"] is False
+        assert mismatch.json()["mismatch_count"] == 1
+        assert mismatch.json()["items"][0]["reconciled"] is False
+        assert mismatch.json()["items"][0]["balance_on_hand"] == "5.000000"
     finally:
         engine.dispose()
 
@@ -132,6 +147,9 @@ def test_inventory_is_tenant_scoped_and_permission_checked(tmp_path):
         cross_tenant = run(request(app, "GET", f"/api/v1/organizations/{other_org}/inventory/products",
                                    headers=headers))
         assert cross_tenant.status_code == 404
+        cross_tenant_reconciliation = run(request(
+            app, "GET", f"/api/v1/organizations/{other_org}/inventory/reconciliation", headers=headers))
+        assert cross_tenant_reconciliation.status_code == 404
 
         limited = run(request(app, "POST", f"/api/v1/organizations/{org_id}/roles", headers=headers,
                               json={"name": "Inventory reader", "permissions": ["inventory.products.read"]}))
@@ -149,6 +167,10 @@ def test_inventory_is_tenant_scoped_and_permission_checked(tmp_path):
                              headers=reader_headers,
                              json=movement(product["id"], "receipt", "1", "reader-forbidden")))
         assert denied.status_code == 403
+        reconciliation_denied = run(request(
+            app, "GET", f"/api/v1/organizations/{org_id}/inventory/reconciliation",
+            headers=reader_headers))
+        assert reconciliation_denied.status_code == 403
     finally:
         engine.dispose()
 
