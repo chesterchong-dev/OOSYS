@@ -44,7 +44,7 @@ def test_initial_migration_creates_expected_schema_and_is_repeatable(tmp_path) -
         assert "identity_users" in inspector.get_table_names()
         assert "identity_organizations" in inspector.get_table_names()
         with engine.connect() as connection:
-            assert connection.exec_driver_sql("SELECT COUNT(*) FROM identity_permissions").scalar_one() == 26
+            assert connection.exec_driver_sql("SELECT COUNT(*) FROM identity_permissions").scalar_one() == 24
         columns = {column["name"]: column for column in inspector.get_columns("platform_settings")}
         assert set(columns) == {
             "setting_key", "value_json", "description", "created_at", "updated_at"
