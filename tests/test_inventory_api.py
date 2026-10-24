@@ -112,6 +112,54 @@ def test_negative_stock_and_precision_are_rejected(tmp_path):
         engine.dispose()
 
 
+def test_product_families_have_stockable_variants_and_tenant_safe_lifecycle(tmp_path):
+    app, engine, _factory, org_id, headers, product = setup_inventory(tmp_path)
+    base = f"/api/v1/organizations/{org_id}/inventory"
+    try:
+        family_response = run(request(app, "POST", f"{base}/products", headers=headers, json={
+            "sku": "METER-FAMILY", "name": "Industrial meter", "kind": "family",
+            "unit_id": product["unit_id"],
+        }))
+        assert family_response.status_code == 201, family_response.text
+        family = family_response.json()
+        assert family["kind"] == "family"
+        assert family["family_id"] is None
+        assert family["variant_attributes"] == {}
+
+        variant_response = run(request(app, "POST", f"{base}/products", headers=headers, json={
+            "sku": "METER-RED-100", "name": "Red meter, 0–100", "family_id": family["id"],
+            "variant_attributes": {"Colour": "Red", "Range": "0–100"},
+            "unit_id": product["unit_id"],
+        }))
+        assert variant_response.status_code == 201, variant_response.text
+        variant = variant_response.json()
+        assert variant["kind"] == "sku"
+        assert variant["family_id"] == family["id"]
+        assert variant["variant_attributes"] == {"Colour": "Red", "Range": "0–100"}
+
+        base_product_family_attempt = run(request(app, "POST", f"{base}/products", headers=headers, json={
+            "sku": "BAD-NESTED", "name": "Invalid child", "family_id": product["id"],
+            "variant_attributes": {"Colour": "Blue"}, "unit_id": product["unit_id"],
+        }))
+        assert base_product_family_attempt.status_code == 422
+
+        family_movement = run(request(app, "POST", f"{base}/movements", headers=headers, json=movement(
+            family["id"], "receipt", "1", "family-stock-blocked",
+        )))
+        assert family_movement.status_code == 409
+        family_archive = run(request(app, "POST", f"{base}/products/{family['id']}/archive", headers=headers))
+        assert family_archive.status_code == 409
+
+        balances = run(request(app, "GET", f"{base}/balances", headers=headers)).json()["items"]
+        assert {row["product_id"] for row in balances} == {product["id"], variant["id"]}
+        variant_archive = run(request(app, "POST", f"{base}/products/{variant['id']}/archive", headers=headers))
+        assert variant_archive.status_code == 204
+        family_archive = run(request(app, "POST", f"{base}/products/{family['id']}/archive", headers=headers))
+        assert family_archive.status_code == 204
+    finally:
+        engine.dispose()
+
+
 def test_serial_tracking_requires_unique_in_stock_serial_and_one_unit(tmp_path):
     app, engine, factory, org_id, headers, product = setup_inventory(tmp_path)
     base = f"/api/v1/organizations/{org_id}/inventory"

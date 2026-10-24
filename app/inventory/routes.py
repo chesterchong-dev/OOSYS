@@ -32,7 +32,9 @@ def _product_out(db: Session, product: InventoryProduct) -> ProductOut:
     unit = db.get(InventoryUnit, product.unit_id)
     return ProductOut(
         id=product.id, organization_id=product.organization_id, sku=product.sku,
-        name=product.name, description=product.description, category_id=product.category_id,
+        name=product.name, description=product.description, kind=product.kind,
+        family_id=product.family_id, variant_attributes=product.variant_attributes or {},
+        category_id=product.category_id,
         unit_id=product.unit_id, unit_code=unit.code if unit else "", unit_name=unit.name if unit else "",
         barcode=product.barcode, tracking_mode=product.tracking_mode,
         cost_currency=product.cost_currency, average_cost=str(product.average_cost),
@@ -138,16 +140,28 @@ def create_product(organization_id: str, payload: ProductCreate, request: Reques
             InventoryCategory.archived_at.is_(None)))
         if category is None:
             raise HTTPException(422, "Category is not available in this organisation")
+    family = None
+    if payload.family_id:
+        family = db.scalar(select(InventoryProduct).where(
+            InventoryProduct.organization_id == organization_id,
+            InventoryProduct.id == payload.family_id,
+            InventoryProduct.kind == "family",
+            InventoryProduct.archived_at.is_(None),
+        ))
+        if family is None:
+            raise HTTPException(422, "Choose an active product family in this organisation")
     product = InventoryProduct(
         organization_id=organization_id, sku=payload.sku.strip().upper(), name=payload.name.strip(),
-        description=payload.description.strip(), category_id=payload.category_id, unit_id=unit.id,
+        description=payload.description.strip(), kind=payload.kind, family_id=family.id if family else None,
+        variant_attributes=payload.variant_attributes, category_id=payload.category_id, unit_id=unit.id,
         barcode=payload.barcode.strip() if payload.barcode else None,
         tracking_mode=payload.tracking_mode, cost_currency=payload.cost_currency.upper(),
     )
     db.add(product)
     try:
         db.flush()
-        db.add(InventoryStockBalance(organization_id=organization_id, product_id=product.id))
+        if product.kind == "sku":
+            db.add(InventoryStockBalance(organization_id=organization_id, product_id=product.id))
         record_event(db, action="inventory.product.create", target_type="inventory_product",
                      organization_id=organization_id, actor_user_id=principal.user_id, target_id=product.id,
                      correlation_id=request.headers.get("X-Request-ID"))
@@ -200,6 +214,12 @@ def archive_product(organization_id: str, product_id: str, request: Request,
         InventoryProduct.archived_at.is_(None)))
     if product is None:
         raise HTTPException(404, "Product not found")
+    if product.kind == "family" and db.scalar(select(InventoryProduct.id).where(
+        InventoryProduct.organization_id == organization_id,
+        InventoryProduct.family_id == product.id,
+        InventoryProduct.archived_at.is_(None),
+    ).limit(1)) is not None:
+        raise HTTPException(409, "Archive or move this family's variants before archiving the family")
     balance = db.scalar(select(InventoryStockBalance).where(
         InventoryStockBalance.organization_id == organization_id,
         InventoryStockBalance.product_id == product.id))
@@ -293,7 +313,7 @@ def reconcile_balances(organization_id: str, limit: int = Query(50, ge=1, le=100
         (InventoryStockBalance.organization_id == InventoryProduct.organization_id)
         & (InventoryStockBalance.product_id == InventoryProduct.id),
     ).outerjoin(ledger_totals, ledger_totals.c.product_id == InventoryProduct.id)
-    tenant_filter = InventoryProduct.organization_id == organization_id
+    tenant_filter = (InventoryProduct.organization_id == organization_id) & (InventoryProduct.kind == "sku")
     product_count = db.scalar(select(func.count()).select_from(InventoryProduct).where(tenant_filter)) or 0
     mismatch_count = db.scalar(select(func.count()).select_from(base).where(
         tenant_filter, ~matches,
@@ -366,6 +386,7 @@ def create_count(organization_id: str, payload: InventoryCountCreate, request: R
     _scope(principal, organization_id)
     products = db.scalars(select(InventoryProduct).where(
         InventoryProduct.organization_id == organization_id,
+        InventoryProduct.kind == "sku",
         InventoryProduct.id.in_([line.product_id for line in payload.lines]),
         InventoryProduct.archived_at.is_(None),
     )).all()
@@ -387,6 +408,7 @@ def create_count(organization_id: str, payload: InventoryCountCreate, request: R
     if payload.count_type == "full_stocktake":
         all_products = db.scalars(select(InventoryProduct).where(
             InventoryProduct.organization_id == organization_id,
+            InventoryProduct.kind == "sku",
             InventoryProduct.archived_at.is_(None),
         )).all()
         all_by_id = {product.id: product for product in all_products}

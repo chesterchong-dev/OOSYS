@@ -46,11 +46,34 @@ class ProductCreate(BaseModel):
     sku: str = Field(min_length=1, max_length=80, pattern=r"^[A-Za-z0-9][A-Za-z0-9._/-]*$")
     name: str = Field(min_length=1, max_length=160)
     description: str = Field(default="", max_length=1000)
+    kind: Literal["family", "sku"] = "sku"
+    family_id: str | None = Field(default=None, max_length=36)
+    variant_attributes: dict[str, str] = Field(default_factory=dict)
     category_id: str | None = Field(default=None, max_length=36)
     unit_id: str = Field(min_length=1, max_length=36)
     barcode: str | None = Field(default=None, min_length=1, max_length=120)
     tracking_mode: Literal["none", "lot", "serial"] = "none"
     cost_currency: str = Field(default="MYR", pattern=r"^[A-Za-z]{3}$")
+
+    @field_validator("variant_attributes")
+    @classmethod
+    def clean_variant_attributes(cls, value: dict[str, str]) -> dict[str, str]:
+        cleaned = {key.strip(): item.strip() for key, item in value.items()}
+        if any(not key or not item or len(key) > 60 or len(item) > 120 for key, item in cleaned.items()):
+            raise ValueError("Variant attribute names and values must be non-empty and within their length limits")
+        if len(cleaned) != len(value):
+            raise ValueError("Variant attribute names must be unique after trimming")
+        return cleaned
+
+    @model_validator(mode="after")
+    def validate_family_shape(self):
+        if self.kind == "family" and (self.family_id is not None or self.variant_attributes):
+            raise ValueError("A product family cannot belong to another family or have variant attributes")
+        if self.family_id is None and self.variant_attributes:
+            raise ValueError("Variant attributes require a product family")
+        if self.family_id is not None and not self.variant_attributes:
+            raise ValueError("A variant must include at least one attribute")
+        return self
 
 
 class ProductPatch(BaseModel):
@@ -66,6 +89,9 @@ class ProductOut(BaseModel):
     sku: str
     name: str
     description: str
+    kind: Literal["family", "sku"]
+    family_id: str | None
+    variant_attributes: dict[str, str]
     category_id: str | None
     unit_id: str
     unit_code: str

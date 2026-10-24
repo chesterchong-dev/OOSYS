@@ -3,8 +3,8 @@ from datetime import datetime
 from decimal import Decimal
 from uuid import uuid4
 
-from sqlalchemy import (CheckConstraint, DateTime, ForeignKey, ForeignKeyConstraint,
-                        Index, Numeric, String, UniqueConstraint, func)
+from sqlalchemy import (JSON, CheckConstraint, DateTime, ForeignKey, ForeignKeyConstraint,
+                        Index, Numeric, String, UniqueConstraint, func, text)
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.core.db_base import Base
@@ -56,6 +56,11 @@ class InventoryProduct(Base):
     sku: Mapped[str] = mapped_column(String(80), nullable=False)
     name: Mapped[str] = mapped_column(String(160), nullable=False)
     description: Mapped[str] = mapped_column(String(1000), nullable=False, default="")
+    kind: Mapped[str] = mapped_column(String(8), nullable=False, default="sku")
+    family_id: Mapped[str | None] = mapped_column(String(36))
+    variant_attributes: Mapped[dict[str, str]] = mapped_column(
+        JSON, nullable=False, default=dict, server_default=text("'{}'"),
+    )
     category_id: Mapped[str | None] = mapped_column(String(36))
     unit_id: Mapped[str] = mapped_column(String(36), nullable=False)
     barcode: Mapped[str | None] = mapped_column(String(120))
@@ -69,15 +74,20 @@ class InventoryProduct(Base):
         UniqueConstraint("organization_id", "id", name="uq_inventory_product_org_id"),
         UniqueConstraint("organization_id", "sku", name="uq_inventory_product_org_sku"),
         UniqueConstraint("organization_id", "barcode", name="uq_inventory_product_org_barcode"),
+        ForeignKeyConstraint(["organization_id", "family_id"], ["inventory_products.organization_id", "inventory_products.id"], ondelete="RESTRICT", name="fk_inventory_product_family_same_org"),
         ForeignKeyConstraint(["organization_id", "category_id"], ["inventory_categories.organization_id", "inventory_categories.id"], ondelete="RESTRICT", name="fk_inventory_product_category_same_org"),
         ForeignKeyConstraint(["organization_id", "unit_id"], ["inventory_units.organization_id", "inventory_units.id"], ondelete="RESTRICT", name="fk_inventory_product_unit_same_org"),
         CheckConstraint("length(trim(sku)) > 0", name="ck_inventory_product_sku_nonempty"),
         CheckConstraint("length(trim(name)) > 0", name="ck_inventory_product_name_nonempty"),
+        CheckConstraint("kind IN ('family','sku')", name="ck_inventory_product_kind"),
+        CheckConstraint("family_id IS NULL OR kind = 'sku'", name="ck_inventory_product_family_shape"),
+        CheckConstraint("family_id IS NULL OR family_id != id", name="ck_inventory_product_not_own_family"),
         CheckConstraint("tracking_mode IN ('none','lot','serial')", name="ck_inventory_product_tracking_mode"),
         CheckConstraint("cost_currency = upper(cost_currency)", name="ck_inventory_product_currency_upper"),
         CheckConstraint("length(cost_currency) = 3", name="ck_inventory_product_currency_length"),
         CheckConstraint("average_cost >= 0", name="ck_inventory_product_average_cost_nonnegative"),
         Index("ix_inventory_product_org_name", "organization_id", "name"),
+        Index("ix_inventory_product_org_family", "organization_id", "family_id"),
         Index("ix_inventory_product_org_category", "organization_id", "category_id"),
     )
 

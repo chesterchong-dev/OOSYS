@@ -69,6 +69,8 @@ def post_movement(db: Session, organization_id: str, actor_user_id: str,
     ))
     if product is None:
         raise HTTPException(404, "Product not found")
+    if product.kind == "family":
+        raise HTTPException(409, "Product family records cannot carry stock; use a stockable SKU variant")
     unit = db.get(InventoryUnit, product.unit_id)
     if unit is None:
         raise HTTPException(409, "Product unit of measure is unavailable")
