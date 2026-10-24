@@ -1,5 +1,5 @@
 import {useEffect,useMemo,useState,type FormEvent} from "react";
-import {Archive,Boxes,PackagePlus,RefreshCw,ShoppingBasket} from "lucide-react";
+import {Archive,PackagePlus,RefreshCw,ShoppingBasket} from "lucide-react";
 import {api,type InventoryBalance,type InventoryCategory,type InventoryMovement,type InventoryProduct,type InventoryUnit,type Organization,type Principal} from "./api";
 import {Button,Empty,ErrorPanel,Heading,Loading,can} from "./common";
 
