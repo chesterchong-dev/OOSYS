@@ -10,17 +10,24 @@ from app.identity.audit import record_event
 from app.identity.dependencies import Principal, get_identity_session, require_permission
 from app.identity.security import utc_now
 from app.inventory.contracts import (post_warehouse_putaway_transfer,
-                                     post_warehouse_receipt_movement)
+                                     post_warehouse_receipt_movement,
+                                     post_warehouse_pick_reservation, post_warehouse_pick,
+                                     release_warehouse_pick_reservation,
+                                     post_warehouse_dispatch_movement)
 from app.warehouse.models import (Warehouse, WarehouseLocation, WarehouseReceipt,
                                   WarehouseReceiptLine, WarehousePutawayTask,
-                                  WarehouseTransfer, WarehouseReplenishmentTask)
+                                  WarehouseTransfer, WarehouseReplenishmentTask,
+                                  WarehouseOutboundOrder, WarehouseOutboundLine,
+                                  WarehousePackage, WarehousePackageLine)
 from app.warehouse.schemas import (WarehouseCreate, WarehouseLocationCreate,
                                    WarehouseLocationOut, WarehouseLocationPatch,
                                    WarehouseOut, WarehousePatch, WarehouseReceiptCreate,
                                    WarehouseReceiptOut, WarehousePutawayAssign,
                                    WarehousePutawayTaskOut, WarehouseTransferCreate,
                                    WarehouseTransferOut, WarehouseReplenishmentCreate,
-                                   WarehouseReplenishmentOut)
+                                   WarehouseReplenishmentOut, WarehouseOutboundOrderCreate,
+                                   WarehouseOutboundOrderOut, WarehousePackageCreate,
+                                   WarehousePackageOut)
 
 router = APIRouter(tags=["Warehouse"])
 
@@ -877,6 +884,464 @@ def complete_replenishment_task(organization_id: str, warehouse_id: str, task_id
     except IntegrityError as exc:
         db.rollback()
         raise HTTPException(409, "Replenishment conflicts with a previous stock update") from exc
+    except HTTPException:
+        db.rollback()
+        raise
+    return result
+
+
+def _outbound_order(db: Session, organization_id: str, warehouse_id: str,
+                    order_id: str, *, lock: bool = False) -> WarehouseOutboundOrder:
+    query = select(WarehouseOutboundOrder).where(
+        WarehouseOutboundOrder.organization_id == organization_id,
+        WarehouseOutboundOrder.warehouse_id == warehouse_id,
+        WarehouseOutboundOrder.id == order_id,
+    )
+    if lock:
+        query = query.with_for_update()
+    order = db.scalar(query)
+    if order is None:
+        raise HTTPException(404, "Outbound order not found")
+    return order
+
+
+def _outbound_order_out(db: Session, order: WarehouseOutboundOrder) -> WarehouseOutboundOrderOut:
+    lines = db.scalars(select(WarehouseOutboundLine).where(
+        WarehouseOutboundLine.organization_id == order.organization_id,
+        WarehouseOutboundLine.order_id == order.id,
+    ).order_by(WarehouseOutboundLine.id)).all()
+    return WarehouseOutboundOrderOut.model_validate({
+        "id": order.id, "organization_id": order.organization_id, "warehouse_id": order.warehouse_id,
+        "order_number": order.order_number, "external_reference": order.external_reference,
+        "shipping_location_id": order.shipping_location_id, "status": order.status,
+        "created_by_user_id": order.created_by_user_id, "reserved_by_user_id": order.reserved_by_user_id,
+        "picked_by_user_id": order.picked_by_user_id, "packed_by_user_id": order.packed_by_user_id,
+        "dispatched_by_user_id": order.dispatched_by_user_id,
+        "cancelled_by_user_id": order.cancelled_by_user_id, "created_at": order.created_at,
+        "reserved_at": order.reserved_at, "picked_at": order.picked_at, "packed_at": order.packed_at,
+        "dispatched_at": order.dispatched_at, "cancelled_at": order.cancelled_at, "lines": lines,
+    })
+
+
+def _package_out(db: Session, package: WarehousePackage) -> WarehousePackageOut:
+    lines = db.scalars(select(WarehousePackageLine).where(
+        WarehousePackageLine.organization_id == package.organization_id,
+        WarehousePackageLine.package_id == package.id,
+    ).order_by(WarehousePackageLine.id)).all()
+    return WarehousePackageOut.model_validate({
+        "id": package.id, "organization_id": package.organization_id, "order_id": package.order_id,
+        "package_number": package.package_number, "status": package.status,
+        "created_by_user_id": package.created_by_user_id, "sealed_by_user_id": package.sealed_by_user_id,
+        "created_at": package.created_at, "sealed_at": package.sealed_at, "lines": lines,
+    })
+
+
+@router.post("/organizations/{organization_id}/warehouses/{warehouse_id}/outbound-orders",
+             response_model=WarehouseOutboundOrderOut, status_code=201)
+def create_outbound_order(organization_id: str, warehouse_id: str,
+                          payload: WarehouseOutboundOrderCreate, request: Request,
+                          principal: Principal = Depends(require_permission("warehouse.outbound.write")),
+                          db: Session = Depends(get_identity_session)):
+    _scope(principal, organization_id)
+    warehouse = _warehouse(db, organization_id, warehouse_id)
+    if warehouse.status != "active":
+        raise HTTPException(409, "Outbound orders cannot be created in an inactive warehouse")
+    for line in payload.lines:
+        source = _location(db, organization_id, warehouse_id, line.source_location_id)
+        if source.status != "active" or source.location_type != "bin":
+            raise HTTPException(409, "Outbound lines must be picked from active bin locations")
+    request_hash = hashlib.sha256(payload.model_dump_json().encode("utf-8")).hexdigest()
+    existing = db.scalar(select(WarehouseOutboundOrder).where(
+        WarehouseOutboundOrder.organization_id == organization_id,
+        WarehouseOutboundOrder.idempotency_key == payload.idempotency_key,
+    ))
+    if existing is not None:
+        if existing.request_hash != request_hash:
+            raise HTTPException(409, "Idempotency key was already used for a different outbound order")
+        return _outbound_order_out(db, existing)
+    order = WarehouseOutboundOrder(
+        organization_id=organization_id, warehouse_id=warehouse_id,
+        order_number=f"OUT-{uuid4().hex[:12].upper()}",
+        idempotency_key=payload.idempotency_key, request_hash=request_hash,
+        external_reference=payload.external_reference, created_by_user_id=principal.user_id,
+    )
+    db.add(order)
+    db.flush()
+    for line in payload.lines:
+        db.add(WarehouseOutboundLine(
+            organization_id=organization_id, warehouse_id=warehouse_id,
+            order_id=order.id, product_id=line.product_id,
+            source_location_id=line.source_location_id, quantity=line.quantity,
+            lot_code=line.lot_code, serial_code=line.serial_code, expires_at=line.expires_at,
+        ))
+    db.flush()
+    record_event(db, action="warehouse.outbound.create", target_type="warehouse_outbound_order",
+                 organization_id=organization_id, actor_user_id=principal.user_id, target_id=order.id,
+                 correlation_id=request.headers.get("X-Request-ID"),
+                 details={"warehouse_id": warehouse_id, "line_count": len(payload.lines),
+                          "external_reference": payload.external_reference})
+    result = _outbound_order_out(db, order)
+    try:
+        db.commit()
+    except IntegrityError as exc:
+        db.rollback()
+        raise HTTPException(409, "Outbound order conflicts with an existing idempotency key") from exc
+    return result
+
+
+@router.get("/organizations/{organization_id}/warehouses/{warehouse_id}/outbound-orders",
+            response_model=dict)
+def list_outbound_orders(organization_id: str, warehouse_id: str,
+                         status: str | None = Query(default=None,
+                             pattern=r"^(draft|reserved|picked|packed|dispatched|cancelled)$"),
+                         limit: int = Query(50, ge=1, le=100), offset: int = Query(0, ge=0),
+                         principal: Principal = Depends(require_permission("warehouse.outbound.read")),
+                         db: Session = Depends(get_identity_session)):
+    _scope(principal, organization_id)
+    _warehouse(db, organization_id, warehouse_id)
+    query = select(WarehouseOutboundOrder).where(
+        WarehouseOutboundOrder.organization_id == organization_id,
+        WarehouseOutboundOrder.warehouse_id == warehouse_id,
+    )
+    if status:
+        query = query.where(WarehouseOutboundOrder.status == status)
+    rows = db.scalars(query.order_by(WarehouseOutboundOrder.created_at.desc(),
+                                     WarehouseOutboundOrder.id.desc())
+                      .offset(offset).limit(limit)).all()
+    return {"items": [_outbound_order_out(db, row).model_dump() for row in rows],
+            "limit": limit, "offset": offset}
+
+
+@router.get("/organizations/{organization_id}/warehouses/{warehouse_id}/outbound-orders/{order_id}",
+            response_model=WarehouseOutboundOrderOut)
+def get_outbound_order(organization_id: str, warehouse_id: str, order_id: str,
+                       principal: Principal = Depends(require_permission("warehouse.outbound.read")),
+                       db: Session = Depends(get_identity_session)):
+    _scope(principal, organization_id)
+    return _outbound_order_out(db, _outbound_order(db, organization_id, warehouse_id, order_id))
+
+
+@router.post("/organizations/{organization_id}/warehouses/{warehouse_id}/outbound-orders/{order_id}/reserve",
+             response_model=WarehouseOutboundOrderOut)
+def reserve_outbound_order(organization_id: str, warehouse_id: str, order_id: str, request: Request,
+                           principal: Principal = Depends(require_permission("warehouse.outbound.write")),
+                           db: Session = Depends(get_identity_session)):
+    _scope(principal, organization_id)
+    order = _outbound_order(db, organization_id, warehouse_id, order_id, lock=True)
+    if order.status == "reserved":
+        return _outbound_order_out(db, order)
+    if order.status != "draft":
+        raise HTTPException(409, "Only draft outbound orders can be reserved")
+    warehouse = _warehouse(db, organization_id, warehouse_id)
+    if warehouse.status != "active":
+        raise HTTPException(409, "Outbound warehouse must remain active")
+    lines = db.scalars(select(WarehouseOutboundLine).where(
+        WarehouseOutboundLine.organization_id == organization_id,
+        WarehouseOutboundLine.order_id == order.id,
+    ).order_by(WarehouseOutboundLine.id)).all()
+    try:
+        for line in lines:
+            source = _location(db, organization_id, warehouse_id, line.source_location_id)
+            if source.status != "active" or source.location_type != "bin":
+                raise HTTPException(409, "Pick locations must remain active bins")
+            post_warehouse_pick_reservation(
+                db, organization_id, principal.user_id, product_id=line.product_id,
+                quantity=line.quantity, location_id=source.id,
+                operation_key=f"warehouse-outbound:{order.id}:{line.id}",
+                lot_code=line.lot_code, serial_code=line.serial_code, expires_at=line.expires_at,
+                note=f"Reservation for outbound {order.order_number}",
+                correlation_id=request.headers.get("X-Request-ID"),
+            )
+        order.status = "reserved"
+        order.reserved_by_user_id = principal.user_id
+        order.reserved_at = utc_now()
+        record_event(db, action="warehouse.outbound.reserve", target_type="warehouse_outbound_order",
+                     organization_id=organization_id, actor_user_id=principal.user_id, target_id=order.id,
+                     correlation_id=request.headers.get("X-Request-ID"), details={"line_count": len(lines)})
+        result = _outbound_order_out(db, order)
+        db.commit()
+    except IntegrityError as exc:
+        db.rollback()
+        raise HTTPException(409, "Outbound reservation conflicts with a previous stock update") from exc
+    except HTTPException:
+        db.rollback()
+        raise
+    return result
+
+
+@router.post("/organizations/{organization_id}/warehouses/{warehouse_id}/outbound-orders/{order_id}/pick",
+             response_model=WarehouseOutboundOrderOut)
+def pick_outbound_order(organization_id: str, warehouse_id: str, order_id: str, request: Request,
+                        principal: Principal = Depends(require_permission("warehouse.outbound.write")),
+                        db: Session = Depends(get_identity_session)):
+    _scope(principal, organization_id)
+    order = _outbound_order(db, organization_id, warehouse_id, order_id, lock=True)
+    if order.status == "picked":
+        return _outbound_order_out(db, order)
+    if order.status != "reserved":
+        raise HTTPException(409, "Reserve the outbound order before picking")
+    warehouse = _warehouse(db, organization_id, warehouse_id)
+    if warehouse.status != "active":
+        raise HTTPException(409, "Outbound warehouse must remain active")
+    transit = WarehouseLocation(
+        organization_id=organization_id, warehouse_id=warehouse_id,
+        code=f"SHIP-{order.id[:12].upper()}", name=f"Shipping staging {order.order_number}",
+        location_type="shipping", status="active",
+    )
+    db.add(transit)
+    db.flush()
+    lines = db.scalars(select(WarehouseOutboundLine).where(
+        WarehouseOutboundLine.organization_id == organization_id,
+        WarehouseOutboundLine.order_id == order.id,
+    ).order_by(WarehouseOutboundLine.id)).all()
+    try:
+        for line in lines:
+            source = _location(db, organization_id, warehouse_id, line.source_location_id)
+            if source.status != "active" or source.location_type != "bin":
+                raise HTTPException(409, "Pick locations must remain active bins")
+            post_warehouse_pick(
+                db, organization_id, principal.user_id, product_id=line.product_id,
+                quantity=line.quantity, source_location_id=source.id,
+                shipping_location_id=transit.id,
+                operation_key=f"warehouse-outbound:{order.id}:{line.id}:pick",
+                lot_code=line.lot_code, serial_code=line.serial_code, expires_at=line.expires_at,
+                note=f"Pick for outbound {order.order_number}",
+                correlation_id=request.headers.get("X-Request-ID"),
+            )
+        order.shipping_location_id = transit.id
+        order.status = "picked"
+        order.picked_by_user_id = principal.user_id
+        order.picked_at = utc_now()
+        record_event(db, action="warehouse.outbound.pick", target_type="warehouse_outbound_order",
+                     organization_id=organization_id, actor_user_id=principal.user_id, target_id=order.id,
+                     correlation_id=request.headers.get("X-Request-ID"),
+                     details={"shipping_location_id": transit.id, "line_count": len(lines)})
+        result = _outbound_order_out(db, order)
+        db.commit()
+    except IntegrityError as exc:
+        db.rollback()
+        raise HTTPException(409, "Outbound pick conflicts with a previous stock update") from exc
+    except HTTPException:
+        db.rollback()
+        raise
+    return result
+
+
+@router.post("/organizations/{organization_id}/warehouses/{warehouse_id}/outbound-orders/{order_id}/packages",
+             response_model=WarehousePackageOut, status_code=201)
+def create_package(organization_id: str, warehouse_id: str, order_id: str,
+                   payload: WarehousePackageCreate, request: Request,
+                   principal: Principal = Depends(require_permission("warehouse.packing.write")),
+                   db: Session = Depends(get_identity_session)):
+    _scope(principal, organization_id)
+    order = _outbound_order(db, organization_id, warehouse_id, order_id, lock=True)
+    if order.status not in {"picked", "packed"}:
+        raise HTTPException(409, "Only picked outbound orders can be packed")
+    request_hash = hashlib.sha256(payload.model_dump_json().encode("utf-8")).hexdigest()
+    existing = db.scalar(select(WarehousePackage).where(
+        WarehousePackage.organization_id == organization_id,
+        WarehousePackage.idempotency_key == payload.idempotency_key,
+    ))
+    if existing is not None:
+        if existing.order_id != order.id or existing.request_hash != request_hash:
+            raise HTTPException(409, "Package idempotency key was already used for another request")
+        return _package_out(db, existing)
+    outbound_lines = {line.id: line for line in db.scalars(select(WarehouseOutboundLine).where(
+        WarehouseOutboundLine.organization_id == organization_id,
+        WarehouseOutboundLine.order_id == order.id,
+    )).all()}
+    already_packed = dict(db.execute(select(
+        WarehousePackageLine.order_line_id, func.coalesce(func.sum(WarehousePackageLine.quantity), 0),
+    ).join(WarehousePackage, WarehousePackage.id == WarehousePackageLine.package_id).where(
+        WarehousePackageLine.organization_id == organization_id,
+        WarehousePackage.order_id == order.id,
+    ).group_by(WarehousePackageLine.order_line_id)).all())
+    for line in payload.lines:
+        outbound = outbound_lines.get(line.order_line_id)
+        if outbound is None:
+            raise HTTPException(404, "Outbound order line not found")
+        if Decimal(already_packed.get(line.order_line_id, 0)) + line.quantity > outbound.quantity:
+            raise HTTPException(409, "Package quantity exceeds the picked outbound quantity")
+    package = WarehousePackage(
+        organization_id=organization_id, order_id=order.id,
+        package_number=f"PKG-{uuid4().hex[:12].upper()}",
+        idempotency_key=payload.idempotency_key, request_hash=request_hash,
+        created_by_user_id=principal.user_id,
+    )
+    db.add(package)
+    db.flush()
+    for line in payload.lines:
+        db.add(WarehousePackageLine(organization_id=organization_id, order_id=order.id,
+                                    package_id=package.id,
+                                    order_line_id=line.order_line_id, quantity=line.quantity))
+    db.flush()
+    record_event(db, action="warehouse.package.create", target_type="warehouse_package",
+                 organization_id=organization_id, actor_user_id=principal.user_id, target_id=package.id,
+                 correlation_id=request.headers.get("X-Request-ID"),
+                 details={"order_id": order.id, "line_count": len(payload.lines)})
+    result = _package_out(db, package)
+    try:
+        db.commit()
+    except IntegrityError as exc:
+        db.rollback()
+        raise HTTPException(409, "Package conflicts with an existing idempotency key") from exc
+    return result
+
+
+@router.get("/organizations/{organization_id}/warehouses/{warehouse_id}/outbound-orders/{order_id}/packages",
+            response_model=dict)
+def list_packages(organization_id: str, warehouse_id: str, order_id: str,
+                  principal: Principal = Depends(require_permission("warehouse.packing.read")),
+                  db: Session = Depends(get_identity_session)):
+    _scope(principal, organization_id)
+    order = _outbound_order(db, organization_id, warehouse_id, order_id)
+    packages = db.scalars(select(WarehousePackage).where(
+        WarehousePackage.organization_id == organization_id,
+        WarehousePackage.order_id == order.id,
+    ).order_by(WarehousePackage.created_at, WarehousePackage.id)).all()
+    return {"items": [_package_out(db, package).model_dump() for package in packages]}
+
+
+@router.post("/organizations/{organization_id}/warehouses/{warehouse_id}/outbound-orders/{order_id}/packages/{package_id}/seal",
+             response_model=WarehousePackageOut)
+def seal_package(organization_id: str, warehouse_id: str, order_id: str, package_id: str,
+                 request: Request,
+                 principal: Principal = Depends(require_permission("warehouse.packing.write")),
+                 db: Session = Depends(get_identity_session)):
+    _scope(principal, organization_id)
+    order = _outbound_order(db, organization_id, warehouse_id, order_id, lock=True)
+    package = db.scalar(select(WarehousePackage).where(
+        WarehousePackage.organization_id == organization_id,
+        WarehousePackage.order_id == order.id,
+        WarehousePackage.id == package_id,
+    ).with_for_update())
+    if package is None:
+        raise HTTPException(404, "Package not found")
+    if package.status == "sealed":
+        return _package_out(db, package)
+    package.status = "sealed"
+    package.sealed_by_user_id = principal.user_id
+    package.sealed_at = utc_now()
+    record_event(db, action="warehouse.package.seal", target_type="warehouse_package",
+                 organization_id=organization_id, actor_user_id=principal.user_id, target_id=package.id,
+                 correlation_id=request.headers.get("X-Request-ID"), details={"order_id": order.id})
+    lines = db.scalars(select(WarehouseOutboundLine).where(
+        WarehouseOutboundLine.organization_id == organization_id,
+        WarehouseOutboundLine.order_id == order.id,
+    )).all()
+    packed = dict(db.execute(select(
+        WarehousePackageLine.order_line_id, func.coalesce(func.sum(WarehousePackageLine.quantity), 0),
+    ).join(WarehousePackage, WarehousePackage.id == WarehousePackageLine.package_id).where(
+        WarehousePackageLine.organization_id == organization_id,
+        WarehousePackage.order_id == order.id,
+        WarehousePackage.status == "sealed",
+    ).group_by(WarehousePackageLine.order_line_id)).all())
+    unsealed = db.scalar(select(func.count()).select_from(WarehousePackage).where(
+        WarehousePackage.organization_id == organization_id,
+        WarehousePackage.order_id == order.id,
+        WarehousePackage.status == "open",
+    ))
+    fully_packed = all(Decimal(packed.get(line.id, 0)) == line.quantity for line in lines)
+    if fully_packed and not unsealed:
+        order.status = "packed"
+        order.packed_by_user_id = principal.user_id
+        order.packed_at = utc_now()
+        record_event(db, action="warehouse.outbound.pack", target_type="warehouse_outbound_order",
+                     organization_id=organization_id, actor_user_id=principal.user_id, target_id=order.id,
+                     correlation_id=request.headers.get("X-Request-ID"),
+                     details={"package_count": db.scalar(select(func.count()).select_from(WarehousePackage).where(
+                         WarehousePackage.organization_id == organization_id,
+                         WarehousePackage.order_id == order.id))})
+    result = _package_out(db, package)
+    db.commit()
+    return result
+
+
+@router.post("/organizations/{organization_id}/warehouses/{warehouse_id}/outbound-orders/{order_id}/dispatch",
+             response_model=WarehouseOutboundOrderOut)
+def dispatch_outbound_order(organization_id: str, warehouse_id: str, order_id: str,
+                            request: Request,
+                            principal: Principal = Depends(require_permission("warehouse.outbound.write")),
+                            db: Session = Depends(get_identity_session)):
+    _scope(principal, organization_id)
+    order = _outbound_order(db, organization_id, warehouse_id, order_id, lock=True)
+    if order.status == "dispatched":
+        return _outbound_order_out(db, order)
+    if order.status != "packed" or order.shipping_location_id is None:
+        raise HTTPException(409, "Outbound order must be fully packed before dispatch")
+    warehouse = _warehouse(db, organization_id, warehouse_id)
+    shipping = _location(db, organization_id, warehouse_id, order.shipping_location_id)
+    if warehouse.status != "active" or shipping.status != "active" or shipping.location_type != "shipping":
+        raise HTTPException(409, "Warehouse and shipping location must remain active to dispatch")
+    lines = db.scalars(select(WarehouseOutboundLine).where(
+        WarehouseOutboundLine.organization_id == organization_id,
+        WarehouseOutboundLine.order_id == order.id,
+    ).order_by(WarehouseOutboundLine.id)).all()
+    try:
+        for line in lines:
+            post_warehouse_dispatch_movement(
+                db, organization_id, principal.user_id, product_id=line.product_id,
+                quantity=line.quantity, location_id=shipping.id,
+                operation_key=f"warehouse-outbound:{order.id}:{line.id}:dispatch",
+                lot_code=line.lot_code, serial_code=line.serial_code, expires_at=line.expires_at,
+                note=f"Dispatch {order.order_number}",
+                correlation_id=request.headers.get("X-Request-ID"),
+            )
+        order.status = "dispatched"
+        order.dispatched_by_user_id = principal.user_id
+        order.dispatched_at = utc_now()
+        record_event(db, action="warehouse.outbound.dispatch", target_type="warehouse_outbound_order",
+                     organization_id=organization_id, actor_user_id=principal.user_id, target_id=order.id,
+                     correlation_id=request.headers.get("X-Request-ID"),
+                     details={"line_count": len(lines), "shipping_location_id": shipping.id})
+        result = _outbound_order_out(db, order)
+        db.commit()
+    except IntegrityError as exc:
+        db.rollback()
+        raise HTTPException(409, "Dispatch conflicts with a previous stock update") from exc
+    except HTTPException:
+        db.rollback()
+        raise
+    return result
+
+
+@router.post("/organizations/{organization_id}/warehouses/{warehouse_id}/outbound-orders/{order_id}/cancel",
+             response_model=WarehouseOutboundOrderOut)
+def cancel_outbound_order(organization_id: str, warehouse_id: str, order_id: str, request: Request,
+                         principal: Principal = Depends(require_permission("warehouse.outbound.write")),
+                         db: Session = Depends(get_identity_session)):
+    _scope(principal, organization_id)
+    order = _outbound_order(db, organization_id, warehouse_id, order_id, lock=True)
+    if order.status == "cancelled":
+        return _outbound_order_out(db, order)
+    if order.status not in {"draft", "reserved"}:
+        raise HTTPException(409, "Only draft or reserved outbound orders can be cancelled")
+    lines = db.scalars(select(WarehouseOutboundLine).where(
+        WarehouseOutboundLine.organization_id == organization_id,
+        WarehouseOutboundLine.order_id == order.id,
+    ).order_by(WarehouseOutboundLine.id)).all()
+    try:
+        if order.status == "reserved":
+            for line in lines:
+                release_warehouse_pick_reservation(
+                    db, organization_id, principal.user_id, product_id=line.product_id,
+                    quantity=line.quantity, location_id=line.source_location_id,
+                    operation_key=f"warehouse-outbound:{order.id}:{line.id}:cancel",
+                    lot_code=line.lot_code, serial_code=line.serial_code, expires_at=line.expires_at,
+                    note=f"Cancel outbound {order.order_number}",
+                    correlation_id=request.headers.get("X-Request-ID"),
+                )
+        order.status = "cancelled"
+        order.cancelled_by_user_id = principal.user_id
+        order.cancelled_at = utc_now()
+        record_event(db, action="warehouse.outbound.cancel", target_type="warehouse_outbound_order",
+                     organization_id=organization_id, actor_user_id=principal.user_id, target_id=order.id,
+                     correlation_id=request.headers.get("X-Request-ID"), details={"prior_status": "draft or reserved"})
+        result = _outbound_order_out(db, order)
+        db.commit()
+    except IntegrityError as exc:
+        db.rollback()
+        raise HTTPException(409, "Outbound cancellation conflicts with a previous stock update") from exc
     except HTTPException:
         db.rollback()
         raise

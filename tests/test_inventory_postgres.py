@@ -143,6 +143,21 @@ def test_inventory_rls_hides_other_organization_products():
                   "idempotency_key": f"rls-transfer-b-{suffix}"},
         )
         assert transfer_a.status_code == transfer_b.status_code == 201
+        outbound_a = client.post(
+            f"/api/v1/organizations/{first['organization']['id']}/warehouses/{warehouse_a['id']}/outbound-orders",
+            headers={"Authorization": f"Bearer {first['access_token']}"},
+            json={"idempotency_key": f"rls-outbound-a-{suffix}",
+                  "lines": [{"product_id": product_a["id"],
+                             "source_location_id": destination_a.json()["id"], "quantity": "1"}]},
+        )
+        outbound_b = client.post(
+            f"/api/v1/organizations/{second['organization']['id']}/warehouses/{warehouse_b['id']}/outbound-orders",
+            headers={"Authorization": f"Bearer {second['access_token']}"},
+            json={"idempotency_key": f"rls-outbound-b-{suffix}",
+                  "lines": [{"product_id": product_b["id"],
+                             "source_location_id": destination_b.json()["id"], "quantity": "1"}]},
+        )
+        assert outbound_a.status_code == outbound_b.status_code == 201
         receipt_a_posted = client.post(
             f"/api/v1/organizations/{first['organization']['id']}/warehouses/{warehouse_a['id']}"
             f"/receipts/{receipt_a.json()['id']}/post",
@@ -184,6 +199,10 @@ def test_inventory_rls_hides_other_organization_products():
                 "SELECT id FROM warehouse_transfers WHERE id IN (:a, :b) ORDER BY id"
             ), {"a": transfer_a.json()["id"], "b": transfer_b.json()["id"]}).scalars().all()
             assert visible_transfers == [transfer_a.json()["id"]]
+            visible_outbound = connection.execute(text(
+                "SELECT id FROM warehouse_outbound_orders WHERE id IN (:a, :b) ORDER BY id"
+            ), {"a": outbound_a.json()["id"], "b": outbound_b.json()["id"]}).scalars().all()
+            assert visible_outbound == [outbound_a.json()["id"]]
 
 
 def test_concurrent_inventory_receipts_preserve_balance_and_replay_once():

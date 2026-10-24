@@ -33,6 +33,10 @@ PERMISSIONS: dict[str, str] = {
     "warehouse.transfers.write": "Create, dispatch and receive warehouse transfers",
     "warehouse.replenishment.read": "View warehouse replenishment tasks",
     "warehouse.replenishment.write": "Create and complete warehouse replenishment tasks",
+    "warehouse.outbound.read": "View warehouse outbound orders",
+    "warehouse.outbound.write": "Create, reserve, pick, dispatch and cancel outbound orders",
+    "warehouse.packing.read": "View warehouse packages",
+    "warehouse.packing.write": "Pack and seal warehouse packages",
 }
 
 OWNER_PERMISSIONS = frozenset(PERMISSIONS)
