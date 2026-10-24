@@ -162,6 +162,32 @@ class BalanceOut(BaseModel):
         return _fixed_decimal_text(value)
 
 
+class InventoryReconciliationItem(BaseModel):
+    product_id: str
+    sku: str
+    product_name: str
+    balance_exists: bool
+    ledger_on_hand: str
+    balance_on_hand: str
+    ledger_reserved: str
+    balance_reserved: str
+    reconciled: bool
+
+    @field_validator("ledger_on_hand", "balance_on_hand", "ledger_reserved", "balance_reserved", mode="before")
+    @classmethod
+    def fixed_amount_text(cls, value: object) -> str:
+        return _fixed_decimal_text(value)
+
+
+class InventoryReconciliationOut(BaseModel):
+    items: list[InventoryReconciliationItem]
+    limit: int
+    offset: int
+    product_count: int
+    mismatch_count: int
+    reconciled: bool
+
+
 class InventoryCountLineCreate(BaseModel):
     product_id: str = Field(min_length=1, max_length=36)
     lot_code: str | None = Field(default=None, min_length=1, max_length=100)
